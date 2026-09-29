@@ -1,0 +1,61 @@
+name: Generate video
+
+on:
+  workflow_dispatch:
+    inputs:
+      topic:
+        description: "Optional topic (blank = AI picks)"
+        required: false
+      upload:
+        description: "Upload to YouTube after rendering"
+        type: boolean
+        default: false
+  # Turn the schedule on only after you are happy with the videos AND upload works:
+  # schedule:
+  #   - cron: "0 14,20 * * *"   # twice a day, UTC
+
+permissions:
+  contents: write
+
+jobs:
+  make:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Make the video
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          POLLINATIONS_TOKEN: ${{ secrets.POLLINATIONS_TOKEN }}
+          TOPIC: ${{ github.event.inputs.topic }}
+          UPLOAD: ${{ github.event.inputs.upload }}
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+        run: |
+          ARGS=()
+          if [ -n "$TOPIC" ]; then ARGS+=(--topic "$TOPIC"); fi
+          if [ "$UPLOAD" = "true" ]; then ARGS+=(--upload); fi
+          python -m pipeline.make "${ARGS[@]}"
+      - name: Download this from the run page
+        uses: actions/upload-artifact@v4
+        with:
+          name: video
+          path: |
+            output/*.mp4
+            output/*.jpg
+            output/*.json
+      - name: Remember the topic so it is not repeated
+        run: |
+          git config user.name "video-bot"; git config user.email "bot@users.noreply.github.com"
+          git add history.json || true
+          git diff --cached --quiet || (git commit -m "Record topic" && git push)

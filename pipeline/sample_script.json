@@ -1,0 +1,17 @@
+{
+  "title": "The Door That Was Never There",
+  "hook_text": "Don't open that door",
+  "description": "A quiet house hides something new. #shorts #horror #mystery",
+  "tags": ["horror", "creepy", "mystery", "shorts", "scary story"],
+  "scenes": [
+    {"narration": "There is a door in my hallway that was not there yesterday.", "image_prompt": "narrow dim hallway with an old wooden door that should not exist"},
+    {"narration": "It is small. Painted white. Cold air breathes out from underneath it.", "image_prompt": "close view of a small white door with mist on the floor"},
+    {"narration": "I measured the wall. Eleven inches of nothing behind it.", "image_prompt": "hand holding a tape measure against a wall"},
+    {"narration": "So I knocked, once, softly.", "image_prompt": "knuckles about to knock on the small white door"},
+    {"narration": "Someone knocked back. From inside.", "image_prompt": "the white door slightly trembling in dim light"},
+    {"narration": "I stepped away, and the knocking stopped. Then my phone lit up.", "image_prompt": "phone glowing on a dark table, hallway behind"},
+    {"narration": "A text from my own number. Open the door. It is cold in here.", "image_prompt": "phone screen close up in darkness"},
+    {"narration": "I did not open it. But at night, I hear it getting closer to the bedroom.", "image_prompt": "dark bedroom doorway with faint cold light beneath a small door"},
+    {"narration": "There is a door in my hallway that was not there yesterday.", "image_prompt": "narrow dim hallway with an old wooden door that should not exist"}
+  ]
+}
