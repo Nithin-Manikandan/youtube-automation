@@ -9,10 +9,14 @@ import requests
 WORDS_PER_SECOND = 2.7
 
 
-def _post(url, headers, payload, retries=3):
+def _post(url, headers, payload, retries=3, timeout=50):
     err = None
     for i in range(retries):
-        r = requests.post(url, headers=headers, json=payload, timeout=90)
+        try:
+            r = requests.post(url, headers=headers, json=payload, timeout=timeout)
+        except requests.RequestException as e:  # timeouts / dropped connections are retryable
+            err = f"503 network: {str(e)[:150]}"
+            continue
         if r.status_code == 200:
             return r.json()
         err = f"{r.status_code} {r.text[:300]}"
