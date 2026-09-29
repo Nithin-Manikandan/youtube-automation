@@ -1,0 +1,59 @@
+# Everything that shapes how your videos look, sound and read lives here.
+# Change a value, re-run the workflow, compare the new video. That is the tuning loop.
+
+channel_name: "Midnight Files"
+
+# What the channel is about. The topic picker and script writer stay inside this.
+niche: "short, genuinely creepy true-feeling mystery and horror stories"
+audience: "18-34, watches on a phone with sound on, scrolls fast"
+
+video:
+  width: 1080
+  height: 1920
+  fps: 30
+  target_seconds: 42        # Shorts perform best around 30-50s
+  scenes: 9                 # ~4-5 seconds per image keeps the eye busy
+
+script:
+  temperature: 0.95
+  extra_rules: |
+    - Story must feel true-to-life and unsettling, never gory or graphic.
+    - Second-person ("you") or tight first-person works best.
+    - End with a sentence that loops back into the first line.
+
+visuals:
+  # Prepended to every image prompt so all scenes look like one film.
+  style: >
+    cinematic dark photography, moody volumetric fog, single practical light source,
+    shallow depth of field, 35mm film grain, desaturated teal and amber grade,
+    ultra detailed, photorealistic, vertical composition
+  negative: "text, watermark, logo, caption, cartoon, deformed, extra fingers"
+  # Motion feel
+  zoom_strength: 0.16       # how far the camera pushes/pulls per scene
+  shake: 0.6                # handheld shake, 0 = tripod
+  grain: 0.03               # film grain amount
+  vignette: 0.55
+  tint: [0.94, 1.0, 1.04]   # per-channel multiplier (R, G, B) for colour grade
+
+captions:
+  font: assets/fonts/BricolageGrotesque-Bold.ttf   # falls back to a system bold font if missing
+  size: 118
+  words_per_chunk: 3
+  color: "#FFFFFF"
+  highlight: "#FFD23F"
+  y_position: 0.66          # 0 top .. 1 bottom (keep clear of YouTube's UI)
+
+voice:
+  provider: edge            # free, no key
+  name: en-US-AndrewNeural  # try: en-US-GuyNeural, en-GB-RyanNeural, en-US-BrianNeural
+  rate: "+6%"
+  pitch: "-4Hz"
+
+music:
+  mood: dark_drone
+  volume: 0.22
+
+upload:
+  privacy: private          # private | unlisted | public. Start private, review, then flip.
+  category_id: "24"         # Entertainment
+  synthetic_media_disclosure: true
