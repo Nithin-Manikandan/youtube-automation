@@ -27,7 +27,9 @@ def _post(url, headers, payload, retries=3, timeout=50):
     raise RuntimeError(err)
 
 
-GEMINI_MODELS = ["gemini-3.8-flash", "gemini-flash-latest", "gemini-2.5-flash"]
+# Best quality first (free tier: ~20 requests/day), then the Lite models (~500/day) when it is
+# slow, busy or out of quota. Override with GEMINI_MODEL.
+GEMINI_MODELS = ["gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"]
 
 
 def _gemini(prompt, temperature):
