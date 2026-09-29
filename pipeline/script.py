@@ -23,15 +23,26 @@ def _post(url, headers, payload, retries=3):
     raise RuntimeError(err)
 
 
+GEMINI_MODELS = ["gemini-3.8-flash", "gemini-flash-latest", "gemini-2.5-flash"]
+
+
 def _gemini(prompt, temperature):
     key = os.environ["GEMINI_API_KEY"]
-    model = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
-    data = _post(url, {}, {
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": temperature, "responseMimeType": "application/json"},
-    })
-    return data["candidates"][0]["content"]["parts"][0]["text"]
+    models = [os.environ["GEMINI_MODEL"]] if os.environ.get("GEMINI_MODEL") else GEMINI_MODELS
+    last = None
+    for model in models:  # model names get retired; fall through on 404
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
+        try:
+            data = _post(url, {}, {
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {"temperature": temperature, "responseMimeType": "application/json"},
+            })
+            return data["candidates"][0]["content"]["parts"][0]["text"]
+        except RuntimeError as e:
+            last = e
+            if not str(e).startswith("404"):
+                raise
+    raise last
 
 
 def _openai_compat(url, key, model, prompt, temperature):
