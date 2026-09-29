@@ -30,18 +30,20 @@ def _gemini(prompt, temperature):
     key = os.environ["GEMINI_API_KEY"]
     models = [os.environ["GEMINI_MODEL"]] if os.environ.get("GEMINI_MODEL") else GEMINI_MODELS
     last = None
-    for model in models:  # model names get retired; fall through on 404
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
-        try:
-            data = _post(url, {}, {
-                "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"temperature": temperature, "responseMimeType": "application/json"},
-            })
-            return data["candidates"][0]["content"]["parts"][0]["text"]
-        except RuntimeError as e:
-            last = e
-            if not str(e).startswith("404"):
-                raise
+    for rnd in range(4):  # models get retired (404) or overloaded (503): rotate, then wait and go again
+        for model in models:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
+            try:
+                data = _post(url, {}, {
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {"temperature": temperature, "responseMimeType": "application/json"},
+                }, retries=1)
+                return data["candidates"][0]["content"]["parts"][0]["text"]
+            except RuntimeError as e:
+                last = e
+                if e.args[0][:3] not in ("404", "429", "500", "502", "503"):
+                    raise
+        time.sleep(15 * (rnd + 1))
     raise last
 
 
