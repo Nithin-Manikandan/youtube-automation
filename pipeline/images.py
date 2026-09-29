@@ -1,7 +1,7 @@
 """Image generation with a fallback chain of free providers.
 
-Order (first that works wins): Pollinations (no key) -> Cloudflare Workers AI
-(CF_ACCOUNT_ID + CF_API_TOKEN, free daily allowance) -> Hugging Face (HF_TOKEN).
+Order (first that works wins): Cloudflare Workers AI (CF_ACCOUNT_ID + CF_API_TOKEN,
+free daily allowance) -> Pollinations (no key, quota shared and often exhausted) -> Hugging Face (HF_TOKEN).
 Override the order with IMAGE_PROVIDERS="cloudflare,pollinations".
 """
 import base64
@@ -38,14 +38,39 @@ def pollinations(prompt, negative, seed):
     return _open(r.content)
 
 
+CF_MODELS = ["@cf/leonardo/lucid-origin", "@cf/leonardo/phoenix-1.0", "@cf/black-forest-labs/flux-1-schnell"]
+
+
 def cloudflare(prompt, negative, seed):
+    """Free Workers AI allowance (~10k neurons/day). Tries models that support tall images first."""
     acc, tok = os.environ["CF_ACCOUNT_ID"], os.environ["CF_API_TOKEN"]
-    r = requests.post(
-        f"https://api.cloudflare.com/client/v4/accounts/{acc}/ai/run/@cf/black-forest-labs/flux-1-schnell",
-        headers={"Authorization": f"Bearer {tok}"},
-        json={"prompt": prompt[:2000], "steps": 6, "seed": seed}, timeout=120)
-    r.raise_for_status()
-    return _open(base64.b64decode(r.json()["result"]["image"]))
+    models = [os.environ["CF_IMAGE_MODEL"]] if os.environ.get("CF_IMAGE_MODEL") else CF_MODELS
+    last = None
+    for model in models:
+        body = {"prompt": prompt[:2000], "seed": seed}
+        if "schnell" in model:
+            body["steps"] = 6
+        else:
+            body.update({"width": W, "height": H})
+            if "phoenix" in model:
+                body["negative_prompt"] = negative
+        r = requests.post(f"https://api.cloudflare.com/client/v4/accounts/{acc}/ai/run/{model}",
+                          headers={"Authorization": f"Bearer {tok}"}, json=body, timeout=120)
+        if r.status_code != 200:
+            last = f"{model}: {r.status_code} {r.text[:160]}"
+            if r.status_code in (401, 403):
+                raise PermissionError(last)
+            continue
+        if r.headers.get("content-type", "").startswith("image/"):
+            im = _open(r.content)
+        else:
+            im = _open(base64.b64decode(r.json()["result"]["image"]))
+        if "schnell" in model and im.width == im.height:  # square output: crop centre to 9:16
+            cw = int(im.height * 9 / 16)
+            l = (im.width - cw) // 2
+            im = im.crop((l, 0, l + cw, im.height))
+        return im
+    raise RuntimeError(last or "cloudflare failed")
 
 
 def huggingface(prompt, negative, seed):
@@ -93,10 +118,18 @@ def _available(name):
             "huggingface": bool(os.environ.get("HF_TOKEN"))}.get(name, True)
 
 
+DEAD = set()  # providers that said "payment required / unauthorised": skip for the rest of the run
+
+
+def _fatal(e):
+    code = getattr(getattr(e, "response", None), "status_code", None)
+    return isinstance(e, PermissionError) or code in (401, 402, 403)
+
+
 def generate(prompt, negative, seed, cache_dir, order=None, log=print):
     cache_dir = pathlib.Path(cache_dir)
     cache_dir.mkdir(parents=True, exist_ok=True)
-    order = order or os.environ.get("IMAGE_PROVIDERS", "pollinations,cloudflare,huggingface").split(",")
+    order = order or os.environ.get("IMAGE_PROVIDERS", "cloudflare,pollinations,huggingface").split(",")
     key = hashlib.sha1(f"{prompt}|{seed}|{order}".encode()).hexdigest()[:16]
     path = cache_dir / f"{key}.png"
     if path.exists():
@@ -104,7 +137,7 @@ def generate(prompt, negative, seed, cache_dir, order=None, log=print):
     errors = []
     for name in order:
         name = name.strip()
-        if name not in PROVIDERS or not _available(name):
+        if name not in PROVIDERS or not _available(name) or name in DEAD:
             continue
         for attempt in range(3):
             try:
@@ -115,6 +148,10 @@ def generate(prompt, negative, seed, cache_dir, order=None, log=print):
                 log(f"    image via {name}")
                 return path
             except Exception as e:
-                errors.append(f"{name}: {str(e)[:120]}")
+                errors.append(f"{name}: {str(e)[:160]}")
+                if _fatal(e):
+                    DEAD.add(name)
+                    log(f"    {name} unavailable ({str(e)[:60]}); skipping it from now on")
+                    break
                 time.sleep(3 * (attempt + 1))
     raise RuntimeError("All image providers failed: " + " | ".join(errors[-6:]))
