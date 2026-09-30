@@ -47,12 +47,17 @@ BACKGROUNDS = {
     "submarine_interior": dict(sky=((26, 36, 40), (60, 74, 76)), ground_color=(72, 80, 82), hills=[]),
     "city_modern": dict(sky=((70, 80, 120), (244, 176, 124)), sun=(0.3, 0.5, (255, 214, 150)), ground_color=(92, 92, 100),
                         hills=[dict(color=(60, 66, 92), base=.62, amp=.04, freq=9.0, seed=2, par=.10), dict(color=(44, 48, 68), base=.70, amp=.05, freq=12.0, seed=5, par=.22)]),
+    "volcanic": dict(sky=((38, 14, 16), (206, 92, 52)), ground_color=(62, 50, 46),
+                     hills=[dict(color=(64, 40, 40), base=.64, amp=.05, freq=3.0, seed=3, par=.10), dict(color=(44, 30, 30), base=.72, amp=.045, freq=4.4, seed=1, par=.22)]),
+    "ashen": dict(sky=((70, 68, 72), (152, 148, 146)), ground_color=(96, 92, 90),
+                  hills=[dict(color=(104, 100, 102), base=.66, amp=.05, freq=3.0, seed=7, par=.10), dict(color=(80, 76, 78), base=.73, amp=.04, freq=4.2, seed=2, par=.22)]),
     "forest": dict(sky=((120, 168, 160), (214, 226, 196)), ground_color=(96, 120, 76),
                    hills=[dict(color=(84, 122, 100), base=.66, amp=.05, freq=3.0, seed=5, par=.10), dict(color=(62, 98, 78), base=.73, amp=.045, freq=4.2, seed=2, par=.22)]),
 }
 OBJECTS = {"castle", "column", "pedestal", "cloud", "tree", "tent", "pyramid", "tower", "torch", "ship",
-           "submarine", "warship", "missile", "plane", "building", "hatch", "pipes", "gauge"}
-EFFECTS = {"rain", "flash", "sparks", "dust", "shake"}
+           "submarine", "warship", "missile", "plane", "building", "hatch", "pipes", "gauge",
+           "volcano", "ash_cloud", "wave", "fire", "smoke", "house", "explosion"}
+EFFECTS = {"rain", "flash", "sparks", "dust", "shake", "ashfall", "embers"}
 CAMERAS = {"push_in": ([1.0, 1.10], None), "pull_out": ([1.12, 1.0], None), "pan_right": ([1.06, 1.06], (-.04, .04)), "pan_left": ([1.06, 1.06], (.04, -.04)), "static": ([1.0, 1.0], None)}
 
 
@@ -153,10 +158,10 @@ def build_stage(v, dur, rnd, seed=0):
     scene["actors"] = actors
     xs = [.12, .88, .3, .7]
     objs = []
-    BIG = {"submarine": .56, "warship": .56, "plane": .3, "missile": .86, "pyramid": .5, "ship": .6}
+    BIG = {"submarine": .56, "warship": .56, "plane": .3, "missile": .86, "pyramid": .5, "ship": .6, "volcano": .62, "wave": .6, "ash_cloud": .05, "explosion": .5, "fire": .5}
     for j, o in enumerate(v["objects"]):
         objs.append(dict(type=o, x=BIG.get(o, [.16, .84, .5, .3][j % 4]) if o not in ("torch",) else xs[j % 4], y=.18 + .05 * j, r=.05, scale=1.0,
-                         color=(255, 255, 255, 160) if v["background"] not in ("storm", "night", "battlefield") else (92, 94, 104)))
+                         color=(255, 255, 255, 160) if v["background"] not in ("storm", "night", "battlefield", "volcanic", "ashen") else (92, 94, 104)))
     if not objs and v["background"] == "submarine_interior":
         objs = [dict(type="pipes", x=.5), dict(type="gauge", x=.14, y=.34), dict(type="gauge", x=.86, y=.4), dict(type="hatch", x=.5)]
     if not objs and v["background"] == "city_modern":
@@ -181,7 +186,7 @@ def build_stage(v, dur, rnd, seed=0):
     scene["fx"] = fx
     if v.get("title"):
         scene["text"] = [dict(t=.35, end=min(dur - .2, 3.6), text=v["title"], y=.085,
-                              color=(255, 255, 255) if v["background"] in ("storm", "night", "battlefield", "underwater", "submarine_interior", "city_modern") else (27, 27, 32))]
+                              color=(255, 255, 255) if v["background"] in ("storm", "night", "battlefield", "underwater", "submarine_interior", "city_modern", "volcanic", "ashen") else (27, 27, 32))]
     z, pan = CAMERAS[v["camera"]]
     scene["zoom"] = z
     scene["focus"] = (.5 + (pan[0] if pan else 0), .6)

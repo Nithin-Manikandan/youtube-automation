@@ -329,6 +329,61 @@ def draw_object(d, o, W, H, gy, t):
         d.ellipse([x - r, yy - r, x + r, yy + r], fill=(228, 230, 224), outline=INK, width=5)
         a_ = math.sin(t * 0.9 + x) * 1.0 - 0.6
         d.line([(x, yy), (x + math.sin(a_) * r * .8, yy - math.cos(a_) * r * .8)], fill=RED, width=4)
+    elif k == "volcano":
+        w, h = S * 0.80 * o.get("scale", 1), S * 0.46 * o.get("scale", 1)
+        d.polygon([(x - w / 2, gy), (x - w * .07, gy - h), (x + w * .07, gy - h), (x + w / 2, gy)], fill=(84, 66, 60), outline=INK)
+        d.polygon([(x - w * .07, gy - h), (x + w * .07, gy - h), (x + w * .03, gy - h + S * .02), (x - w * .03, gy - h + S * .02)], fill=(255, 130, 40))
+        for sx, off in ((-.03, 0), (.04, .5)):   # lava streams
+            d.polygon([(x + w * sx, gy - h), (x + w * (sx + .03), gy - h), (x + w * (sx + .09 + off * .05), gy - h * .35), (x + w * (sx + .04 + off * .05), gy - h * .35)], fill=(255, 120, 36, 230))
+        if o.get("erupt", True):
+            for i in range(9):   # rising plume of ash
+                ph = (t * 0.25 + i / 9.0) % 1.0
+                cy = gy - h - ph * S * 0.55
+                cx = x + math.sin(i * 1.7 + t * .5) * S * .03 * (1 + ph * 3) + ph * S * 0.1
+                r = S * (0.03 + 0.09 * ph)
+                a = int(215 * (1 - ph * .7))
+                d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(58, 54, 56, a))
+            d.ellipse([x - w * .12, gy - h - S * .03, x + w * .12, gy - h + S * .03], fill=(255, 150, 50, 90))
+    elif k == "ash_cloud":
+        for i in range(11):
+            cx = (x + i * S * 0.13 + t * S * 0.02) % (W * SS + S * .4) - S * .2
+            cy = S * (0.11 + 0.035 * math.sin(i * 1.3 + t * .3))
+            r = S * (0.085 + 0.03 * (i % 3))
+            d.ellipse([cx - r, cy - r * .7, cx + r, cy + r * .7], fill=(52, 50, 54, 215))
+    elif k == "wave":
+        hh = S * 0.46 * o.get("scale", 1) * min(1.0, 0.3 + t / 3.5)
+        pts = [(x + S * .75, gy), (x + S * .3, gy - hh * .35), (x, gy - hh * .75), (x - S * .18, gy - hh), (x - S * .34, gy - hh * .86), (x - S * .3, gy - hh * .6), (x - S * .45, gy)]
+        d.polygon(pts, fill=(30, 104, 168), outline=INK)
+        for i in range(9):
+            fx_ = x - S * .36 + i * S * .05
+            d.ellipse([fx_ - S * .02, gy - hh * (.86 - i * .02) - S * .02 + math.sin(t * 6 + i) * 4, fx_ + S * .03, gy - hh * (.86 - i * .02) + S * .03], fill=(240, 246, 250))
+    elif k == "fire":
+        for i in range(9):
+            fx_ = x + (i - 4) * S * 0.028
+            fh = S * (0.06 + 0.04 * abs(math.sin(t * 8 + i * 1.9)))
+            d.polygon([(fx_ - S * .02, gy), (fx_, gy - fh), (fx_ + S * .02, gy)], fill=(255, 130 + (i * 23) % 70, 30, 235))
+            d.polygon([(fx_ - S * .01, gy), (fx_, gy - fh * .55), (fx_ + S * .01, gy)], fill=(255, 226, 120, 240))
+        d.ellipse([x - S * .18, gy - S * .14, x + S * .18, gy + S * .02], fill=(255, 120, 30, 50))
+    elif k == "smoke":
+        for i in range(8):
+            ph = (t * 0.3 + i / 8.0) % 1.0
+            cy = gy - ph * S * 0.5
+            cx = x + math.sin(i * 2.1 + t) * S * .02 + ph * S * .06
+            r = S * (0.02 + 0.05 * ph)
+            d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(70, 68, 72, int(200 * (1 - ph * .8))))
+    elif k == "house":
+        w, h = S * 0.11 * o.get("scale", 1), S * 0.085 * o.get("scale", 1)
+        d.rectangle([x - w / 2, gy - h, x + w / 2, gy], fill=(196, 170, 130), outline=INK, width=3)
+        d.polygon([(x - w * .62, gy - h), (x, gy - h - S * .055), (x + w * .62, gy - h)], fill=(150, 64, 50), outline=INK)
+        d.rectangle([x - w * .1, gy - h * .6, x + w * .1, gy], fill=(84, 60, 44))
+    elif k == "explosion":
+        t0 = o.get("t0", 0.4)
+        if t0 <= t <= t0 + 1.3:
+            u = (t - t0) / 1.3
+            r = S * 0.55 * (1 - (1 - u) ** 2)
+            cy = gy - S * 0.22
+            for rr, col in ((1.0, (255, 120, 30)), (.75, (255, 190, 70)), (.45, (255, 246, 210))):
+                d.ellipse([x - r * rr, cy - r * rr, x + r * rr, cy + r * rr], fill=col + (int(235 * (1 - u)),))
     elif k == "tree":
         h = S * 0.30 * o.get("scale", 1)
         d.rectangle([x - h * .05, gy - h * .45, x + h * .05, gy], fill=(96, 70, 48), outline=INK, width=3)
@@ -444,6 +499,22 @@ def draw_fx(d, scene, t, W, H, gy, actors):
                 x = ((xs[i] + t * 0.12 * sp[i]) % 1.0) * W * SS
                 y = ((ys[i] + t * 1.6 * sp[i]) % 1.0) * S
                 d.line([(x, y), (x - S * 0.012, y + S * 0.04)], fill=(60, 70, 100, 120), width=3)
+        elif k == "ashfall":
+            rng = np.random.default_rng(8)
+            xs, ys, sp = rng.random(150), rng.random(150), 0.5 + rng.random(150)
+            for i in range(150):
+                x = ((xs[i] + math.sin(t * .7 + i) * 0.01) % 1.0) * W * SS
+                y = ((ys[i] + t * 0.25 * sp[i]) % 1.0) * S
+                r = 2 + 4 * sp[i]
+                d.ellipse([x - r, y - r, x + r, y + r], fill=(70, 68, 72, 170))
+        elif k == "embers":
+            rng = np.random.default_rng(9)
+            xs, ys, sp = rng.random(70), rng.random(70), 0.4 + rng.random(70)
+            for i in range(70):
+                x = ((xs[i] + math.sin(t + i) * 0.02) % 1.0) * W * SS
+                y = S - ((ys[i] + t * 0.22 * sp[i]) % 1.0) * S
+                r = 2 + 3 * sp[i]
+                d.ellipse([x - r, y - r, x + r, y + r], fill=(255, 170 + int(60 * sp[i]), 50, 210))
         elif k == "sparks" and fx["t"] <= t <= fx["t"] + 0.4:
             age = (t - fx["t"]) / 0.4
             cx, cy = fx["x"] * W * SS, fx.get("y", 0.6) * S

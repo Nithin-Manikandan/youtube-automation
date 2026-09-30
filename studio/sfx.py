@@ -291,6 +291,29 @@ def birds(dur, seed=0):
     return _fade(norm(out, 0.35), 0.5) if np.abs(out).max() > 0 else out
 
 
+def rumble_bed(dur):
+    n = int(dur * SR)
+    t = np.arange(n) / SR
+    out = np.zeros((2, n))
+    for ch in range(2):
+        rng = np.random.default_rng(60 + ch)
+        r = filt(brown(n, rng), 25, 160) * (0.7 + 0.3 * np.sin(2 * np.pi * 0.35 * t + ch))
+        out[ch] = norm(r, 1.0) * 0.8 + filt(pink(n, rng), 120, 600) * 0.12
+    return _fade(norm(out, 0.6), 0.8)
+
+
+def crackle_bed(dur):
+    n = int(dur * SR)
+    out = np.zeros((2, n))
+    for ch in range(2):
+        rng = np.random.default_rng(70 + ch)
+        imp = np.zeros(n)
+        idx = (rng.random(int(dur * 55)) * n).astype(int)
+        imp[idx] = rng.standard_normal(len(idx)) * rng.random(len(idx))
+        out[ch] = filt(imp, 1500, 7000) * 8 + filt(pink(n, rng), 200, 900) * 0.25
+    return _fade(norm(out, 0.5), 0.6)
+
+
 def waves(dur):
     n = int(dur * SR)
     t = np.arange(n) / SR
@@ -331,6 +354,18 @@ def scene_events(sc, t0, prev=None):
     amb = AMBIENT.get(sc.get("bg_name"))
     if amb and kind_of(sc) == "stage":
         ev.append((t0, "AMB_" + amb, 1.0, 0.0, dur + 0.4))
+    objs = {o_["type"]: o_ for o_ in sc.get("objects", [])}
+    if "volcano" in objs:
+        ev.append((t0, "AMB_rumble", 1.0, 0.0, dur + 0.4))
+        ev.append((t0 + 0.6, "thump", 0.8, 0.0, 0))
+    if "fire" in objs:
+        ev.append((t0, "AMB_crackle", 1.0, 0.0, dur + 0.4))
+    if "explosion" in objs:
+        ev.append((t0 + objs["explosion"].get("t0", 0.4), "thump", 1.0, 0.0, 0))
+        ev.append((t0 + objs["explosion"].get("t0", 0.4) + 0.05, "thunder", 0.8, 0.0, 0))
+    if "wave" in objs:
+        ev.append((t0, "AMB_waves", 1.0, 0.0, dur + 0.4))
+        ev.append((t0 + 1.2, "thunder", 0.6, 0.0, 0))
     fighters = [a for a in sc.get("actors", []) if any(k["pose"] == "swing" for k in a["keys"])]
     for a in sc.get("actors", []):
         ks = a["keys"]
@@ -373,7 +408,7 @@ _CACHE = {}
 
 
 def _sound(kind, extra):
-    key = (kind, extra if kind not in ("AMB_rain", "AMB_wind", "AMB_crickets", "AMB_birds", "AMB_waves") else round(extra, 1))
+    key = (kind, extra if kind not in ("AMB_rain", "AMB_wind", "AMB_crickets", "AMB_birds", "AMB_waves", "AMB_rumble", "AMB_crackle") else round(extra, 1))
     if key in _CACHE and not kind.startswith("AMB"):
         return _CACHE[key]
     if kind == "foot":
@@ -404,6 +439,10 @@ def _sound(kind, extra):
         s = birds(extra)
     elif kind == "AMB_waves":
         s = waves(extra)
+    elif kind == "AMB_rumble":
+        s = rumble_bed(extra)
+    elif kind == "AMB_crackle":
+        s = crackle_bed(extra)
     else:
         raise KeyError(kind)
     if not kind.startswith("AMB"):
@@ -412,7 +451,7 @@ def _sound(kind, extra):
 
 
 LEVEL = {"foot": 0.5, "foot_run": 0.55, "clash": 0.8, "whoosh": 0.5, "whoosh_s": 0.5, "thunder": 0.7, "thump": 0.75, "applause": 0.45,
-         "clink": 0.55, "scratch": 0.4, "AMB_rain": 0.16, "AMB_wind": 0.15, "AMB_crickets": 0.08, "AMB_birds": 0.07, "AMB_waves": 0.22}
+         "clink": 0.55, "scratch": 0.4, "AMB_rain": 0.16, "AMB_wind": 0.15, "AMB_crickets": 0.08, "AMB_birds": 0.07, "AMB_waves": 0.22, "AMB_rumble": 0.3, "AMB_crackle": 0.16}
 REVERB = {"clash": 0.2, "clink": 0.25, "thump": 0.1, "thunder": 0.0, "foot": 0.1, "foot_run": 0.1, "whoosh": 0.12, "whoosh_s": 0.12, "applause": 0.15}
 
 

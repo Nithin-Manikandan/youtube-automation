@@ -154,7 +154,8 @@ for key dates and numbers (about 1 scene in 5); keep characters consistent (same
 ERA RULE: match the drawing to the period. For stories after about 1800 use the modern roles (sailor, captain, officer, scientist, president, worker,
 pilot, modern_soldier, spy, reporter) and modern objects and backgrounds (submarine, warship, missile, plane, building, hatch, pipes, gauge, underwater,
 submarine_interior, city_modern, sea). Never give modern characters swords, spears, shields or castles; use those only for ancient and medieval stories.
-Use 2-3 actors in most stage scenes so the screen feels alive.
+For natural disasters and wars use the matching scenery: volcano, ash_cloud, wave, fire, smoke, house, explosion with the volcanic or ashen background and the ashfall, embers, flash, shake and rain effects.
+Use 2-3 actors in most stage scenes so the screen feels alive; show the actual subject of each line (the volcano erupting, the wave hitting, the ship sinking) rather than a generic scene.
 
 {VOCAB}
 
