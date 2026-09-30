@@ -77,3 +77,21 @@ word-by-word captions + hook line.
 Use it on footage you own, that is Creative Commons (credit the creator), or that a creator's clipping campaign supplied. It does not download from YouTube. **Find CC videos** lists popular CC BY videos (needs a free `YT_API_KEY` secret).
 
 Heads up on money: YouTube only monetizes reused footage with significant original commentary or transformation, and Content ID can still claim clips. Footage-heavy edits with light commentary are the riskiest. Approved campaigns avoid the problem.
+
+## Video Studio (Google Flow workflow, runs on your computer)
+
+The workflow from the "clone the formula, not the channel" video, with the paid or manual parts automated:
+
+```bash
+pip install -r requirements.txt -r requirements-studio.txt
+python -m studio        # then open http://localhost:5055
+```
+
+1. **Settings**: paste your free Gemini API key (and YouTube keys when you want auto-publish).
+2. **Formula**: paste links to the top 10-15 videos of a proven channel in your niche (default niche: History). Gemini extracts the formula (audience, topics, tone, hooks, script shape, visual style). No YouTube link support on your key? Paste a formula from NotebookLM instead.
+3. **Idea + script**: it suggests 10 channel names and 10 ideas, then writes the original script and the character, image and animation prompts (your four prompts, verbatim).
+4. **Google Flow** (manual, Flow has no API): click the copy buttons, paste into Flow, generate images then clips, download the clips.
+5. **Drop the clips in**: name them "scene 1", "scene 2"... or just drop them in order. It makes the free Microsoft neural voiceover, fits each clip to its line (trim, slow, or ping-pong loop), adds captions and optional music, and exports.
+6. **Review and publish** to YouTube (private by default).
+
+Keep the content original: the formula is the structure, never the wording. History must be accurate; check the script before publishing.

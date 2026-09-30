@@ -13,11 +13,11 @@ def _access_token():
     return r.json()["access_token"]
 
 
-def upload(mp4, data, cfg, log=print):
+def upload(mp4, data, cfg, log=print, shorts=True):
     up = cfg.get("upload", {})
     title = data["title"][:100]
     desc = data.get("description", "")
-    if "#shorts" not in desc.lower():
+    if shorts and "#shorts" not in desc.lower():
         desc += "\n#shorts"
     body = {
         "snippet": {"title": title, "description": desc, "tags": data.get("tags", [])[:15],
@@ -37,5 +37,5 @@ def upload(mp4, data, cfg, log=print):
         r = requests.put(init.headers["Location"], data=f, headers={"Content-Type": "video/mp4"}, timeout=600)
     r.raise_for_status()
     vid = r.json()["id"]
-    log(f"uploaded: https://youtube.com/shorts/{vid}  (privacy: {body['status']['privacyStatus']})")
+    log(f"uploaded: https://youtube.com/{'shorts/' if shorts else 'watch?v='}{vid}  (privacy: {body['status']['privacyStatus']})")
     return vid
