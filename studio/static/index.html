@@ -100,7 +100,7 @@ ${sc.map(s=>`<div class="scene"><div class="n">${s.n}</div><div><div>${esc(s.voi
 ${sc.map(s=>`<div class="row" style="margin-top:8px"><div style="flex:0 0 70px">Scene ${s.n}</div><select onchange="assign(${s.n},this.value)"><option value="">(no clip)</option>${clips.filter(c=>!c.startsWith('music_')).map(c=>`<option ${s.clip===c?'selected':''}>${esc(c)}</option>`).join('')}</select></div>`).join('')}</section>
 
 <section><h2>5. Build the video</h2><p class="hint">Makes the voiceover, fits every clip to its line, adds captions and music, and exports.</p>
-<div class="row"><div><label>Voice (Microsoft neural, free)</label><select id="voice">${['en-US-AndrewNeural','en-US-GuyNeural','en-US-BrianNeural','en-US-AriaNeural','en-US-JennyNeural','en-GB-RyanNeural','en-GB-SoniaNeural','en-AU-WilliamNeural'].map(v=>`<option ${S.voice===v?'selected':''}>${v}</option>`).join('')}</select></div>
+<div class="row"><div><label>Voice (Microsoft neural, free)</label><select id="voice">${['en-US-AndrewMultilingualNeural','en-US-BrianMultilingualNeural','en-US-AvaMultilingualNeural','en-US-AndrewNeural','en-US-GuyNeural','en-GB-RyanNeural','en-GB-SoniaNeural','en-AU-WilliamNeural'].map(v=>`<option ${S.voice===v?'selected':''}>${v}</option>`).join('')}</select></div>
 <div><label>Speed</label><select id="rate">${['-10%','+0%','+6%','+12%'].map(v=>`<option ${S.rate===v?'selected':''}>${v}</option>`).join('')}</select></div>
 <div><label>Captions</label><select id="captions"><option value="1" ${S.captions!==false?'selected':''}>On</option><option value="0" ${S.captions===false?'selected':''}>Off</option></select></div></div>
 <label>Opening hook text (first 2 seconds, optional)</label><input id="hook" value="${esc(S.hook_text||'')}">

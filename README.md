@@ -109,3 +109,10 @@ In the Studio, **Make a video** does everything and then stops for your approval
 Nothing is published until you approve. It takes roughly 30-60 minutes. Publishing needs the YouTube keys; custom thumbnails also need a phone-verified YouTube channel, and the auth token needs the `youtube` scope (re-run `tools/youtube_auth.py` if you made the token earlier). The narration is AI-written, so read the fact-check flags before approving.
 
 Try it without any API keys: `STUDIO_FAKE=1 python -m studio` (test content, silent voice).
+
+### Sound and delivery
+
+- **Score:** six moods (calm, tense, epic, sad, triumph, mystery) in one key and one tempo, so changes are smooth crossfades (about 7 seconds). The AI sets each scene's mood; blips shorter than 14 seconds are absorbed so the music never flutters.
+- **Sound effects:** layered, stereo, panned to the action: footsteps, sword clashes (short, damped, noisy, like steel, not bells), whooshes, thunder, rain, applause, crown clinks, plus ambience (wind, crickets, birds, waves).
+- **Narrator:** reads sentence by sentence with different pace, pitch and loudness for each (set by the scene's emotion, questions, short punchy lines, the falling last line), leans on key words and pauses before reveals. If the service rejects the SSML tags it falls back to plain prosody automatically.
+- **Listen first:** `samples/sound-check.mp3` plays every effect and then all six music moods.

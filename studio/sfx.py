@@ -119,19 +119,27 @@ def footstep(seed=0, run=False):
 
 
 def clash(seed=0):
+    """Steel on steel: a hard noisy strike, short heavily damped metallic resonances and a blade scrape.
+    Deliberately NOT long-ringing pure tones (those sound like bells)."""
     rng = np.random.default_rng(seed)
-    t = _t(1.4)
+    t = _t(0.55)
     n = len(t)
-    f0 = 1050 + rng.random() * 700
+    f0 = 700 + rng.random() * 1500
     y = np.zeros(n)
-    for r, a, d in ((1.0, 1.0, 4.2), (2.76, 0.75, 5.5), (5.40, 0.55, 8.0), (8.93, 0.35, 12.0), (13.3, 0.2, 18.0)):
-        f = f0 * r * (1 + rng.uniform(-0.012, 0.012))
-        y += a * np.sin(2 * np.pi * f * t + rng.random() * 6.28) * np.exp(-t * d)
-    y *= 0.55
-    y += _white(n, rng) * np.exp(-t * 900) * 2.2                               # sharp contact transient
-    y += filt(_white(n, rng), 3500, 11000) * np.exp(-((t - 0.04) ** 2) / (2 * 0.035 ** 2)) * 0.7   # blade scrape
-    y += np.sin(2 * np.pi * (120 + 40 * np.exp(-t * 30)) * t) * np.exp(-t * 38) * 0.55      # body thud
-    y += filt(_white(n, rng), 6000, 14000) * np.exp(-t * 11) * 0.12
+    # strike: broadband burst, the main "clang"
+    y += filt(_white(n, rng), 250, 8000) * np.exp(-t * 600) * 2.6
+    y += filt(_white(n, rng), 500, 6500) * np.exp(-t * 90) * 1.3
+    # damped inharmonic resonances, each one rough (noise-modulated) so it reads as struck metal, not a tuned tone
+    for r, a_, d in ((1.0, 1.0, 38.0), (2.41, 0.8, 46.0), (3.97, 0.65, 58.0), (5.83, 0.5, 70.0), (8.11, 0.35, 90.0)):
+        f = f0 * r * (1 + rng.uniform(-0.05, 0.05))
+        rough = 0.55 + 0.45 * filt(_white(n, rng), None, 260) / (np.abs(filt(_white(n, rng), None, 260)).max() + 1e-9)
+        vib = 1 + 0.006 * np.sin(2 * np.pi * rng.uniform(20, 40) * t)
+        y += a_ * np.sin(2 * np.pi * f * vib * t + rng.random() * 6.28) * np.exp(-t * d) * rough
+    # scrape / slide of the blades
+    y += filt(_white(n, rng), 3000, 9000) * np.exp(-((t - 0.035) ** 2) / (2 * 0.028 ** 2)) * 0.6
+    # weight of the impact
+    y += filt(_white(n, rng), 180, 900) * np.exp(-t * 48) * 2.3
+    y += np.sin(2 * np.pi * (170 + 50 * np.exp(-t * 40)) * t) * np.exp(-t * 42) * 0.8
     return norm(y, 0.9)
 
 
@@ -184,19 +192,20 @@ def applause(seed=0, dur=2.3):
 
 
 def clink(seed=0):
+    """Gold crown hitting stone: a few quick, damped metal taps (no ringing bell tone)."""
     rng = np.random.default_rng(seed)
-    t = _t(0.9)
+    t = _t(0.7)
     n = len(t)
     y = np.zeros(n)
-    f0 = 2300 + rng.random() * 800
-    for k, (dt, a, pitch) in enumerate(((0, 1.0, 1.0), (0.13, 0.55, 0.96), (0.22, 0.3, 0.93), (0.28, 0.15, 0.9))):
+    f0 = 1500 + rng.random() * 900
+    for dt, a_, pitch in ((0, 1.0, 1.0), (0.12, 0.55, 0.93), (0.2, 0.3, 0.88), (0.26, 0.15, 0.85)):
         i0 = int(dt * SR)
         tt = t[:n - i0]
-        seg = np.zeros(len(tt))
-        for r, am, d in ((1.0, 1.0, 9.0), (2.32, 0.6, 13.0), (4.25, 0.4, 20.0), (6.63, 0.2, 30.0)):
+        seg = _white(len(tt), rng) * np.exp(-tt * 500) * 1.6
+        for r, am, d in ((1.0, 1.0, 55.0), (2.3, 0.7, 70.0), (4.1, 0.5, 90.0)):
             seg += am * np.sin(2 * np.pi * f0 * pitch * r * tt) * np.exp(-tt * d)
-        seg += filt(_white(len(tt), rng), 3000, 9000) * np.exp(-tt * 260) * 0.8
-        y[i0:] += seg * a
+        seg += filt(_white(len(tt), rng), 400, 3500) * np.exp(-tt * 90) * 0.6
+        y[i0:] += seg * a_
     return norm(y, 0.6)
 
 
@@ -402,7 +411,7 @@ def _sound(kind, extra):
     return s
 
 
-LEVEL = {"foot": 0.5, "foot_run": 0.55, "clash": 0.85, "whoosh": 0.5, "whoosh_s": 0.5, "thunder": 0.7, "thump": 0.75, "applause": 0.45,
+LEVEL = {"foot": 0.5, "foot_run": 0.55, "clash": 0.8, "whoosh": 0.5, "whoosh_s": 0.5, "thunder": 0.7, "thump": 0.75, "applause": 0.45,
          "clink": 0.55, "scratch": 0.4, "AMB_rain": 0.16, "AMB_wind": 0.15, "AMB_crickets": 0.08, "AMB_birds": 0.07, "AMB_waves": 0.22}
 REVERB = {"clash": 0.2, "clink": 0.25, "thump": 0.1, "thunder": 0.0, "foot": 0.1, "foot_run": 0.1, "whoosh": 0.12, "whoosh_s": 0.12, "applause": 0.15}
 

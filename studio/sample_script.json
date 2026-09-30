@@ -40,6 +40,14 @@
       "effects": [],
       "title": "ROME, 476 AD",
       "camera": "push_in"
+     },
+     "mood": "calm",
+     "delivery": {
+      "emotion": "warm",
+      "emphasis": [
+       "thousand"
+      ],
+      "pause_before_ms": 0
      }
     },
     {
@@ -56,6 +64,14 @@
        "SPAIN"
       ],
       "title": "THE ROMAN WORLD"
+     },
+     "mood": "triumph",
+     "delivery": {
+      "emotion": "awed",
+      "emphasis": [
+       "Britain"
+      ],
+      "pause_before_ms": 0
      }
     },
     {
@@ -87,6 +103,14 @@
       "effects": [],
       "title": "",
       "camera": "pull_out"
+     },
+     "mood": "tense",
+     "delivery": {
+      "emotion": "tense",
+      "emphasis": [
+       "rotting"
+      ],
+      "pause_before_ms": 0
      }
     }
    ]
@@ -107,6 +131,14 @@
        "VANDALS"
       ],
       "title": "THE INVADERS"
+     },
+     "mood": "tense",
+     "delivery": {
+      "emotion": "urgent",
+      "emphasis": [
+       "pouring"
+      ],
+      "pause_before_ms": 0
      }
     },
     {
@@ -139,6 +171,14 @@
       "effects": [],
       "title": "",
       "camera": "push_in"
+     },
+     "mood": "calm",
+     "delivery": {
+      "emotion": "dramatic",
+      "emphasis": [
+       "unmade"
+      ],
+      "pause_before_ms": 0
      }
     },
     {
@@ -181,6 +221,14 @@
       ],
       "title": "ODOACER MARCHES",
       "camera": "pan_left"
+     },
+     "mood": "tense",
+     "delivery": {
+      "emotion": "urgent",
+      "emphasis": [
+       "Odoacer"
+      ],
+      "pause_before_ms": 350
      }
     },
     {
@@ -216,6 +264,14 @@
       ],
       "title": "",
       "camera": "push_in"
+     },
+     "mood": "epic",
+     "delivery": {
+      "emotion": "urgent",
+      "emphasis": [
+       "steel"
+      ],
+      "pause_before_ms": 0
      }
     }
    ]
@@ -234,6 +290,14 @@
        "Regalia sent to Constantinople"
       ],
       "dark": false
+     },
+     "mood": "sad",
+     "delivery": {
+      "emotion": "somber",
+      "emphasis": [
+       "boy"
+      ],
+      "pause_before_ms": 0
      }
     },
     {
@@ -265,6 +329,14 @@
       "effects": [],
       "title": "",
       "camera": "push_in"
+     },
+     "mood": "sad",
+     "delivery": {
+      "emotion": "somber",
+      "emphasis": [
+       "sent"
+      ],
+      "pause_before_ms": 0
      }
     },
     {
@@ -291,6 +363,14 @@
       ],
       "title": "THE END OF ROME",
       "camera": "pull_out"
+     },
+     "mood": "sad",
+     "delivery": {
+      "emotion": "somber",
+      "emphasis": [
+       "nobody"
+      ],
+      "pause_before_ms": 350
      }
     }
    ]

@@ -15,7 +15,8 @@ import cv2
 import numpy as np
 
 from pipeline import audio as audiolib, ffmpeg, tts
-from . import ai, music, recipes, sfx, stick, thumb
+from . import ai, moods, music, recipes, score, sfx, stick, thumb
+from . import voice as narrator
 from .doccap import DocCaptions
 
 W, H, FPS = 1280, 720, 30
@@ -133,7 +134,12 @@ for key dates and numbers (about 1 scene in 5); keep characters consistent (same
 
 {VOCAB}
 
-Return JSON only: {{"scenes": [{{"narration": "...", "visual": {{"type": "stage", "background": "city_day", "actors": [{{"role": "emperor", "color": "purple", "pos": "center", "action": "talk", "emotion": "worried"}}], "objects": ["column"], "effects": [], "title": "", "camera": "push_in"}}}}]}}"""
+Also direct the narrator like a great documentary reader. For every scene give a "mood" for the music ("calm", "tense", "epic", "sad", "triumph" or "mystery";
+change it only when the story's feeling really changes, at most once every 15-20 seconds) and a "delivery": the narrator's "emotion" ("neutral", "warm",
+"tense", "somber", "dramatic", "excited", "urgent" or "awed"), 1-3 "emphasis" words to lean on (names, numbers, the turning-point word), and an optional
+"pause_before_ms" (0-700) for dramatic beats (a pause before a reveal). Vary the delivery across scenes so the reading never sounds flat.
+
+Return JSON only: {{"scenes": [{{"narration": "...", "mood": "calm", "delivery": {{"emotion": "warm", "emphasis": ["thousand"], "pause_before_ms": 0}}, "visual": {{"type": "stage", "background": "city_day", "actors": [{{"role": "emperor", "color": "purple", "pos": "center", "action": "talk", "emotion": "worried"}}], "objects": ["column"], "effects": [], "title": "", "camera": "push_in"}}}}]}}"""
     o = _llm(prompt, 0.8)
     sc = [s for s in o.get("scenes", []) if isinstance(s, dict) and str(s.get("narration", "")).strip()]
     if len(sc) < 3:
@@ -304,16 +310,25 @@ def run(job, pdir, settings, hint=None):
     _stage(job, 3)
     rnd = random.Random(7)
     visuals = [recipes.clean_visual(s.get("visual"), rnd) for _, s in scripts]
+    scene_moods = []
+    cur = "calm"
+    for vis, (_, s) in zip(visuals, scripts):
+        m = moods.scene_mood(vis, s.get("mood"))
+        cur = m or cur
+        scene_moods.append(cur)              # maps and date cards keep the previous mood
 
     _stage(job, 4)
     voices, words_all, scenes, cursor, starts = [], [], [], 0.0, []
     v = settings
-    cfg = {"voice": {"name": v.get("voice", "en-US-AndrewNeural"), "rate": v.get("rate", "+0%"), "pitch": v.get("pitch", "+0Hz")}}
+    cfg = {"voice": {"name": v.get("voice", "en-US-AndrewMultilingualNeural"), "rate": v.get("rate", "+0%"), "pitch": v.get("pitch", "+0Hz")}}
     for i, (ci, s) in enumerate(scripts):
         vis = visuals[i]
         text = s["narration"].strip()
-        voice, w = tts.silent(text) if FAKE() else tts.narrate(text, cfg)
-        dur = LEAD + len(voice) / tts.SR + GAP
+        if FAKE():
+            vx, w = tts.silent(text)
+        else:
+            vx, w = narrator.speak(text, cfg, s.get("delivery"), scene_moods[i])
+        dur = LEAD + len(vx) / tts.SR + GAP
         if vis["type"] == "card":
             dur = max(dur, 3.2)
         if vis["type"] == "map":
@@ -325,8 +340,9 @@ def run(job, pdir, settings, hint=None):
         else:
             sc = recipes.build_card(vis, dur)
         sc["chapter"] = ci
+        sc["_mood"] = scene_moods[i]
         scenes.append(sc)
-        voices.append(voice)
+        voices.append(vx)
         starts.append(cursor + LEAD)
         words_all += [[x[0], cursor + LEAD + x[1], cursor + LEAD + x[2]] for x in w]
         sc["_t0"] = cursor
@@ -369,8 +385,10 @@ def run(job, pdir, settings, hint=None):
     if np.abs(voice).max() > 0:
         voice = np.tanh(1.5 * voice / np.abs(voice).max()) * 0.9
     env = audiolib._envelope(voice) if np.abs(voice).max() > 0 else np.zeros(n, dtype=np.float32)
-    bed = music.bed(total)
-    music_l = music_r = bed * 0.2                               # centred: delays on bass cancel on phone speakers
+    mood_runs = moods.runs([sc["_mood"] for sc in scenes], [sc["duration"] for sc in scenes])
+    _log(job, "  music moods: " + " > ".join(f"{m} {e - s0:.0f}s" for s0, e, m in mood_runs))
+    bed = score.build(mood_runs, total)
+    music_l = music_r = bed * 1.0                               # centred: delays on bass cancel on phone speakers
     duck = (1 - 0.7 * env) if np.abs(voice).max() > 0 else 1.0
     events, prev = [], None
     for sc in scenes:

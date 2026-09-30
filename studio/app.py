@@ -22,7 +22,7 @@ app = Flask(__name__, static_folder=str(HERE / "static"), static_url_path="/stat
 app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 ** 3
 JOBS = {}
 
-DEFAULTS = {"aspect": "16:9", "voice": "en-US-AndrewNeural", "rate": "+0%", "pitch": "+0Hz", "captions": True,
+DEFAULTS = {"aspect": "16:9", "voice": "en-US-AndrewMultilingualNeural", "rate": "+0%", "pitch": "+0Hz", "captions": True,
             "music_volume": 0.12, "hook_text": "", "privacy": "private", "minutes": 3, "niche": "History"}
 
 
