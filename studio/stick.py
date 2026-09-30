@@ -25,7 +25,7 @@ def lerp(a, b, u):
 
 
 # ---- poses: angles in degrees, measured from "straight down", positive = toward the way the figure faces ----
-BASE = dict(torso=0, head=0, a1=8, a2=10, b1=-8, b2=10, l1=4, l2=0, m1=-4, m2=0, hip=0)
+BASE = dict(torso=0, head=0, a1=8, a2=10, b1=-8, b2=10, l1=4, l2=0, m1=-4, m2=0, hip=0, lift=0)
 POSES = {
     "stand": {},
     "proud": dict(a1=155, a2=0, b1=-155, b2=0, torso=-4, head=-6),
@@ -41,13 +41,18 @@ POSES = {
 def pose_at(name, t, seed=0.0):
     p = dict(BASE)
     if name in ("walk", "run"):
-        f, amp, lean = (1.7, 34, 3) if name == "walk" else (2.6, 58, 15)
-        s = math.sin(2 * math.pi * f * t + seed)
-        c = math.cos(2 * math.pi * f * t + seed)
-        p.update(l1=amp * s, m1=-amp * s, torso=lean, a1=-amp * 0.7 * s, b1=amp * 0.7 * s,
-                 l2=-max(0.0, -c) * amp * 1.4 - 4, m2=-max(0.0, c) * amp * 1.4 - 4)
+        f, amp, lean = (1.7, 30, 3) if name == "walk" else (2.7, 52, 16)
+        ph = 2 * math.pi * f * t + seed
+        s_, c_ = math.sin(ph), math.cos(ph)
+        bend = 38 if name == "walk" else 105
+        # a leg bends its knee while it swings forward (thigh angle rising)
+        p.update(l1=amp * s_, m1=-amp * s_,
+                 l2=-bend * max(0.0, c_) - 3, m2=-bend * max(0.0, -c_) - 3,
+                 torso=lean, a1=-amp * 0.8 * s_, b1=amp * 0.8 * s_)
         if name == "run":
-            p.update(a2=70, b2=70)
+            p.update(a2=85, b2=85, lift=0.055 * abs(c_), head=-4)
+    elif name == "sprint_hit":
+        p.update(POSES["sword_up"])
     elif name == "cheer":
         w = math.sin(2 * math.pi * 2.2 * t + seed)
         p.update(a1=150 + 14 * w, b1=-150 - 14 * w, a2=0, b2=0, head=-8, l2=-8 * abs(w), m2=-8 * abs(w))
@@ -118,7 +123,9 @@ class Actor:
         m1 = seg((0, 0), pose["m1"], L["thigh"] * S, f)
         m2 = seg(m1, pose["m1"] + pose["m2"], L["shin"] * S, f)
         drop = max(l2[1], m2[1])
-        hip = (x, gy - drop)
+        hip = (x, gy - drop - pose.get("lift", 0) * S)
+        sw = S * 0.15 * (1 - min(0.5, pose.get("lift", 0) * 5))
+        d.ellipse([x - sw, gy - S * 0.012, x + sw, gy + S * 0.022], fill=(0, 0, 0, 70))
         tr = math.radians(pose["torso"])
         up = (math.sin(tr) * f, -math.cos(tr))
         neck_base = (hip[0] + up[0] * L["torso"] * S, hip[1] + up[1] * L["torso"] * S)
@@ -127,8 +134,10 @@ class Actor:
         hup = (math.sin(hr) * f, -math.cos(hr))
         rad = L["head"] * S
         head = (neck_base[0] + hup[0] * (L["neck"] * S + rad), neck_base[1] + hup[1] * (L["neck"] * S + rad))
-        lw = max(3, S * 0.028)
+        lw = max(3, S * 0.034)
         col = self.s.get("color", INK)
+        skin = self.s.get("skin", (247, 222, 190))
+        tunic = self.s.get("tunic")
 
         # cape (behind body)
         if "cape" in self.s.get("props", []):
@@ -139,11 +148,28 @@ class Actor:
         a1 = add(sh, seg((0, 0), wide[0], L["upper"] * S, f)); a2 = add(a1, seg((0, 0), wide[0] + wide[1], L["fore"] * S, f))
         b1 = add(sh, seg((0, 0), wide[2], L["upper"] * S, f)); b2 = add(b1, seg((0, 0), wide[2] + wide[3], L["fore"] * S, f))
         line(d, [hip, add(hip, m1), add(hip, m2)], lw)
+        for pts in ([add(hip, m1), add(hip, m2)], [add(hip, l1), add(hip, l2)]):  # boots
+            foot = pts[-1]
+            d.line([foot, (foot[0] + f * S * 0.055, foot[1])], fill=(62, 44, 34), width=int(lw * 1.25))
         line(d, [hip, add(hip, l1), add(hip, l2)], lw)
-        line(d, [hip, neck_base], lw)
+        nrm = (-up[1], up[0])
+        if tunic:
+            tw, bw = S * 0.055, S * 0.075
+            d.polygon([(sh[0] + nrm[0] * tw, sh[1] + nrm[1] * tw), (sh[0] - nrm[0] * tw, sh[1] - nrm[1] * tw),
+                       (hip[0] - nrm[0] * bw, hip[1] - nrm[1] * bw + S * 0.05), (hip[0] + nrm[0] * bw, hip[1] + nrm[1] * bw + S * 0.05)],
+                      fill=tunic, outline=INK)
+            d.line([(hip[0] - nrm[0] * bw * .9, hip[1] - nrm[1] * bw * .9 + S * .012), (hip[0] + nrm[0] * bw * .9, hip[1] + nrm[1] * bw * .9 + S * .012)], fill=(70, 50, 34), width=int(lw * .55))
+        else:
+            line(d, [hip, neck_base], lw)
         line(d, [sh, b1, b2], lw)
         line(d, [sh, a1, a2], lw)
-        d.ellipse([head[0] - rad, head[1] - rad, head[0] + rad, head[1] + rad], fill=PAPER, outline=INK, width=int(lw))
+        for hnd in (a2, b2):
+            d.ellipse([hnd[0] - lw * .75, hnd[1] - lw * .75, hnd[0] + lw * .75, hnd[1] + lw * .75], fill=skin, outline=INK, width=2)
+        d.ellipse([head[0] - rad, head[1] - rad, head[0] + rad, head[1] + rad], fill=skin, outline=INK, width=int(lw * .85))
+        if "beard" in self.s.get("props", []):
+            d.pieslice([head[0] - rad * .95, head[1] - rad * .5, head[0] + rad * .95, head[1] + rad * 1.35], 10, 170, fill=(236, 232, 224), outline=INK, width=int(lw * .5))
+        if "hair" in self.s.get("props", []):
+            d.pieslice([head[0] - rad * 1.05, head[1] - rad * 1.08, head[0] + rad * 1.05, head[1] + rad * .9], 180, 360, fill=self.s.get("hair", (70, 48, 30)), outline=INK, width=int(lw * .5))
         # face
         ex = head[0] + f * rad * 0.35
         ey = head[1] - rad * 0.12
@@ -225,43 +251,200 @@ def font(size):
     return ImageFont.truetype(_find_font("assets/fonts/BricolageGrotesque-Bold.ttf"), size)
 
 
+def _hills(d, W, H, gy, layer, off):
+    n = 40
+    base, amp, fr, seed = layer["base"] * H * SS, layer["amp"] * H * SS, layer.get("freq", 3.0), layer.get("seed", 0)
+    pts = [(-10, H * SS)]
+    for i in range(n + 1):
+        x = i / n
+        y = base - amp * (math.sin(x * fr + seed) + 0.5 * math.sin(x * fr * 2.3 + seed * 2) + 0.25 * math.sin(x * fr * 5 + seed * 3))
+        pts.append((x * W * SS - off * layer.get("par", 0.2), y))
+    pts.append((W * SS + 10, H * SS))
+    d.polygon(pts, fill=layer["color"])
+
+
+def _sky(img_arr_h, W, H, top, bottom):
+    t = np.linspace(0, 1, H * SS)[:, None, None]
+    return np.clip(np.array(top) * (1 - t) + np.array(bottom) * t, 0, 255).astype(np.uint8).repeat(W * SS, axis=1)
+
+
+def draw_map(d, scene, W, H, t):
+    S = H * SS
+    w = W * SS
+    d.rectangle([0, 0, w, S], fill=(214, 190, 142))
+    for k in range(18):  # worn parchment edges
+        d.rectangle([k * 9, k * 9, w - k * 9, S - k * 9], outline=(120, 86, 40, 10 + k * 3), width=16)
+    for poly in scene["land"]:
+        pts = [(x * w, y * S) for x, y in poly["pts"]]
+        d.polygon(pts, fill=poly.get("color", (236, 222, 184)), outline=INK)
+        d.line(pts + [pts[0]], fill=INK, width=5)
+        if poly.get("label"):
+            f_ = font(int(S * 0.042))
+            lx, ly = poly["label_at"]
+            d.text((lx * w - d.textlength(poly["label"], font=f_) / 2, ly * S), poly["label"], font=f_, fill=poly.get("label_color", (60, 44, 26)))
+    for c in scene.get("cities", []):
+        cx, cy = c["x"] * w, c["y"] * S
+        d.ellipse([cx - 16, cy - 16, cx + 16, cy + 16], fill=GOLD, outline=INK, width=4)
+        f_ = font(int(S * 0.034))
+        d.text((cx - d.textlength(c["name"], font=f_) / 2, cy + 24), c["name"], font=f_, fill=INK, stroke_width=3, stroke_fill=(236, 204, 132))
+    for ar in scene.get("arrows", []):
+        pr = smooth((t - ar["t0"]) / max(ar["t1"] - ar["t0"], 1e-6))
+        if pr <= 0:
+            continue
+        pts = [(x * w, y * S) for x, y in ar["pts"]]
+        lens = [math.dist(pts[i], pts[i + 1]) for i in range(len(pts) - 1)]
+        goal, run, cur = sum(lens) * pr, 0.0, [pts[0]]
+        for i, L_ in enumerate(lens):
+            if run + L_ <= goal:
+                cur.append(pts[i + 1]); run += L_
+            else:
+                u = (goal - run) / max(L_, 1e-6)
+                cur.append((lerp(pts[i][0], pts[i + 1][0], u), lerp(pts[i][1], pts[i + 1][1], u)))
+                break
+        col = ar.get("color", RED)
+        for i in range(len(cur) - 1):
+            d.line([cur[i], cur[i + 1]], fill=col, width=int(S * 0.016))
+        (x1, y1), (x2, y2) = cur[-2], cur[-1]
+        ang = math.atan2(y2 - y1, x2 - x1)
+        hs = S * 0.04
+        d.polygon([(x2 + math.cos(ang) * hs, y2 + math.sin(ang) * hs),
+                   (x2 + math.cos(ang + 2.5) * hs, y2 + math.sin(ang + 2.5) * hs),
+                   (x2 + math.cos(ang - 2.5) * hs, y2 + math.sin(ang - 2.5) * hs)], fill=col)
+        if ar.get("label") and pr > 0.15:
+            f_ = font(int(S * 0.04))
+            lx, ly = ar["label_at"]
+            d.text((lx * w, ly * S), ar["label"], font=f_, fill=col)
+
+
+def draw_fx(d, scene, t, W, H, gy, actors):
+    S = H * SS
+    for fx in scene.get("fx", []):
+        k = fx["type"]
+        if k == "rain" and fx["t0"] <= t <= fx["t1"]:
+            rng = np.random.default_rng(3)
+            xs, ys, sp = rng.random(160), rng.random(160), 0.9 + rng.random(160) * 0.8
+            for i in range(160):
+                x = ((xs[i] + t * 0.12 * sp[i]) % 1.0) * W * SS
+                y = ((ys[i] + t * 1.6 * sp[i]) % 1.0) * S
+                d.line([(x, y), (x - S * 0.012, y + S * 0.04)], fill=(60, 70, 100, 120), width=3)
+        elif k == "sparks" and fx["t"] <= t <= fx["t"] + 0.4:
+            age = (t - fx["t"]) / 0.4
+            cx, cy = fx["x"] * W * SS, fx.get("y", 0.6) * S
+            rng = np.random.default_rng(int(fx["t"] * 100))
+            for i in range(14):
+                a_ = rng.random() * 6.283
+                r0, r1 = S * 0.02 * age, S * (0.03 + 0.09 * rng.random()) * (0.3 + age)
+                d.line([(cx + math.cos(a_) * r0, cy + math.sin(a_) * r0), (cx + math.cos(a_) * r1, cy + math.sin(a_) * r1)],
+                       fill=(255, 210, 90, int(255 * (1 - age))), width=5)
+        elif k == "dust":
+            for a in actors:
+                if a.s["id"] != fx["actor"]:
+                    continue
+                for j in range(9):
+                    tk = t - j * 0.055
+                    if tk < 0:
+                        continue
+                    x0, x1 = a.key_state(tk)[1], a.key_state(max(tk - 0.1, 0))[1]
+                    if abs(x0 - x1) * W < 18:
+                        continue
+                    age = j / 9
+                    r = S * (0.012 + 0.03 * age)
+                    cx, cy = x0 * W * SS, gy - r * 0.6 - age * S * 0.02
+                    d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(150, 130, 100, int(110 * (1 - age))))
+        elif k == "flash" and fx["t"] <= t <= fx["t"] + 0.5:
+            pass  # drawn later over the whole frame
+
+
 def render_frame(scene, t, W, H):
     gyr = scene.get("ground", 0.80)
-    img = Image.new("RGB", (W * SS, H * SS), scene.get("bg", PAPER))
-    d = ImageDraw.Draw(img, "RGBA")
     gy = gyr * H * SS
-    d.line([(0, gy), (W * SS, gy)], fill=INK, width=5)
-    for i in range(0, W * SS, 120):
-        d.line([(i, gy + 20), (i + 50, gy + 20)], fill=(0, 0, 0, 40), width=3)
-    for o in scene.get("objects", []):
-        draw_object(d, o, W, H, gy, t)
-    for a in sorted(scene["_actors"], key=lambda a: a.s.get("z", 0)):
-        a.draw(d, t, gy)
-    if scene.get("dim"):
-        d.rectangle([0, 0, W * SS, H * SS], fill=(20, 24, 50, int(scene["dim"] * 255)))
-    # camera push-in
-    z = lerp(scene.get("zoom", [1.0, 1.06])[0], scene.get("zoom", [1.0, 1.06])[1], smooth(t / max(scene["duration"], 1e-6)))
-    arr = np.asarray(img)
-    cx, cy = scene.get("focus", (0.5, 0.55))
-    M = cv2.getRotationMatrix2D((cx * W * SS, cy * H * SS), 0, z * 1.0 / SS)
-    M[0, 2] += W / 2 - cx * W * SS
-    M[1, 2] += H / 2 - cy * H * SS
-    out = cv2.warpAffine(arr, M, (W, H), flags=cv2.INTER_AREA if z / SS < 1 else cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
+    fx0, fx1 = scene.get("focus", (0.5, 0.55)), scene.get("focus_to", None)
+    u = smooth(t / max(scene["duration"], 1e-6))
+    fxc = lerp(fx0[0], (fx1 or fx0)[0], u)
+    off = (fxc - 0.5) * W * SS
+    if scene.get("kind") == "map":
+        img = Image.new("RGB", (W * SS, H * SS), (214, 190, 142))
+        d = ImageDraw.Draw(img, "RGBA")
+        draw_map(d, scene, W, H, t)
+    else:
+        top, bot = scene.get("sky", ((196, 214, 226), (246, 236, 214)))
+        img = Image.fromarray(_sky(None, W, H, top, bot))
+        d = ImageDraw.Draw(img, "RGBA")
+        if scene.get("sun"):
+            sx, sy, sc = scene["sun"]
+            for r, al in ((0.22, 18), (0.14, 30), (0.085, 255)):
+                d.ellipse([sx * W * SS - r * H * SS, sy * H * SS - r * H * SS, sx * W * SS + r * H * SS, sy * H * SS + r * H * SS],
+                          fill=sc + (al,))
+        for layer in scene.get("hills", []):
+            _hills(d, W, H, gy, layer, off)
+        gcol = scene.get("ground_color", (176, 158, 120))
+        d.rectangle([0, gy, W * SS, H * SS], fill=gcol)
+        for i in range(10):  # ground gradient darker toward the bottom
+            d.rectangle([0, gy + (H * SS - gy) * i / 10, W * SS, H * SS], fill=(0, 0, 0, 10))
+        d.line([(0, gy), (W * SS, gy)], fill=INK, width=5)
+        rng = np.random.default_rng(11)
+        for _ in range(70):
+            x, y = rng.random() * W * SS, gy + 14 + rng.random() * (H * SS - gy) * 0.8
+            d.line([(x, y), (x + 26 + rng.random() * 30, y)], fill=(0, 0, 0, 38), width=3)
+        for o in scene.get("objects", []):
+            draw_object(d, o, W, H, gy, t)
+        for a in sorted(scene["_actors"], key=lambda a: a.s.get("z", 0)):
+            a.draw(d, t, gy)
+        draw_fx(d, scene, t, W, H, gy, scene["_actors"])
+        if scene.get("dim"):
+            d.rectangle([0, 0, W * SS, H * SS], fill=(20, 24, 50, int(scene["dim"] * 255)))
+        for fx in scene.get("fx", []):
+            if fx["type"] == "flash" and fx["t"] <= t <= fx["t"] + 0.5:
+                d.rectangle([0, 0, W * SS, H * SS], fill=(255, 255, 255, int(200 * (1 - (t - fx["t"]) / 0.5))))
+    # camera: push-in, pan and impact shake
+    z0, z1 = scene.get("zoom", [1.0, 1.06])
+    z = lerp(z0, z1, u)
+    cx = lerp(fx0[0], (fx1 or fx0)[0], u)
+    cy = fx0[1]
+    sx = sy = 0.0
+    for sh_ in scene.get("shake", []):
+        if sh_["t"] <= t <= sh_["t"] + sh_.get("dur", 0.4):
+            k = 1 - (t - sh_["t"]) / sh_.get("dur", 0.4)
+            sx = math.sin(t * 90) * sh_.get("amp", 14) * k * SS
+            sy = math.cos(t * 77) * sh_.get("amp", 14) * k * SS
+    M = cv2.getRotationMatrix2D((cx * W * SS, cy * H * SS), 0, z / SS)
+    M[0, 2] += W / 2 - cx * W * SS + sx / SS
+    M[1, 2] += H / 2 - cy * H * SS + sy / SS
+    out = cv2.warpAffine(np.asarray(img), M, (W, H), flags=cv2.INTER_AREA if z / SS < 1 else cv2.INTER_LINEAR,
+                         borderMode=cv2.BORDER_REPLICATE)
+    out = _grade(out, W, H, t)
     pil = Image.fromarray(out)
     dd = ImageDraw.Draw(pil, "RGBA")
     for tx in scene.get("text", []):
         if tx["t"] <= t < tx.get("end", scene["duration"]):
             age = t - tx["t"]
             a = smooth(age / 0.35) * (1 - smooth((t - (tx.get("end", scene["duration"]) - 0.3)) / 0.3))
-            size = int(tx.get("size", 0.085) * H * (0.92 + 0.08 * smooth(age / 0.35)))
+            size = int(tx.get("size", 0.085) * H * (0.9 + 0.1 * smooth(age / 0.35)))
             f_ = font(size)
             w = dd.textlength(tx["text"], font=f_)
             px, py = (W - w) / 2, tx.get("y", 0.12) * H
-            dd.text((px + 3, py + 4), tx["text"], font=f_, fill=(0, 0, 0, int(60 * a)))
-            dd.text((px, py), tx["text"], font=f_, fill=tx.get("color", INK) + (int(255 * a),))
+            dd.text((px + 4, py + 5), tx["text"], font=f_, fill=(0, 0, 0, int(70 * a)))
+            dd.text((px, py), tx["text"], font=f_, fill=tx.get("color", INK) + (int(255 * a),), stroke_width=1, stroke_fill=INK + (int(255 * a),))
+            ub = smooth((age - 0.1) / 0.5)  # ink underline that draws itself in
+            dd.line([(px, py + size * 1.12), (px + w * ub, py + size * 1.12)], fill=tx.get("color", INK) + (int(230 * a),), width=max(4, size // 14))
     return np.asarray(pil)
 
 
+_VIG = {}
+
+
+def _grade(arr, W, H, t):
+    key = (W, H)
+    if key not in _VIG:
+        yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
+        r = np.sqrt(((xx - W / 2) / (W / 2)) ** 2 + ((yy - H / 2) / (H / 2)) ** 2) / 1.41
+        _VIG[key] = (1 - 0.38 * np.clip(r, 0, 1) ** 2.3)[..., None]
+    f = arr.astype(np.float32) * _VIG[key] * np.array([1.03, 1.0, 0.93], dtype=np.float32)
+    rng = np.random.default_rng(int(t * 30) % 12)
+    f += rng.standard_normal((H, W, 1)).astype(np.float32) * 4.0
+    return np.clip(f, 0, 255).astype(np.uint8)
+
+
 def prepare(scene, W, H):
-    scene["_actors"] = [Actor(a, W, H) for a in scene["actors"]]
+    scene["_actors"] = [Actor(a, W, H) for a in scene.get("actors", [])]
     return scene
