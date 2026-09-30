@@ -393,6 +393,39 @@ def draw_fx(d, scene, t, W, H, gy, actors):
             pass  # drawn later over the whole frame
 
 
+_SKYSUN = {}
+_GROUND = {}
+
+
+def _sky_sun(W, H, top, bot, sun):
+    key = (W, H, tuple(top), tuple(bot), tuple(sun[:2]) + tuple(sun[2]) if sun else None)
+    if key not in _SKYSUN:
+        im = Image.fromarray(_sky(None, W, H, top, bot))
+        if sun:
+            d = ImageDraw.Draw(im, "RGBA")
+            sx, sy, sc = sun
+            for r, al in ((0.22, 18), (0.14, 30), (0.085, 255)):
+                d.ellipse([sx * W * SS - r * H * SS, sy * H * SS - r * H * SS, sx * W * SS + r * H * SS, sy * H * SS + r * H * SS], fill=tuple(sc) + (al,))
+        _SKYSUN[key] = im
+    return _SKYSUN[key]
+
+
+def _ground(W, H, gy, gcol):
+    key = (W, H, int(gy), tuple(gcol))
+    if key not in _GROUND:
+        h = H * SS - int(gy)
+        im = Image.new("RGB", (W * SS, h), tuple(gcol))
+        dd = ImageDraw.Draw(im, "RGBA")
+        for i in range(10):  # ground gets darker toward the bottom
+            dd.rectangle([0, h * i / 10, W * SS, h], fill=(0, 0, 0, 10))
+        rng = np.random.default_rng(11)
+        for _ in range(70):
+            x, y = rng.random() * W * SS, 14 + rng.random() * h * 0.8
+            dd.line([(x, y), (x + 26 + rng.random() * 30, y)], fill=(0, 0, 0, 38), width=3)
+        _GROUND[key] = im
+    return _GROUND[key]
+
+
 def render_card(scene, t, W, H):
     c = scene["card"]
     dark = c.get("dark", True)
@@ -441,24 +474,13 @@ def render_frame(scene, t, W, H):
         draw_map(d, scene, W, H, t)
     else:
         top, bot = scene.get("sky", ((196, 214, 226), (246, 236, 214)))
-        img = Image.fromarray(_sky(None, W, H, top, bot))
+        img = _sky_sun(W, H, top, bot, scene.get("sun")).copy()
         d = ImageDraw.Draw(img, "RGBA")
-        if scene.get("sun"):
-            sx, sy, sc = scene["sun"]
-            for r, al in ((0.22, 18), (0.14, 30), (0.085, 255)):
-                d.ellipse([sx * W * SS - r * H * SS, sy * H * SS - r * H * SS, sx * W * SS + r * H * SS, sy * H * SS + r * H * SS],
-                          fill=sc + (al,))
         for layer in scene.get("hills", []):
             _hills(d, W, H, gy, layer, off)
         gcol = scene.get("ground_color", (176, 158, 120))
-        d.rectangle([0, gy, W * SS, H * SS], fill=gcol)
-        for i in range(10):  # ground gradient darker toward the bottom
-            d.rectangle([0, gy + (H * SS - gy) * i / 10, W * SS, H * SS], fill=(0, 0, 0, 10))
+        img.paste(_ground(W, H, gy, gcol), (0, int(gy)))
         d.line([(0, gy), (W * SS, gy)], fill=INK, width=5)
-        rng = np.random.default_rng(11)
-        for _ in range(70):
-            x, y = rng.random() * W * SS, gy + 14 + rng.random() * (H * SS - gy) * 0.8
-            d.line([(x, y), (x + 26 + rng.random() * 30, y)], fill=(0, 0, 0, 38), width=3)
         for o in scene.get("objects", []):
             draw_object(d, o, W, H, gy, t)
         for a in sorted(scene["_actors"], key=lambda a: a.s.get("z", 0)):
@@ -503,19 +525,26 @@ def render_frame(scene, t, W, H):
     return np.asarray(pil)
 
 
-_VIG = {}
+_GRADE = {}
 
 
 def _grade(arr, W, H, t):
+    """Vignette + warm tint + a little film grain. Multiplier and grain bank are built once per size."""
     key = (W, H)
-    if key not in _VIG:
+    if key not in _GRADE:
         yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
         r = np.sqrt(((xx - W / 2) / (W / 2)) ** 2 + ((yy - H / 2) / (H / 2)) ** 2) / 1.41
-        _VIG[key] = (1 - 0.38 * np.clip(r, 0, 1) ** 2.3)[..., None]
-    f = arr.astype(np.float32) * _VIG[key] * np.array([1.03, 1.0, 0.93], dtype=np.float32)
-    rng = np.random.default_rng(int(t * 30) % 12)
-    f += rng.standard_normal((H, W, 1)).astype(np.float32) * 1.6
-    return np.clip(f, 0, 255).astype(np.uint8)
+        vig = (1 - 0.38 * np.clip(r, 0, 1) ** 2.3)[..., None]
+        mult = (vig * np.array([1.03, 1.0, 0.93], dtype=np.float32)).astype(np.float32)
+        rng = np.random.default_rng(5)
+        bank = [(rng.standard_normal((H, W, 1)) * 1.6).astype(np.float32) for _ in range(12)]
+        _GRADE[key] = (mult, bank)
+    mult, bank = _GRADE[key]
+    f = arr.astype(np.float32)
+    f *= mult
+    f += bank[int(t * 30) % 12]
+    np.clip(f, 0, 255, out=f)
+    return f.astype(np.uint8)
 
 
 def prepare(scene, W, H):

@@ -11,6 +11,7 @@ import asyncio
 import hashlib
 import random
 import re
+import threading
 from xml.sax.saxutils import escape as xml_escape
 
 import numpy as np
@@ -23,6 +24,7 @@ EMOTIONS = {
     "dramatic": (-9, -3, 5, 140), "excited": (8, 7, 6, -30), "urgent": (12, 4, 6, -50), "awed": (-6, 4, 0, 90),
 }
 MOOD_EMOTION = {"calm": "warm", "tense": "tense", "epic": "urgent", "sad": "somber", "triumph": "awed", "mystery": "awed"}
+_LOCK = threading.Lock()      # the SSML passthrough briefly patches a module function, so serialise construction
 FALLBACK_VOICES = ["en-US-AndrewNeural", "en-US-GuyNeural"]
 
 
@@ -89,13 +91,14 @@ def _ssml_fragment(sentence, emphasis, pitch):
 async def _edge(text, voice, rate, pitch, vol, raw):
     import edge_tts
     import edge_tts.communicate as ec
-    orig = ec.escape
-    if raw:
-        ec.escape = lambda s, *a, **k: s          # we have already escaped; let our SSML tags through
-    try:
-        comm = edge_tts.Communicate(text, voice, rate=f"{rate:+d}%", pitch=f"{pitch:+d}Hz", volume=f"{vol:+d}%", boundary="WordBoundary")
-    finally:
-        ec.escape = orig
+    with _LOCK:
+        orig = ec.escape
+        if raw:
+            ec.escape = lambda s, *a, **k: s      # we have already escaped; let our SSML tags through
+        try:
+            comm = edge_tts.Communicate(text, voice, rate=f"{rate:+d}%", pitch=f"{pitch:+d}Hz", volume=f"{vol:+d}%", boundary="WordBoundary")
+        finally:
+            ec.escape = orig
     audio, words = bytearray(), []
     async for ch in comm.stream():
         if ch["type"] == "audio":

@@ -1,6 +1,7 @@
 """One button: pick an engaging history topic -> script -> fact-check -> stickman scenes -> voice, music, sound effects
 -> video -> thumbnails -> metadata, then stop and wait for you to approve."""
 import concurrent.futures as cf
+import pickle
 import multiprocessing as mp
 import json
 import os
@@ -25,7 +26,7 @@ MIN_S, MAX_S = 8 * 60, 15 * 60
 FAKE = lambda: bool(os.environ.get("STUDIO_FAKE"))
 HERE = pathlib.Path(__file__).parent
 STAGES = ["Picking a topic", "Writing the script", "Fact-checking", "Planning visuals", "Recording the voiceover",
-          "Drawing the scenes", "Mixing music and sound effects", "Making thumbnails", "Packaging"]
+          "Mixing music and sound effects", "Thumbnails and publishing package", "Drawing the scenes", "Putting it together"]
 
 VOCAB = f"""VISUAL RECIPE VOCABULARY (use only these words):
 - type: "stage" (stick figures), "map", or "card" (big text).
@@ -276,12 +277,15 @@ def _wav(path, x):
         wf.writeframes((np.clip(x.T, -1, 1) * 32767).astype(np.int16).tobytes())
 
 
-def run(job, pdir, settings, hint=None):
-    """Runs the whole chain. Saves everything needed for review into pdir/auto.json."""
+def _stamp(sec):
+    sec = int(sec)
+    return f"{sec // 60:02d}:{sec % 60:02d}" if sec < 3600 else f"{sec // 3600}:{sec % 3600 // 60:02d}:{sec % 60:02d}"
+
+
+def plan(job, pdir, settings, hint=None):
+    """Phases 1-6: topic, script, fact-check, voice, music/sfx mix, thumbnails, package. Saves plan.pkl + mix.flac."""
     pdir = pathlib.Path(pdir)
     (pdir / "out").mkdir(parents=True, exist_ok=True)
-    seg_dir = pdir / "seg"
-    seg_dir.mkdir(exist_ok=True)
     t_start = time.time()
 
     _stage(job, 0)
@@ -292,7 +296,6 @@ def run(job, pdir, settings, hint=None):
     _stage(job, 1)
     outline = write_outline(topic, hook)
     chapters = outline["chapters"]
-    total_target = sum(int(c.get("target_words", 220)) for c in chapters) or 1
     scripts = []  # list of (chapter_idx, scene)
     prev_tail = ""
     for i, ch in enumerate(chapters):
@@ -341,16 +344,22 @@ def run(job, pdir, settings, hint=None):
         scene_moods.append(cur)              # maps and date cards keep the previous mood
 
     _stage(job, 4)
-    voices, words_all, scenes, cursor, starts = [], [], [], 0.0, []
     v = settings
     cfg = {"voice": {"name": v.get("voice", "en-US-AndrewMultilingualNeural"), "rate": v.get("rate", "+0%"), "pitch": v.get("pitch", "+0Hz")}}
+
+    def _speak(i):
+        text = scripts[i][1]["narration"].strip()
+        if FAKE():
+            return tts.silent(text)
+        return narrator.speak(text, cfg, scripts[i][1].get("delivery"), scene_moods[i])
+    workers = int(os.environ.get("STUDIO_TTS_WORKERS", 6))
+    with cf.ThreadPoolExecutor(max_workers=max(1, workers)) as ex:       # sentences are independent: record them in parallel
+        spoken = list(ex.map(_speak, range(len(scripts))))
+    _log(job, f"  voiced {len(scripts)} scenes")
+    voices, words_all, scenes, cursor, starts = [], [], [], 0.0, []
     for i, (ci, s) in enumerate(scripts):
         vis = visuals[i]
-        text = s["narration"].strip()
-        if FAKE():
-            vx, w = tts.silent(text)
-        else:
-            vx, w = narrator.speak(text, cfg, s.get("delivery"), scene_moods[i])
+        vx, w = spoken[i]
         dur = LEAD + len(vx) / tts.SR + GAP
         if vis["type"] == "card":
             dur = max(dur, 3.2)
@@ -370,35 +379,12 @@ def run(job, pdir, settings, hint=None):
         words_all += [[x[0], cursor + LEAD + x[1], cursor + LEAD + x[2]] for x in w]
         sc["_t0"] = cursor
         cursor += dur
-        if i % 10 == 0:
-            _log(job, f"  voiced {i + 1}/{len(scripts)} scenes")
     total = cursor
     _log(job, f"total length {total / 60:.1f} minutes")
     if not FAKE() and not (MIN_S <= total <= MAX_S):
         _log(job, f"  WARNING: outside the 8-15 minute target ({total / 60:.1f} min)")
 
     _stage(job, 5)
-    jobs = []
-    for i, sc in enumerate(scenes):
-        plain = {k: v_ for k, v_ in sc.items() if not k.startswith("_actors")}
-        jobs.append((plain, sc["_t0"], words_all, seg_dir / f"s{i:03d}.mp4", i == 0, i == len(scenes) - 1))
-    workers = max(1, min(os.cpu_count() or 2, int(os.environ.get("STUDIO_WORKERS", 4))))
-    segs = [None] * len(jobs)
-    with cf.ProcessPoolExecutor(max_workers=workers, mp_context=mp.get_context("spawn")) as ex:
-        futs = {ex.submit(render_segment, j): k for k, j in enumerate(jobs)}
-        done = 0
-        for f in cf.as_completed(futs):
-            segs[futs[f]] = f.result()
-            done += 1
-            if done % 5 == 0 or done == len(jobs):
-                el = time.time() - t_start
-                _log(job, f"  drew {done}/{len(jobs)} scenes")
-    lst = seg_dir / "list.txt"
-    lst.write_text("".join(f"file '{pathlib.Path(p).resolve()}'\n" for p in segs))
-    joined = seg_dir / "joined.mp4"
-    subprocess.run([ffmpeg.exe(), "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", str(lst), "-c", "copy", str(joined)], check=True)
-
-    _stage(job, 6)
     n = int(total * tts.SR)
     voice = np.zeros(n, dtype=np.float32)
     for vv, s0 in zip(voices, starts):
@@ -422,14 +408,13 @@ def run(job, pdir, settings, hint=None):
     fx_duck = 1 - 0.3 * env
     mix = np.stack([voice + music_l * duck + fx_tr[0] * 0.75 * fx_duck, voice + music_r * duck + fx_tr[1] * 0.75 * fx_duck])
     mix = mix / max(1e-6, float(np.abs(mix).max())) * 0.92
-    wav = seg_dir / "mix.wav"
+    wav = pdir / "mix.wav"
     _wav(wav, mix)
-    final = pdir / "out" / "final.mp4"
-    subprocess.run([ffmpeg.exe(), "-y", "-loglevel", "error", "-i", str(joined), "-i", str(wav), "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
-                    "-ar", "48000", "-af", "loudnorm=I=-16:TP=-2.0:LRA=11", "-movflags", "+faststart", "-shortest", str(final)], check=True)
+    subprocess.run([ffmpeg.exe(), "-y", "-loglevel", "error", "-i", str(wav), "-c:a", "flac", str(pdir / "mix.flac")], check=True)
+    wav.unlink()
     _log(job, f"  sound effects: {len(events)} cues")
 
-    _stage(job, 7)
+    _stage(job, 6)
     meta = make_metadata(topic, outline, chapters, full_text)
     thumbs = []
     for k, tr in enumerate((meta.get("thumbs") or [])[:3]):
@@ -439,28 +424,83 @@ def run(job, pdir, settings, hint=None):
     if not thumbs:
         thumb.render(meta["title"][:30], {}, pdir / "out" / "thumb1.jpg", 0)
         thumbs = ["thumb1.jpg"]
-
-    _stage(job, 8)
     starts_ch = {}
     for sc in scenes:
         starts_ch.setdefault(sc["chapter"], sc["_t0"])
-
-    def stamp(sec):
-        sec = int(sec)
-        return f"{sec // 60:02d}:{sec % 60:02d}" if sec < 3600 else f"{sec // 3600}:{sec % 3600 // 60:02d}:{sec % 60:02d}"
-    chap_lines = [f"{stamp(starts_ch.get(i, 0) if i else 0)} {c['title']}" for i, c in enumerate(chapters) if i in starts_ch or i == 0]
+    chap_lines = [f"{_stamp(starts_ch.get(i, 0) if i else 0)} {c['title']}" for i, c in enumerate(chapters) if i in starts_ch or i == 0]
     desc = (meta.get("description_intro", "").strip() + "\n\nChapters\n" + "\n".join(chap_lines) +
             "\n\nNew history stories every week: subscribe so you don't miss the next one.\n\n"
             "Made with AI-assisted stick-figure illustrations and a synthetic narrator.\n\n" + " ".join(meta.get("hashtags", [])[:3]))
-    package = {"topic": topic, "hook": hook, "title": meta["title"][:100], "title_options": [t for t in (meta.get("title_options") or [meta["title"]])][:6], "description": desc, "tags": meta.get("tags", [])[:15],
-               "pinned_comment": meta.get("pinned_comment", ""), "thumbs": thumbs, "chosen_thumb": thumbs[0], "flags": flags,
-               "chapters": [{"title": c["title"], "start": stamp(starts_ch.get(i, 0))} for i, c in enumerate(chapters)],
-               "minutes": round(total / 60, 1), "words": wc, "script": full_text, "length_ok": MIN_S <= total <= MAX_S,
-               "made_in_min": round((time.time() - t_start) / 60, 1)}
+    package = {"topic": topic, "hook": hook, "title": meta["title"][:100], "title_options": [t for t in (meta.get("title_options") or [meta["title"]])][:6],
+               "description": desc, "tags": meta.get("tags", [])[:15], "pinned_comment": meta.get("pinned_comment", ""), "thumbs": thumbs,
+               "chosen_thumb": thumbs[0], "flags": flags,
+               "chapters": [{"title": c["title"], "start": _stamp(starts_ch.get(i, 0))} for i, c in enumerate(chapters)],
+               "minutes": round(total / 60, 1), "words": wc, "script": full_text, "length_ok": MIN_S <= total <= MAX_S}
+    plain_scenes = [{k: v_ for k, v_ in sc.items() if k != "_actors"} for sc in scenes]
+    with open(pdir / "plan.pkl", "wb") as f:
+        pickle.dump({"scenes": plain_scenes, "words": words_all, "total": total, "package": package, "t_start": t_start}, f)
+    _log(job, f"plan ready: {len(scenes)} scenes, {package['minutes']} min")
+    return package
+
+
+def _load_plan(pdir):
+    with open(pathlib.Path(pdir) / "plan.pkl", "rb") as f:
+        return pickle.load(f)
+
+
+def render_shard(job, pdir, shard=0, shards=1):
+    """Phase 7: draw the scenes whose index % shards == shard (other machines draw the rest)."""
+    pdir = pathlib.Path(pdir)
+    P = _load_plan(pdir)
+    seg_dir = pdir / "seg"
+    seg_dir.mkdir(exist_ok=True)
+    scenes, words_all = P["scenes"], P["words"]
+    _stage(job, 7)
+    mine = [i for i in range(len(scenes)) if i % shards == shard]
+    jobs = [(scenes[i], scenes[i]["_t0"], words_all, seg_dir / f"s{i:03d}.mp4", i == 0, i == len(scenes) - 1) for i in mine]
+    workers = max(1, min(os.cpu_count() or 2, int(os.environ.get("STUDIO_WORKERS", 4))))
+    _log(job, f"  drawing {len(jobs)} of {len(scenes)} scenes (shard {shard + 1}/{shards}) with {workers} workers")
+    with cf.ProcessPoolExecutor(max_workers=workers, mp_context=mp.get_context("spawn")) as ex:
+        futs = [ex.submit(render_segment, j) for j in jobs]
+        for k, f in enumerate(cf.as_completed(futs), 1):
+            f.result()
+            if k % 5 == 0 or k == len(jobs):
+                _log(job, f"  drew {k}/{len(jobs)} scenes")
+
+
+def assemble(job, pdir):
+    """Phase 8: join the drawn scenes, add the mixed audio, finish the package."""
+    pdir = pathlib.Path(pdir)
+    P = _load_plan(pdir)
+    seg_dir = pdir / "seg"
+    _stage(job, 8)
+    n = len(P["scenes"])
+    segs = [seg_dir / f"s{i:03d}.mp4" for i in range(n)]
+    missing = [p.name for p in segs if not p.exists()]
+    if missing:
+        raise RuntimeError(f"{len(missing)} scene files are missing, e.g. {missing[:3]}")
+    lst = seg_dir / "list.txt"
+    lst.write_text("".join(f"file '{p.resolve()}'\n" for p in segs))
+    joined = seg_dir / "joined.mp4"
+    subprocess.run([ffmpeg.exe(), "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", str(lst), "-c", "copy", str(joined)], check=True)
+    final = pdir / "out" / "final.mp4"
+    subprocess.run([ffmpeg.exe(), "-y", "-loglevel", "error", "-i", str(joined), "-i", str(pdir / "mix.flac"), "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
+                    "-ar", "48000", "-af", "loudnorm=I=-16:TP=-2.0:LRA=11", "-movflags", "+faststart", "-shortest", str(final)], check=True)
+    package = P["package"]
+    package["made_in_min"] = round((time.time() - P["t_start"]) / 60, 1)
     (pdir / "auto.json").write_text(json.dumps(package, indent=1))
     for f in seg_dir.glob("*"):
         f.unlink()
     seg_dir.rmdir()
-    remember_topic(topic)
+    (pdir / "plan.pkl").unlink()
+    (pdir / "mix.flac").unlink()
+    remember_topic(package["topic"])
     _log(job, f"ready for review ({package['minutes']} min video, built in {package['made_in_min']} min)")
     return package
+
+
+def run(job, pdir, settings, hint=None):
+    """Everything on this machine, start to finish (used by the local app). Saves the review package to pdir/auto.json."""
+    plan(job, pdir, settings, hint)
+    render_shard(job, pdir, 0, 1)
+    return assemble(job, pdir)
