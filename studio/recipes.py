@@ -127,6 +127,7 @@ def build_stage(v, dur, rnd, seed=0):
         scene["sun"] = bg["sun"]
     scene["dim"] = bg.get("dim", 0)
     scene["duration"] = dur
+    scene["bg_name"] = v["background"]
     actors = []
     for i, a in enumerate(v["actors"]):
         props, tun = ROLES[a["role"]]

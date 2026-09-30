@@ -26,8 +26,10 @@ def loop(seed=3):
         for f in chord:
             for det in (-0.004, 0.0, 0.004):
                 ff = f * (1 + det)
-                out += env * np.sin(2 * np.pi * ff * t + rng.random() * 6) * 0.22
-            out += env * np.sin(2 * np.pi * f * 2 * t) * 0.05
+                out += env * np.sin(2 * np.pi * ff * t + rng.random() * 6) * 0.09          # bass (kept quiet)
+                out += env * np.sin(2 * np.pi * ff * 2 * t + rng.random() * 6) * 0.17      # body
+                out += env * np.sin(2 * np.pi * ff * 4 * t + rng.random() * 6) * 0.10      # air
+            out += env * np.sin(2 * np.pi * f * 3 * t) * 0.04
     # wrap-around: blend the tail into the head so the loop is seamless
     for k, note in enumerate(np.concatenate([CHORDS[i] for i in (0, 3, 2, 1)])):
         t0 = 1.0 + k * 3.7
@@ -35,7 +37,10 @@ def loop(seed=3):
         if m > 0 and t0 < total - 3:
             tt = np.arange(m) / SR
             out[int(t0 * SR):int(t0 * SR) + m] += 0.10 * np.sin(2 * np.pi * note * 4 * tt) * np.exp(-tt * 2.6)
-    out = _lp(out, 1800)
+    out = _lp(out, 3200)
+    spec = np.fft.rfft(out)
+    fr = np.fft.rfftfreq(len(out), 1 / SR)
+    out = np.fft.irfft(spec * (1 - 1 / (1 + (fr / 70.0) ** 4)), len(out))   # no mud below 70 Hz
     return (out / np.abs(out).max()).astype(np.float32)
 
 

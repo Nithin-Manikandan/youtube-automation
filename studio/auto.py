@@ -159,9 +159,9 @@ def make_metadata(topic, outline, chapters, text):
                 "description_intro": "The real story of how the Western Roman Empire ended.",
                 "tags": ["rome", "history", "fall of rome", "roman empire", "476 ad"], "hashtags": ["#history", "#rome", "#ancienthistory"],
                 "pinned_comment": "What surprised you most? Tell me below.",
-                "thumbs": [{"text": "ROME FELL", "mood": "fire", "role": "emperor", "action": "scared", "emotion": "shock", "badge": "476 AD", "objects": ["castle", "column"]},
-                           {"text": "NO ONE NOTICED", "mood": "ice", "role": "warrior", "action": "sword_up", "emotion": "angry", "objects": ["tent"]},
-                           {"text": "WHY IT COLLAPSED", "mood": "night", "role": "king", "action": "shrug", "emotion": "worried", "badge": "476", "mark": "?", "objects": ["tower"]}]}
+                "thumbs": [{"text": "ROME FELL", "mood": "fire", "role": "emperor", "color": "purple", "action": "scared", "emotion": "shock", "badge": "476 AD", "concept": "looming", "enemy_role": "warrior"},
+                           {"text": "WHY IT COLLAPSED", "mood": "blood", "role": "king", "color": "purple", "action": "shrug", "emotion": "worried", "badge": "476", "concept": "ruin", "objects": ["castle", "tower", "column"]},
+                           {"text": "NO ONE NOTICED", "mood": "ice", "role": "soldier", "color": "blue", "action": "sword_up", "emotion": "angry", "concept": "versus", "enemy_role": "warrior", "enemy_color": "red"}]}
     prompt = f"""Create the YouTube click package for a history video. It must earn the click, honestly.
 TOPIC: {topic}
 CHAPTERS: {json.dumps([c['title'] for c in chapters])}
@@ -172,9 +172,10 @@ TITLE RULES (from CTR research): 40-60 characters; front-load the main keyword; 
 use one of: a specific number or date, a contrarian angle ("Everything you know about X is wrong" only if true), a time marker ("in one day"), or a strong
 emotional word. No ALL CAPS, no lies, nothing the video does not deliver. Write 5 different titles using different patterns and mark the best as "title".
 
-THUMBNAIL RULES: 2-3 words maximum (never more than 4), huge and readable on a phone; the text must ADD to the title, not repeat it (tease the twist);
-one giant expressive face showing the emotion the video promises; high contrast; optional date badge (like "476 AD") and ?/! mark. Make 3 distinctly
-different concepts (different text, mood, character and emotion) so the best can be chosen.
+THUMBNAIL RULES: 2-3 words maximum, huge and readable on a phone; the text must ADD to the title, not repeat it (tease the twist or stakes);
+one clear focal character with a strong emotion; scale contrast (a small hero against something huge) is proven to work; high contrast; an optional
+date badge (like "476 AD"). Make 3 different concepts, one per layout: "looming" (hero vs a giant menacing silhouette and an army), "ruin" (a burning
+skyline of the story's setting), "versus" (two sides clashing). Different text, mood, character and emotion in each.
 
 Return JSON:
 {{"title": "best title",
@@ -183,7 +184,7 @@ Return JSON:
  "tags": ["12-15 search tags, most important first, mix of broad and specific"],
  "hashtags": ["#three", "#relevant", "#hashtags"],
  "pinned_comment": "a question that sparks comments",
- "thumbs": [{{"text": "2-3 WORDS", "mood": "fire|ice|gold|storm|blood|night", "role": "one of {sorted(recipes.ROLES)}", "color": "one of {sorted(recipes.COLORS)}", "action": "scared|point|sword_up|proud|shrug|cheer|slump", "emotion": "shock|angry|worried|sad|smile", "badge": "optional short date like 476 AD or empty", "mark": "! or ? or empty", "objects": ["1-2 of {sorted(recipes.OBJECTS - {'cloud', 'torch'})} matching the story setting"]}}]}}"""
+ "thumbs": [{{"text": "2-3 WORDS", "mood": "fire|ice|gold|storm|blood|night", "role": "one of {sorted(recipes.ROLES)}", "color": "one of {sorted(recipes.COLORS)}", "action": "scared|point|sword_up|proud|shrug|cheer|slump", "emotion": "shock|angry|worried|sad|smile", "concept": "looming|ruin|versus", "enemy_role": "role of the opposing side", "enemy_color": "colour name", "badge": "optional short date like 476 AD or empty", "objects": ["1-2 of {sorted(recipes.OBJECTS - {'cloud', 'torch'})} matching the story setting"]}}]}}"""
     return _llm(prompt, 0.7)
 
 
@@ -238,11 +239,12 @@ def render_segment(args):
 
 
 def _wav(path, x):
+    """x: (channels, n) float array."""
     with wave.open(str(path), "wb") as wf:
-        wf.setnchannels(1)
+        wf.setnchannels(x.shape[0])
         wf.setsampwidth(2)
         wf.setframerate(tts.SR)
-        wf.writeframes((np.clip(x, -1, 1) * 32767).astype(np.int16).tobytes())
+        wf.writeframes((np.clip(x.T, -1, 1) * 32767).astype(np.int16).tobytes())
 
 
 def run(job, pdir, settings, hint=None):
@@ -366,19 +368,24 @@ def run(job, pdir, settings, hint=None):
         voice[i0:i0 + len(seg)] += seg
     if np.abs(voice).max() > 0:
         voice = np.tanh(1.5 * voice / np.abs(voice).max()) * 0.9
+    env = audiolib._envelope(voice) if np.abs(voice).max() > 0 else np.zeros(n, dtype=np.float32)
     bed = music.bed(total)
-    music_tr = bed * 0.17 * (1 - 0.7 * audiolib._envelope(voice)) if np.abs(voice).max() > 0 else bed * 0.3
-    events = []
+    music_l = music_r = bed * 0.2                               # centred: delays on bass cancel on phone speakers
+    duck = (1 - 0.7 * env) if np.abs(voice).max() > 0 else 1.0
+    events, prev = [], None
     for sc in scenes:
-        events += sfx.scene_events({k: v_ for k, v_ in sc.items() if k != "_actors"}, sc["_t0"])
-    fx_tr = sfx.render_sfx(events, total) * 0.55
-    mix = voice + music_tr + fx_tr
+        plain = {k: v_ for k, v_ in sc.items() if k != "_actors"}
+        events += sfx.scene_events(plain, sc["_t0"], prev)
+        prev = plain
+    fx_tr = sfx.render_sfx(events, total)
+    fx_duck = 1 - 0.3 * env
+    mix = np.stack([voice + music_l * duck + fx_tr[0] * 0.75 * fx_duck, voice + music_r * duck + fx_tr[1] * 0.75 * fx_duck])
     mix = mix / max(1e-6, float(np.abs(mix).max())) * 0.92
     wav = seg_dir / "mix.wav"
     _wav(wav, mix)
     final = pdir / "out" / "final.mp4"
     subprocess.run([ffmpeg.exe(), "-y", "-loglevel", "error", "-i", str(joined), "-i", str(wav), "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
-                    "-ar", "48000", "-af", "loudnorm=I=-16:TP=-1.5:LRA=11", "-movflags", "+faststart", "-shortest", str(final)], check=True)
+                    "-ar", "48000", "-af", "loudnorm=I=-16:TP=-2.0:LRA=11", "-movflags", "+faststart", "-shortest", str(final)], check=True)
     _log(job, f"  sound effects: {len(events)} cues")
 
     _stage(job, 7)
