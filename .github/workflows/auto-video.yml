@@ -1,0 +1,37 @@
+name: Auto video
+
+on:
+  workflow_dispatch:
+    inputs:
+      hint:
+        description: "Optional topic hint (blank = the AI picks)"
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  make:
+    runs-on: ubuntu-latest
+    timeout-minutes: 170
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Make the video (topic, script, scenes, voice, sound, thumbnails)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          HINT: ${{ github.event.inputs.hint }}
+        run: python -m studio.run_auto --hint "$HINT" --out output/auto
+      - name: Download the result from the run page
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: auto-video
+          path: |
+            output/auto/out/*
+            output/auto/auto.json
