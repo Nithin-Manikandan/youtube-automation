@@ -62,6 +62,19 @@ def _llm(prompt, temp=0.8):
     return None
 
 
+def _unwrap(o, key):
+    """Gemini sometimes returns a bare list, or wraps the list under another key. Normalise to {key: list}."""
+    if isinstance(o, list):
+        return {key: o}
+    if isinstance(o, dict):
+        if key in o:
+            return o
+        for v in o.values():
+            if isinstance(v, list) and v and isinstance(v[0], (dict, str)):
+                return {key: v}
+    return {key: []}
+
+
 def used_topics():
     p = HERE / "topics_used.json"
     return json.loads(p.read_text()) if p.exists() else []
@@ -87,7 +100,7 @@ Pick a topic that MANY people would click and watch to the end:
 
 Brainstorm 8 candidates, score each 1-10 for: broad_appeal, story_drama, factual_solidity. Return JSON:
 {{"candidates": [{{"topic": "working title as a sentence", "hook": "the one-line hook", "broad_appeal": 0, "story_drama": 0, "factual_solidity": 0}}]}}"""
-    c = _llm(prompt, 1.0).get("candidates", [])
+    c = [x for x in _unwrap(_llm(prompt, 1.0), "candidates")["candidates"] if isinstance(x, dict) and x.get("topic")]
     if not c:
         raise RuntimeError("No topic candidates came back.")
     best = max(c, key=lambda x: (x.get("broad_appeal", 0) + x.get("story_drama", 0) + 1.5 * x.get("factual_solidity", 0)))
@@ -109,7 +122,11 @@ lands one memorable takeaway. Chronology must be correct. Use only well-document
 Return JSON: {{"working_title": "", "chapters": [{{"title": "", "purpose": "", "key_facts": ["specific documented facts/dates/names this chapter must use"], "target_words": 240}}]}}
 Chapter target_words must sum to about 2000 (between 1800 and 2200)."""
     o = _llm(prompt, 0.7)
-    if len(o.get("chapters", [])) < 4:
+    if isinstance(o, dict) and "working_title" not in o and "chapters" not in o:
+        o = _unwrap(o, "chapters")
+    o = o if isinstance(o, dict) else {"chapters": o}
+    o["chapters"] = [c for c in _unwrap(o, "chapters")["chapters"] if isinstance(c, dict) and c.get("title")]
+    if len(o["chapters"]) < 4:
         raise RuntimeError("The outline came back too short.")
     return o
 
@@ -140,11 +157,12 @@ change it only when the story's feeling really changes, at most once every 15-20
 "pause_before_ms" (0-700) for dramatic beats (a pause before a reveal). Vary the delivery across scenes so the reading never sounds flat.
 
 Return JSON only: {{"scenes": [{{"narration": "...", "mood": "calm", "delivery": {{"emotion": "warm", "emphasis": ["thousand"], "pause_before_ms": 0}}, "visual": {{"type": "stage", "background": "city_day", "actors": [{{"role": "emperor", "color": "purple", "pos": "center", "action": "talk", "emotion": "worried"}}], "objects": ["column"], "effects": [], "title": "", "camera": "push_in"}}}}]}}"""
-    o = _llm(prompt, 0.8)
-    sc = [s for s in o.get("scenes", []) if isinstance(s, dict) and str(s.get("narration", "")).strip()]
-    if len(sc) < 3:
-        raise RuntimeError(f"Chapter {idx + 1} came back with too few scenes.")
-    return sc
+    for attempt in range(3):
+        o = _unwrap(_llm(prompt, 0.8), "scenes")
+        sc = [s for s in o["scenes"] if isinstance(s, dict) and str(s.get("narration", "")).strip()]
+        if len(sc) >= 3:
+            return sc
+    raise RuntimeError(f"Chapter {idx + 1} came back with too few scenes after 3 tries.")
 
 
 def factcheck(topic, text):
@@ -156,7 +174,7 @@ Be specific and honest; if a claim is fine do not list it. Return JSON: {{"flags
 
 NARRATION:
 {text}"""
-    return _llm(prompt, 0.2).get("flags", [])
+    return [f for f in _unwrap(_llm(prompt, 0.2), "flags")["flags"] if isinstance(f, dict)]
 
 
 def make_metadata(topic, outline, chapters, text):
@@ -191,7 +209,12 @@ Return JSON:
  "hashtags": ["#three", "#relevant", "#hashtags"],
  "pinned_comment": "a question that sparks comments",
  "thumbs": [{{"text": "2-3 WORDS", "mood": "fire|ice|gold|storm|blood|night", "role": "one of {sorted(recipes.ROLES)}", "color": "one of {sorted(recipes.COLORS)}", "action": "scared|point|sword_up|proud|shrug|cheer|slump", "emotion": "shock|angry|worried|sad|smile", "concept": "looming|ruin|versus", "enemy_role": "role of the opposing side", "enemy_color": "colour name", "badge": "optional short date like 476 AD or empty", "objects": ["1-2 of {sorted(recipes.OBJECTS - {'cloud', 'torch'})} matching the story setting"]}}]}}"""
-    return _llm(prompt, 0.7)
+    m = _llm(prompt, 0.7)
+    if isinstance(m, list):
+        m = next((x for x in m if isinstance(x, dict)), {})
+    if not m.get("title"):
+        raise RuntimeError("The package came back without a title.")
+    return m
 
 
 def _fixture():
