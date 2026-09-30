@@ -10,7 +10,9 @@ import traceback
 from flask import Flask, jsonify, request, send_file, send_from_directory
 
 from pipeline import upload as yt_upload
-from . import ai, build
+import shutil
+
+from . import ai, auto, build
 
 HERE = pathlib.Path(__file__).parent
 PROJECTS = HERE / "projects"
@@ -261,6 +263,77 @@ def publish(pid):
                       "synthetic_media_disclosure": True}}
     vid = yt_upload.upload(d / "out" / "final.mp4", p["meta"], cfg, logs.append, shorts=vertical)
     return ok(video_id=vid, url=logs[-1] if logs else "")
+
+
+AUTO = {"pid": None, "job": None}
+
+
+def _auto_thread(pid, hint):
+    job = AUTO["job"]
+    try:
+        load_settings()
+        settings = {**DEFAULTS, **json.loads((PROJECTS / pid / "project.json").read_text())["settings"]}
+        auto.run(job, PROJECTS / pid, settings, hint)
+        job["state"] = "done"
+    except Exception as e:
+        traceback.print_exc()
+        job["log"].append("ERROR: " + str(e))
+        job["state"] = "error"
+
+
+@app.post("/api/auto/start")
+def auto_start():
+    if AUTO["job"] and AUTO["job"]["state"] == "running":
+        raise RuntimeError("A video is already being made.")
+    pid = f"auto-{int(time.time())}"
+    d = PROJECTS / pid
+    (d / "out").mkdir(parents=True)
+    (d / "project.json").write_text(json.dumps({"name": "Auto " + time.strftime("%b %d %H:%M"), "auto": True, "settings": DEFAULTS}))
+    AUTO["pid"], AUTO["job"] = pid, {"state": "running", "stage": 0, "log": [], "stages": auto.STAGES, "started": time.time()}
+    threading.Thread(target=_auto_thread, args=(pid, (request.json or {}).get("hint")), daemon=True).start()
+    return ok(pid=pid)
+
+
+@app.get("/api/auto/status")
+def auto_status():
+    return ok(pid=AUTO["pid"], job=AUTO["job"])
+
+
+@app.get("/api/auto/pending")
+def auto_pending():
+    out = []
+    for d in sorted(PROJECTS.glob("auto-*"), reverse=True):
+        if (d / "auto.json").exists() and not (d / "published.json").exists():
+            pkg = json.loads((d / "auto.json").read_text())
+            pkg.pop("script", None)
+            out.append({"pid": d.name, **pkg})
+    return ok(pending=out)
+
+
+@app.get("/api/auto/<pid>/script")
+def auto_script(pid):
+    return ok(script=json.loads((pdir(pid) / "auto.json").read_text()).get("script", ""))
+
+
+@app.post("/api/auto/<pid>/publish")
+def auto_publish(pid):
+    d = pdir(pid)
+    load_settings()
+    if not all(os.environ.get(k) for k in ("YT_CLIENT_ID", "YT_CLIENT_SECRET", "YT_REFRESH_TOKEN")):
+        raise RuntimeError("Add your YouTube keys in Settings first.")
+    b = request.json
+    meta = {"title": b["title"], "description": b["description"], "tags": b.get("tags", [])}
+    cfg = {"upload": {"privacy": b.get("privacy", "public"), "category_id": "27", "synthetic_media_disclosure": True}}
+    logs = []
+    vid = yt_upload.upload(d / "out" / "final.mp4", meta, cfg, logs.append, shorts=False, thumb=d / "out" / b.get("thumb", "thumb1.jpg"))
+    (d / "published.json").write_text(json.dumps({"video_id": vid, "log": logs, "at": time.time()}))
+    return ok(video_id=vid, url=f"https://www.youtube.com/watch?v={vid}", log=logs)
+
+
+@app.post("/api/auto/<pid>/discard")
+def auto_discard(pid):
+    shutil.rmtree(pdir(pid))
+    return ok()
 
 
 def main():

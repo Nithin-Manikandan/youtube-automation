@@ -95,3 +95,17 @@ python -m studio        # then open http://localhost:5055
 6. **Review and publish** to YouTube (private by default).
 
 Keep the content original: the formula is the structure, never the wording. History must be accurate; check the script before publishing.
+
+## Auto mode (one button, you approve at the end)
+
+In the Studio, **Make a video** does everything and then stops for your approval:
+
+1. Picks a history topic built to get clicks (broad appeal, high stakes, a twist, solid facts, not one you already made).
+2. Writes an 8-15 minute script chapter by chapter (cold open, open loops, a payoff), then fact-checks it and flags shaky statements.
+3. Turns every line into a stickman scene (stage, animated map, or fact card), speaks it with the free neural voice, and adds music plus sound effects timed to the action (footsteps, sword swings and clashes, thunder, rain, crowd cheers, crown clinks, impact thumps).
+4. Makes three thumbnails and five title options from current click-through research, plus description with chapters, tags, hashtags and a pinned-comment idea.
+5. Shows you the video, thumbnails (with a feed preview), title, description, tags and fact-check flags. **Approve and publish** uploads it with the chosen thumbnail.
+
+Nothing is published until you approve. It takes roughly 30-60 minutes. Publishing needs the YouTube keys; custom thumbnails also need a phone-verified YouTube channel, and the auth token needs the `youtube` scope (re-run `tools/youtube_auth.py` if you made the token earlier). The narration is AI-written, so read the fact-check flags before approving.
+
+Try it without any API keys: `STUDIO_FAKE=1 python -m studio` (test content, silent voice).

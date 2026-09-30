@@ -1,0 +1,299 @@
+{
+ "chapters": [
+  {
+   "title": "A Mighty Empire",
+   "scenes": [
+    {
+     "narration": "Rome, four seventy six. For a thousand years, the empire had looked unbeatable.",
+     "visual": {
+      "type": "stage",
+      "background": "city_day",
+      "actors": [
+       {
+        "role": "emperor",
+        "color": "purple",
+        "pos": "center",
+        "action": "proud",
+        "emotion": "smile",
+        "facing": ""
+       },
+       {
+        "role": "citizen",
+        "color": "brown",
+        "pos": "left",
+        "action": "cheer",
+        "emotion": "smile",
+        "facing": ""
+       },
+       {
+        "role": "citizen",
+        "color": "green",
+        "pos": "right",
+        "action": "cheer",
+        "emotion": "smile",
+        "facing": "left"
+       }
+      ],
+      "objects": [
+       "column"
+      ],
+      "effects": [],
+      "title": "ROME, 476 AD",
+      "camera": "push_in"
+     }
+    },
+    {
+     "narration": "It ruled from Britain to Egypt, and its roads, laws and legions shaped the known world.",
+     "visual": {
+      "type": "map",
+      "template": "expanding",
+      "center": "ROMAN EMPIRE",
+      "city": "Rome",
+      "labels": [
+       "BRITAIN",
+       "EGYPT",
+       "GAUL",
+       "SPAIN"
+      ],
+      "title": "THE ROMAN WORLD"
+     }
+    },
+    {
+     "narration": "But behind the marble and the parades, something was rotting.",
+     "visual": {
+      "type": "stage",
+      "background": "palace",
+      "actors": [
+       {
+        "role": "emperor",
+        "color": "purple",
+        "pos": "center_left",
+        "action": "talk",
+        "emotion": "worried",
+        "facing": ""
+       },
+       {
+        "role": "soldier",
+        "color": "blue",
+        "pos": "right",
+        "action": "slump",
+        "emotion": "sad",
+        "facing": "left"
+       }
+      ],
+      "objects": [
+       "column"
+      ],
+      "effects": [],
+      "title": "",
+      "camera": "pull_out"
+     }
+    }
+   ]
+  },
+  {
+   "title": "The Storm Breaks",
+   "scenes": [
+    {
+     "narration": "Tribes the Romans called barbarians were pouring across the borders, and the army could not be everywhere.",
+     "visual": {
+      "type": "map",
+      "template": "invasion",
+      "center": "ROMAN EMPIRE",
+      "city": "Rome",
+      "labels": [
+       "GOTHS",
+       "HUNS",
+       "VANDALS"
+      ],
+      "title": "THE INVADERS"
+     }
+    },
+    {
+     "narration": "Generals fought each other as often as they fought the enemy, and emperors were made and unmade in months.",
+     "visual": {
+      "type": "stage",
+      "background": "palace",
+      "actors": [
+       {
+        "role": "general",
+        "color": "red",
+        "pos": "left",
+        "action": "talk",
+        "emotion": "angry",
+        "facing": ""
+       },
+       {
+        "role": "emperor",
+        "color": "purple",
+        "pos": "right",
+        "action": "shrug",
+        "emotion": "worried",
+        "facing": "left"
+       }
+      ],
+      "objects": [
+       "column",
+       "torch"
+      ],
+      "effects": [],
+      "title": "",
+      "camera": "push_in"
+     }
+    },
+    {
+     "narration": "Then, in four seventy six, a barbarian commander named Odoacer marched on the capital.",
+     "visual": {
+      "type": "stage",
+      "background": "storm",
+      "actors": [
+       {
+        "role": "warrior",
+        "color": "red",
+        "pos": "right",
+        "action": "enter_run",
+        "emotion": "angry",
+        "facing": "left"
+       },
+       {
+        "role": "warrior",
+        "color": "red",
+        "pos": "far_right",
+        "action": "enter_run",
+        "emotion": "angry",
+        "facing": "left"
+       },
+       {
+        "role": "soldier",
+        "color": "blue",
+        "pos": "left",
+        "action": "scared",
+        "emotion": "shock",
+        "facing": ""
+       }
+      ],
+      "objects": [
+       "castle"
+      ],
+      "effects": [
+       "rain",
+       "dust"
+      ],
+      "title": "ODOACER MARCHES",
+      "camera": "pan_left"
+     }
+    },
+    {
+     "narration": "The defenders fought hard, and the gates rang with steel.",
+     "visual": {
+      "type": "stage",
+      "background": "battlefield",
+      "actors": [
+       {
+        "role": "soldier",
+        "color": "blue",
+        "pos": "center_left",
+        "action": "fight",
+        "emotion": "angry",
+        "facing": ""
+       },
+       {
+        "role": "warrior",
+        "color": "red",
+        "pos": "center_right",
+        "action": "fight",
+        "emotion": "angry",
+        "facing": "left"
+       }
+      ],
+      "objects": [
+       "castle"
+      ],
+      "effects": [
+       "sparks",
+       "shake",
+       "rain"
+      ],
+      "title": "",
+      "camera": "push_in"
+     }
+    }
+   ]
+  },
+  {
+   "title": "The Last Emperor",
+   "scenes": [
+    {
+     "narration": "The emperor was a teenage boy named Romulus Augustulus.",
+     "visual": {
+      "type": "card",
+      "big": "476 AD",
+      "small": "Romulus Augustulus is deposed",
+      "bullets": [
+       "Odoacer becomes king of Italy",
+       "Regalia sent to Constantinople"
+      ],
+      "dark": false
+     }
+    },
+    {
+     "narration": "Odoacer did not kill him. He simply sent him away, and never named a new emperor.",
+     "visual": {
+      "type": "stage",
+      "background": "palace",
+      "actors": [
+       {
+        "role": "king",
+        "color": "purple",
+        "pos": "center_left",
+        "action": "slump",
+        "emotion": "sad",
+        "facing": ""
+       },
+       {
+        "role": "warrior",
+        "color": "red",
+        "pos": "right",
+        "action": "proud",
+        "emotion": "neutral",
+        "facing": "left"
+       }
+      ],
+      "objects": [
+       "pedestal"
+      ],
+      "effects": [],
+      "title": "",
+      "camera": "push_in"
+     }
+    },
+    {
+     "narration": "And just like that, the Western Roman Empire was over. The ancient world had ended, and almost no one noticed.",
+     "visual": {
+      "type": "stage",
+      "background": "storm",
+      "actors": [
+       {
+        "role": "emperor",
+        "color": "purple",
+        "pos": "center",
+        "action": "slump",
+        "emotion": "sad",
+        "facing": ""
+       }
+      ],
+      "objects": [
+       "pedestal"
+      ],
+      "effects": [
+       "rain",
+       "flash"
+      ],
+      "title": "THE END OF ROME",
+      "camera": "pull_out"
+     }
+    }
+   ]
+  }
+ ]
+}

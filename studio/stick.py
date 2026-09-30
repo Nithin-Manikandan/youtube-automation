@@ -89,7 +89,7 @@ class Actor:
     def __init__(self, spec, W, H):
         self.s = spec
         self.W, self.H = W, H
-        self.unit = H * 0.40 * spec.get("scale", 1.0) * SS
+        self.unit = H * 0.47 * spec.get("scale", 1.0) * SS
         self.seed = hash(spec["id"]) % 7
 
     def key_state(self, t):
@@ -115,7 +115,7 @@ class Actor:
         S, W = self.unit, self.W * SS
         pose, xr, f, face = self.key_state(t)
         x = xr * W
-        L = dict(torso=0.30, upper=0.17, fore=0.17, thigh=0.22, shin=0.22, head=0.085, neck=0.035)
+        L = dict(torso=0.30, upper=0.17, fore=0.17, thigh=0.22, shin=0.22, head=0.095, neck=0.03)
         def vec(a, length):
             return seg((0, 0), a, length * S, f)
         l1 = seg((0, 0), pose["l1"], L["thigh"] * S, f)
@@ -134,7 +134,7 @@ class Actor:
         hup = (math.sin(hr) * f, -math.cos(hr))
         rad = L["head"] * S
         head = (neck_base[0] + hup[0] * (L["neck"] * S + rad), neck_base[1] + hup[1] * (L["neck"] * S + rad))
-        lw = max(3, S * 0.034)
+        lw = max(4, S * 0.042)
         col = self.s.get("color", INK)
         skin = self.s.get("skin", (247, 222, 190))
         tunic = self.s.get("tunic")
@@ -169,29 +169,38 @@ class Actor:
         if "beard" in self.s.get("props", []):
             d.pieslice([head[0] - rad * .95, head[1] - rad * .5, head[0] + rad * .95, head[1] + rad * 1.35], 10, 170, fill=(236, 232, 224), outline=INK, width=int(lw * .5))
         if "hair" in self.s.get("props", []):
-            d.pieslice([head[0] - rad * 1.05, head[1] - rad * 1.08, head[0] + rad * 1.05, head[1] + rad * .9], 180, 360, fill=self.s.get("hair", (70, 48, 30)), outline=INK, width=int(lw * .5))
-        # face
-        ex = head[0] + f * rad * 0.35
-        ey = head[1] - rad * 0.12
-        er = max(2, rad * 0.10)
-        for dx in (0.0, 0.42):
-            ox = ex + f * rad * dx * 0.6 - f * rad * 0.15
-            d.ellipse([ox - er, ey - er, ox + er, ey + er], fill=INK)
-        my, mx = head[1] + rad * 0.42, head[0] + f * rad * 0.22
+            d.pieslice([head[0] - rad * 1.05, head[1] - rad * 1.10, head[0] + rad * 1.05, head[1] + rad * .25], 180, 360, fill=self.s.get("hair", (70, 48, 30)), outline=INK, width=int(lw * .5))
+        # face: eyes with pupils, expressive brows and mouth
+        eyes = [(head[0] + f * rad * 0.18, head[1] - rad * 0.10), (head[0] + f * rad * 0.62, head[1] - rad * 0.10)]
+        er = max(3.0, rad * 0.20)
+        look = 0.35 if face != "sad" else 0.1
+        for ex_, ey_ in eyes:
+            d.ellipse([ex_ - er, ey_ - er, ex_ + er, ey_ + er], fill=(255, 255, 255), outline=INK, width=2)
+            pr = er * (0.42 if face != "shock" else 0.28)
+            d.ellipse([ex_ + f * er * look - pr, ey_ - pr, ex_ + f * er * look + pr, ey_ + pr], fill=INK)
+        by = head[1] - rad * 0.42
+        bw = max(3, int(lw * .55))
+        tilt = {"angry": (-1, 0.30), "worried": (1, 0.32), "sad": (1, 0.28), "shock": (0, -0.30), "smile": (0, -0.10)}.get(face, (0, 0))
+        for k_, (ex_, ey_) in enumerate(eyes):
+            sgn = 1 if k_ == 0 else -1
+            dy_in, dy_out = tilt[0] * rad * tilt[1] * sgn * f * -1, -tilt[0] * rad * tilt[1] * sgn * f * -1
+            d.line([(ex_ - rad * .22, by + dy_in + tilt[1] * 0 * rad), (ex_ + rad * .22, by + dy_out)], fill=INK, width=bw)
+        my, mx = head[1] + rad * 0.50, head[0] + f * rad * 0.40
+        mw = int(lw * .55)
         if face == "smile":
-            d.arc([mx - rad * .3, my - rad * .3, mx + rad * .3, my + rad * .15], 10, 170, fill=INK, width=int(lw * .6))
-        elif face in ("sad", "angry", "worried"):
-            d.arc([mx - rad * .3, my - rad * .05, mx + rad * .3, my + rad * .45], 190, 350, fill=INK, width=int(lw * .6))
-            if face == "angry":
-                d.line([ex - er * 2, ey - er * 2.6, ex + er * 3.5, ey - er * 1.4], fill=INK, width=int(lw * .6))
+            d.arc([mx - rad * .34, my - rad * .30, mx + rad * .34, my + rad * .18], 15, 165, fill=INK, width=mw)
+        elif face in ("sad", "worried"):
+            d.arc([mx - rad * .30, my - rad * .02, mx + rad * .30, my + rad * .42], 200, 340, fill=INK, width=mw)
+        elif face == "angry":
+            d.line([mx - rad * .30, my + rad * .06, mx + rad * .30, my - rad * .02], fill=INK, width=mw)
         elif face == "shock":
-            d.ellipse([mx - rad * .16, my - rad * .16, mx + rad * .16, my + rad * .22], outline=INK, width=int(lw * .6))
+            d.ellipse([mx - rad * .17, my - rad * .10, mx + rad * .17, my + rad * .30], fill=(90, 40, 40), outline=INK, width=2)
         else:
-            d.line([mx - rad * .25, my, mx + rad * .25, my], fill=INK, width=int(lw * .6))
+            d.line([mx - rad * .26, my, mx + rad * .26, my], fill=INK, width=mw)
         # props
         props = self.s.get("props", [])
         if "helmet" in props:
-            d.pieslice([head[0] - rad * 1.08, head[1] - rad * 1.1, head[0] + rad * 1.08, head[1] + rad * 1.05], 180, 360, fill=col, outline=INK, width=int(lw * .6))
+            d.pieslice([head[0] - rad * 1.08, head[1] - rad * 1.12, head[0] + rad * 1.08, head[1] + rad * 0.10], 180, 360, fill=col, outline=INK, width=int(lw * .6))
         if "crown" in props:
             fall = self.s.get("crown_fall")
             cx, cy = head[0], head[1] - rad * 0.95
@@ -241,6 +250,35 @@ def draw_object(d, o, W, H, gy, t):
             d.ellipse([cx + dx * r - rr * r, cy + dy * r - rr * r, cx + dx * r + rr * r, cy + dy * r + rr * r], fill=o.get("color", (200, 196, 186)))
     elif k == "sun":
         d.ellipse([x - S * .07, o["y"] * S - S * .07, x + S * .07, o["y"] * S + S * .07], fill=(250, 214, 120), outline=INK, width=4)
+    elif k == "tree":
+        h = S * 0.30 * o.get("scale", 1)
+        d.rectangle([x - h * .05, gy - h * .45, x + h * .05, gy], fill=(96, 70, 48), outline=INK, width=3)
+        for dx, dy, r in ((0, -.62, .26), (-.17, -.48, .2), (.17, -.48, .2)):
+            d.ellipse([x + dx * h - r * h, gy + dy * h - r * h, x + dx * h + r * h, gy + dy * h + r * h], fill=o.get("color", (84, 120, 70)), outline=INK, width=3)
+    elif k == "tent":
+        w, h = S * 0.22 * o.get("scale", 1), S * 0.17 * o.get("scale", 1)
+        d.polygon([(x - w / 2, gy), (x, gy - h), (x + w / 2, gy)], fill=o.get("color", (190, 70, 56)), outline=INK)
+        d.polygon([(x - w * .08, gy), (x, gy - h * .45), (x + w * .08, gy)], fill=INK)
+    elif k == "pyramid":
+        w, h = S * 0.5 * o.get("scale", 1), S * 0.34 * o.get("scale", 1)
+        d.polygon([(x - w / 2, gy), (x, gy - h), (x + w / 2, gy)], fill=(222, 196, 140), outline=INK)
+        d.polygon([(x, gy - h), (x + w / 2, gy), (x + w * .08, gy)], fill=(196, 168, 112))
+    elif k == "tower":
+        w, h = S * 0.10, S * 0.46
+        d.rectangle([x - w / 2, gy - h, x + w / 2, gy], fill=(190, 182, 166), outline=INK, width=4)
+        d.polygon([(x - w * .7, gy - h), (x, gy - h - S * .09), (x + w * .7, gy - h)], fill=(150, 60, 50), outline=INK)
+    elif k == "torch":
+        d.rectangle([x - 5, gy - S * .18, x + 5, gy], fill=(96, 70, 48))
+        fl = math.sin(t * 14 + x) * S * 0.008
+        d.ellipse([x - S * .02, gy - S * .25 + fl, x + S * .02, gy - S * .17], fill=(255, 170, 40, 230))
+        d.ellipse([x - S * .05, gy - S * .28, x + S * .05, gy - S * .14], fill=(255, 140, 30, 50))
+    elif k == "ship":
+        w, h = S * 0.30 * o.get("scale", 1), S * 0.06 * o.get("scale", 1)
+        bob = math.sin(t * 1.4) * S * 0.008
+        yb = gy - S * 0.01 + bob
+        d.polygon([(x - w / 2, yb - h), (x + w / 2, yb - h), (x + w * .36, yb), (x - w * .36, yb)], fill=(116, 80, 52), outline=INK)
+        d.line([(x, yb - h), (x, yb - h - S * .30)], fill=INK, width=6)
+        d.polygon([(x + 6, yb - h - S * .29), (x + w * .34, yb - h - S * .10), (x + 6, yb - h - S * .06)], fill=(240, 234, 220), outline=INK)
     elif k == "column":
         w, h = S * .05, S * .30
         d.rectangle([x - w / 2, gy - h, x + w / 2, gy], fill=(225, 219, 204), outline=INK, width=4)
@@ -355,7 +393,42 @@ def draw_fx(d, scene, t, W, H, gy, actors):
             pass  # drawn later over the whole frame
 
 
+def render_card(scene, t, W, H):
+    c = scene["card"]
+    dark = c.get("dark", True)
+    top, bot = ((16, 18, 26), (40, 38, 52)) if dark else ((240, 232, 214), (226, 214, 188))
+    g = np.linspace(0, 1, H)[:, None, None]
+    arr = (np.array(top) * (1 - g) + np.array(bot) * g).astype(np.uint8).repeat(W, axis=1)
+    pil = Image.fromarray(arr)
+    d = ImageDraw.Draw(pil, "RGBA")
+    ink = (244, 240, 230) if dark else INK
+    u = smooth(t / 0.45)
+    big = c.get("big", "")
+    if big:
+        f_ = font(int(H * (0.20 if len(big) < 14 else 0.13) * (0.9 + 0.1 * u)))
+        w = d.textlength(big, font=f_)
+        y = H * (0.10 if c.get("bullets") else 0.34)
+        d.text(((W - w) / 2 + 4, y + 5), big, font=f_, fill=(0, 0, 0, int(90 * u)))
+        d.text(((W - w) / 2, y), big, font=f_, fill=ink + (int(255 * u),))
+        ub = smooth((t - 0.2) / 0.6)
+        d.line([((W - w) / 2, y + H * 0.215), ((W - w) / 2 + w * ub, y + H * 0.215)], fill=GOLD + (255,), width=max(5, H // 90))
+    if c.get("small"):
+        f2 = font(int(H * 0.06))
+        a = smooth((t - 0.6) / 0.5)
+        w2 = d.textlength(c["small"], font=f2)
+        d.text(((W - w2) / 2, H * (0.36 if c.get("bullets") else 0.62)), c["small"], font=f2, fill=ink + (int(235 * a),))
+    for i, b in enumerate(c.get("bullets", [])):
+        a = smooth((t - 0.8 - i * 0.7) / 0.4)
+        f3 = font(int(H * 0.055))
+        x0, y0 = W * 0.22, H * (0.52 + i * 0.12)
+        d.ellipse([x0 - 40, y0 + 14, x0 - 22, y0 + 32], fill=GOLD + (int(255 * a),))
+        d.text((x0, y0), b, font=f3, fill=ink + (int(240 * a),))
+    return _grade(np.asarray(pil), W, H, t)
+
+
 def render_frame(scene, t, W, H):
+    if scene.get("kind") == "card":
+        return render_card(scene, t, W, H)
     gyr = scene.get("ground", 0.80)
     gy = gyr * H * SS
     fx0, fx1 = scene.get("focus", (0.5, 0.55)), scene.get("focus_to", None)
@@ -441,7 +514,7 @@ def _grade(arr, W, H, t):
         _VIG[key] = (1 - 0.38 * np.clip(r, 0, 1) ** 2.3)[..., None]
     f = arr.astype(np.float32) * _VIG[key] * np.array([1.03, 1.0, 0.93], dtype=np.float32)
     rng = np.random.default_rng(int(t * 30) % 12)
-    f += rng.standard_normal((H, W, 1)).astype(np.float32) * 4.0
+    f += rng.standard_normal((H, W, 1)).astype(np.float32) * 1.6
     return np.clip(f, 0, 255).astype(np.uint8)
 
 
