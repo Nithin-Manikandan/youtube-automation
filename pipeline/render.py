@@ -164,6 +164,25 @@ def _blend(frame, rgba, x0, y0):
     frame[ya:yb, xa:xb] = (reg * (1 - a) + sub[..., :3] * a).astype(np.uint8)
 
 
+def make_hook_image(hook_text, W, font_path):
+    """Big stroked headline shown in the first seconds of a video (RGBA array, W wide)."""
+    hf = ImageFont.truetype(font_path, 88)
+    lines, cur = [], ""
+    for w in hook_text.upper().split():
+        if hf.getlength((cur + " " + w).strip()) > W - 160 and cur:
+            lines.append(cur)
+            cur = w
+        else:
+            cur = (cur + " " + w).strip()
+    lines.append(cur)
+    im = Image.new("RGBA", (W, int(88 * 1.3) * len(lines) + 40), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    for k, ln in enumerate(lines):
+        d.text(((W - hf.getlength(ln)) / 2, 20 + k * 114), ln, font=hf, fill=(255, 255, 255, 255),
+               stroke_width=9, stroke_fill=(0, 0, 0, 255))
+    return np.asarray(im)
+
+
 def render(scene_specs, hook_text, audio, out_path, cfg, log=print):
     """scene_specs: [{path, start, dur, words}]; audio: float32 mono @44.1k."""
     import wave
@@ -193,26 +212,7 @@ def render(scene_specs, hook_text, audio, out_path, cfg, log=print):
     g = vis.get("grain", 0.05) * 255
     grain = [(rng.standard_normal((H, W, 1)) * g).astype(np.float32) for _ in range(10)]
 
-    hook_img = None
-    if hook_text:
-        hf = ImageFont.truetype(caps.font_path, 88)
-        words = hook_text.upper().split()
-        lines, cur = [], ""
-        for w in words:
-            if hf.getlength((cur + " " + w).strip()) > W - 160 and cur:
-                lines.append(cur)
-                cur = w
-            else:
-                cur = (cur + " " + w).strip()
-        lines.append(cur)
-        hh = int(88 * 1.3) * len(lines)
-        im = Image.new("RGBA", (W, hh + 40), (0, 0, 0, 0))
-        d = ImageDraw.Draw(im)
-        for k, ln in enumerate(lines):
-            tw = hf.getlength(ln)
-            d.text(((W - tw) / 2, 20 + k * 114), ln, font=hf, fill=(255, 255, 255, 255), stroke_width=9,
-                   stroke_fill=(0, 0, 0, 255))
-        hook_img = np.asarray(im)
+    hook_img = make_hook_image(hook_text, W, caps.font_path) if hook_text else None
 
     cmd = [ffmpeg.exe(), "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}",
            "-r", str(fps), "-i", "pipe:0", "-i", wav_path, "-c:v", "libx264", "-preset", "medium", "-crf", "20",
