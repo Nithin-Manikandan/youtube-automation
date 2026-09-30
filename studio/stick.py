@@ -65,6 +65,13 @@ def pose_at(name, t, seed=0.0):
         p.update(head=6 + 3 * w)
     else:
         p.update(POSES.get(name, {}))
+    if name not in ("walk", "run"):                       # breathing / weight shifts: nobody is ever frozen
+        w = 2 * math.pi * t
+        p["torso"] += 1.4 * math.sin(w * 0.33 + seed)
+        p["head"] += 2.0 * math.sin(w * 0.47 + seed * 2)
+        p["a1"] += 2.6 * math.sin(w * 0.41 + seed * 3)
+        p["b1"] -= 2.6 * math.sin(w * 0.37 + seed * 4)
+        p["l1"] += 1.2 * math.sin(w * 0.29 + seed)
     return p
 
 
@@ -89,7 +96,7 @@ class Actor:
     def __init__(self, spec, W, H):
         self.s = spec
         self.W, self.H = W, H
-        self.unit = H * 0.47 * spec.get("scale", 1.0) * SS
+        self.unit = H * 0.52 * spec.get("scale", 1.0) * SS
         self.seed = hash(spec["id"]) % 7
 
     def key_state(self, t):
@@ -224,6 +231,21 @@ class Actor:
             d.ellipse([b2[0] - sr, b2[1] - sr, b2[0] + sr, b2[1] + sr], fill=col, outline=INK, width=int(lw * .6))
         if "scroll" in props:
             d.rectangle([hand[0] - S * .05, hand[1] - S * .06, hand[0] + S * .05, hand[1] + S * .06], fill=(232, 215, 170), outline=INK)
+        if "navycap" in props:
+            d.rectangle([head[0] - rad * 1.0, head[1] - rad * 1.12, head[0] + rad * 1.0, head[1] - rad * 0.52], fill=(242, 242, 238), outline=INK, width=int(lw * .5))
+            d.rectangle([head[0] - rad * 1.0, head[1] - rad * 0.62, head[0] + rad * 1.0, head[1] - rad * 0.52], fill=(30, 40, 70))
+            d.rectangle([min(head[0], head[0] + f * rad * 1.45), head[1] - rad * 0.58, max(head[0], head[0] + f * rad * 1.45), head[1] - rad * 0.44], fill=INK)
+        if "hat" in props:
+            d.ellipse([head[0] - rad * 1.45, head[1] - rad * 0.98, head[0] + rad * 1.45, head[1] - rad * 0.58], fill=(64, 54, 48), outline=INK, width=int(lw * .5))
+            d.rectangle([head[0] - rad * 0.78, head[1] - rad * 1.6, head[0] + rad * 0.78, head[1] - rad * 0.78], fill=(64, 54, 48), outline=INK, width=int(lw * .5))
+        if "glasses" in props:
+            for ex_, ey_ in eyes:
+                d.ellipse([ex_ - er * 1.7, ey_ - er * 1.7, ex_ + er * 1.7, ey_ + er * 1.7], outline=INK, width=max(2, int(lw * .35)))
+            d.line([eyes[0][0] + er * 1.7, eyes[0][1], eyes[1][0] - er * 1.7, eyes[1][1]], fill=INK, width=max(2, int(lw * .3)))
+        if "tie" in props:
+            d.polygon([(sh[0], sh[1] + S * .01), (sh[0] - S * .022, sh[1] + S * .09), (sh[0] + S * .022, sh[1] + S * .09)], fill=RED, outline=INK)
+        if "rifle" in props:
+            line(d, [add(hand, seg((0, 0), dirv + 180, .12 * S, f)), add(hand, seg((0, 0), dirv, .30 * S, f))], lw * .7, (70, 60, 50))
         if "flag" in props:
             top = add(hand, seg((0, 0), dirv + 180, .05 * S, f)); pole = (hand[0], hand[1] - S * 0.45)
             line(d, [hand, pole], lw * .5, (110, 80, 50))
@@ -250,6 +272,63 @@ def draw_object(d, o, W, H, gy, t):
             d.ellipse([cx + dx * r - rr * r, cy + dy * r - rr * r, cx + dx * r + rr * r, cy + dy * r + rr * r], fill=o.get("color", (200, 196, 186)))
     elif k == "sun":
         d.ellipse([x - S * .07, o["y"] * S - S * .07, x + S * .07, o["y"] * S + S * .07], fill=(250, 214, 120), outline=INK, width=4)
+    elif k == "submarine":
+        w, h = S * 0.62 * o.get("scale", 1), S * 0.11 * o.get("scale", 1)
+        yb = gy - h * 0.15 + math.sin(t * 1.2) * S * 0.004
+        d.ellipse([x - w / 2, yb - h, x + w / 2, yb + h * .35], fill=(74, 84, 96), outline=INK, width=4)
+        d.rectangle([x - w * .06, yb - h * 1.55, x + w * .1, yb - h * .75], fill=(84, 94, 106), outline=INK, width=4)
+        d.line([(x + w * .06, yb - h * 1.55), (x + w * .06, yb - h * 2.05), (x + w * .14, yb - h * 2.05)], fill=INK, width=6)
+        for i in range(4):
+            cx = x - w * .28 + i * w * .14
+            d.ellipse([cx - 7, yb - h * .55 - 7, cx + 7, yb - h * .55 + 7], fill=(200, 210, 220), outline=INK, width=2)
+    elif k == "warship":
+        w, h = S * 0.66 * o.get("scale", 1), S * 0.07 * o.get("scale", 1)
+        yb = gy - S * 0.004 + math.sin(t * 1.1) * S * 0.004
+        d.polygon([(x - w / 2, yb - h), (x + w / 2, yb - h), (x + w * .38, yb), (x - w * .42, yb)], fill=(118, 126, 134), outline=INK)
+        d.rectangle([x - w * .1, yb - h * 2.4, x + w * .12, yb - h], fill=(136, 144, 152), outline=INK, width=3)
+        d.rectangle([x + w * .02, yb - h * 3.4, x + w * .07, yb - h * 2.4], fill=(92, 98, 104), outline=INK, width=3)
+        d.line([(x - w * .3, yb - h * 1.3), (x - w * .15, yb - h * 1.55)], fill=INK, width=6)
+    elif k == "missile":
+        h, w = S * 0.46 * o.get("scale", 1), S * 0.05
+        d.rectangle([x - w / 2, gy - h, x + w / 2, gy], fill=(236, 236, 232), outline=INK, width=3)
+        d.polygon([(x - w / 2, gy - h), (x, gy - h - S * .09), (x + w / 2, gy - h)], fill=(196, 57, 43), outline=INK)
+        d.polygon([(x - w / 2, gy), (x - w * 1.1, gy + 1), (x - w / 2, gy - h * .22)], fill=(196, 57, 43), outline=INK)
+        d.polygon([(x + w / 2, gy), (x + w * 1.1, gy + 1), (x + w / 2, gy - h * .22)], fill=(196, 57, 43), outline=INK)
+        d.rectangle([x - w / 2, gy - h * .55, x + w / 2, gy - h * .5], fill=(196, 57, 43))
+    elif k == "plane":
+        yy = o.get("y", 0.24) * S
+        xx = (o["x"] * W * SS + t * S * 0.03) % (W * SS + 400) - 200
+        w = S * 0.22 * o.get("scale", 1)
+        d.ellipse([xx - w / 2, yy - w * .07, xx + w / 2, yy + w * .07], fill=(210, 214, 220), outline=INK, width=3)
+        d.polygon([(xx - w * .05, yy), (xx - w * .22, yy + w * .28), (xx + w * .05, yy)], fill=(180, 186, 194), outline=INK)
+        d.polygon([(xx - w * .4, yy), (xx - w * .5, yy - w * .16), (xx - w * .3, yy)], fill=(180, 186, 194), outline=INK)
+    elif k == "building":
+        w, h = S * 0.17 * o.get("scale", 1), S * 0.44 * o.get("scale", 1)
+        d.rectangle([x - w / 2, gy - h, x + w / 2, gy], fill=(120, 126, 138), outline=INK, width=4)
+        for r in range(int(h / (S * .055))):
+            for c in range(3):
+                lit = (r * 3 + c + int(x)) % 5 != 0
+                d.rectangle([x - w / 2 + w * (.14 + c * .3), gy - h + S * .03 + r * S * .055, x - w / 2 + w * (.3 + c * .3), gy - h + S * .06 + r * S * .055],
+                            fill=(250, 220, 130) if lit else (70, 76, 88))
+    elif k == "hatch":
+        r = S * 0.12
+        cy = gy - S * 0.25
+        d.ellipse([x - r, cy - r, x + r, cy + r], fill=(96, 106, 108), outline=INK, width=6)
+        d.ellipse([x - r * .7, cy - r * .7, x + r * .7, cy + r * .7], outline=(60, 68, 70), width=5)
+        for a_ in range(0, 360, 60):
+            d.line([(x, cy), (x + math.cos(math.radians(a_)) * r * .55, cy + math.sin(math.radians(a_)) * r * .55)], fill=INK, width=5)
+    elif k == "pipes":
+        for j, yy in enumerate((0.10, 0.17)):
+            d.rectangle([0, yy * S, W * SS, yy * S + S * .035], fill=(112, 122, 124), outline=INK, width=3)
+            for i in range(0, W * SS, int(S * .22)):
+                d.rectangle([i, yy * S - 4, i + 10, yy * S + S * .035 + 4], fill=(70, 78, 80))
+        d.rectangle([x - S * .02, 0, x + S * .02, gy], fill=(104, 114, 116), outline=INK, width=3)
+    elif k == "gauge":
+        yy = o.get("y", 0.4) * S
+        r = S * 0.05
+        d.ellipse([x - r, yy - r, x + r, yy + r], fill=(228, 230, 224), outline=INK, width=5)
+        a_ = math.sin(t * 0.9 + x) * 1.0 - 0.6
+        d.line([(x, yy), (x + math.sin(a_) * r * .8, yy - math.cos(a_) * r * .8)], fill=RED, width=4)
     elif k == "tree":
         h = S * 0.30 * o.get("scale", 1)
         d.rectangle([x - h * .05, gy - h * .45, x + h * .05, gy], fill=(96, 70, 48), outline=INK, width=3)
@@ -453,7 +532,7 @@ def render_card(scene, t, W, H):
     for i, b in enumerate(c.get("bullets", [])):
         a = smooth((t - 0.8 - i * 0.7) / 0.4)
         f3 = font(int(H * 0.055))
-        x0, y0 = W * 0.22, H * (0.52 + i * 0.12)
+        x0, y0 = W * 0.22, H * (0.50 + i * 0.095)
         d.ellipse([x0 - 40, y0 + 14, x0 - 22, y0 + 32], fill=GOLD + (int(255 * a),))
         d.text((x0, y0), b, font=f3, fill=ink + (int(240 * a),))
     return _grade(np.asarray(pil), W, H, t)

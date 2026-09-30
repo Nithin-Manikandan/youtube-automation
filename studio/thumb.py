@@ -185,13 +185,21 @@ def render(text, recipe, out_path, variant=0):
         _flames(base, [x + rng.uniform(-20, 20) for x in xs for _ in range(1)] + [W * (0.5 if not flip else 0.5)], H * 0.62, 34, rng, glow)
         _embers(base, rng, 70, (255, 190, 70))
     else:
-        layer = Image.new("RGBA", (W * SS, H * SS), (0, 0, 0, 0))
-        d = ImageDraw.Draw(layer, "RGBA")
-        _army(d, -20, W * SS * 0.62 if not flip else W * SS + 20, H * SS * horizon, H * SS * 0.13, 46, (12, 8, 14, 255), rng)
-        if flip:
-            _army(d, W * SS * 0.38, W * SS + 20, H * SS * horizon, H * SS * 0.13, 46, (12, 8, 14, 255), rng)
-        base.alpha_composite(layer.resize((W, H), Image.LANCZOS))
-        if concept == "looming":
+        army = str(recipe.get("army", True)).lower() not in ("false", "0", "no")
+        if army:
+            layer = Image.new("RGBA", (W * SS, H * SS), (0, 0, 0, 0))
+            d = ImageDraw.Draw(layer, "RGBA")
+            _army(d, -20, W * SS * 0.62 if not flip else W * SS + 20, H * SS * horizon, H * SS * 0.13, 46, (12, 8, 14, 255), rng)
+            if flip:
+                _army(d, W * SS * 0.38, W * SS + 20, H * SS * horizon, H * SS * 0.13, 46, (12, 8, 14, 255), rng)
+            base.alpha_composite(layer.resize((W, H), Image.LANCZOS))
+        backdrop = str(recipe.get("backdrop", "")).lower()
+        if concept == "looming" and backdrop in recipes.OBJECTS and backdrop not in ("cloud", "torch"):
+            big = Image.new("RGBA", (W * SS, H * SS), (0, 0, 0, 0))
+            bd = ImageDraw.Draw(big, "RGBA")
+            stick.draw_object(bd, dict(type=backdrop, x=hx - 0.13 if not flip else hx + 0.13, scale=1.75, y=0.3), W, H, H * SS * horizon, 0)
+            base.alpha_composite(_silhouette(big.resize((W, H), Image.LANCZOS), (8, 5, 12), 0.94))
+        elif concept == "looming":
             boss = _hero(recipe.get("enemy_role", "warrior"), "black", "sword_up", "angry", hx - (0.02 if not flip else -0.02), 4.6, -1 if not flip else 1, gy_frac=1.62, boss=True)
             sil = _silhouette(boss, (8, 5, 12), 0.93)
             bb = boss.split()[3].getbbox()
@@ -232,7 +240,7 @@ def render(text, recipe, out_path, variant=0):
         base.alpha_composite(spark.filter(ImageFilter.GaussianBlur(10)).point(lambda v: min(255, int(v * 2))))
         base.alpha_composite(spark)
     else:
-        hero = _hero(role, recipe.get("color"), recipe.get("action", "scared"), recipe.get("emotion", "shock"), hx, 1.7 if concept == "looming" else 2.0, facing, 1.0)
+        hero = _hero(role, recipe.get("color"), recipe.get("action", "scared"), recipe.get("emotion", "shock"), hx, 1.7 if concept == "looming" else 1.75, facing, 1.0)
     rim = hero.filter(ImageFilter.GaussianBlur(14))
     rim_c = Image.new("RGBA", (W, H), glow + (0,))
     rim_c.putalpha(rim.split()[3].point(lambda v: min(255, int(v * 2.6))))

@@ -21,7 +21,7 @@ from . import voice as narrator
 from .doccap import DocCaptions
 
 W, H, FPS = 1280, 720, 30
-GAP, LEAD = 0.55, 0.12
+GAP, LEAD = 0.4, 0.12
 MIN_S, MAX_S = 8 * 60, 15 * 60
 FAKE = lambda: bool(os.environ.get("STUDIO_FAKE"))
 HERE = pathlib.Path(__file__).parent
@@ -136,7 +136,8 @@ def write_chapter(topic, outline, idx, prev_tail, words):
     ch = outline["chapters"][idx]
     if FAKE():
         return _fake_chapter(idx, ch["title"])
-    n_scenes = max(5, round(words / 24))
+    words = int(words * 1.4)                      # the model reliably delivers about 70% of the length it is asked for
+    n_scenes = max(5, round(words / 26))
     prompt = f"""You are writing chapter {idx + 1} of {len(outline['chapters'])} of the voiceover for a YouTube history video.
 VIDEO TOPIC: {topic}
 FULL OUTLINE: {json.dumps([{'title': c['title'], 'purpose': c.get('purpose', '')} for c in outline['chapters']])}
@@ -149,6 +150,11 @@ Rules: never invent quotes, numbers or dates; where historians disagree say so; 
 open loop leading to the next one (except the final chapter, which gives the payoff and one memorable closing line).
 For each scene choose a visual recipe that ILLUSTRATES what is said. Vary backgrounds and compositions; use a map when geography matters and a card
 for key dates and numbers (about 1 scene in 5); keep characters consistent (same role and color for the same person across scenes).
+
+ERA RULE: match the drawing to the period. For stories after about 1800 use the modern roles (sailor, captain, officer, scientist, president, worker,
+pilot, modern_soldier, spy, reporter) and modern objects and backgrounds (submarine, warship, missile, plane, building, hatch, pipes, gauge, underwater,
+submarine_interior, city_modern, sea). Never give modern characters swords, spears, shields or castles; use those only for ancient and medieval stories.
+Use 2-3 actors in most stage scenes so the screen feels alive.
 
 {VOCAB}
 
@@ -209,7 +215,7 @@ Return JSON:
  "tags": ["12-15 search tags, most important first, mix of broad and specific"],
  "hashtags": ["#three", "#relevant", "#hashtags"],
  "pinned_comment": "a question that sparks comments",
- "thumbs": [{{"text": "2-3 WORDS", "mood": "fire|ice|gold|storm|blood|night", "role": "one of {sorted(recipes.ROLES)}", "color": "one of {sorted(recipes.COLORS)}", "action": "scared|point|sword_up|proud|shrug|cheer|slump", "emotion": "shock|angry|worried|sad|smile", "concept": "looming|ruin|versus", "enemy_role": "role of the opposing side", "enemy_color": "colour name", "badge": "optional short date like 476 AD or empty", "objects": ["1-2 of {sorted(recipes.OBJECTS - {'cloud', 'torch'})} matching the story setting"]}}]}}"""
+ "thumbs": [{{"text": "2-3 WORDS", "mood": "fire|ice|gold|storm|blood|night", "role": "one of {sorted(recipes.ROLES)}", "color": "one of {sorted(recipes.COLORS)}", "action": "scared|point|sword_up|proud|shrug|cheer|slump", "emotion": "shock|angry|worried|sad|smile", "concept": "looming|ruin|versus", "backdrop": "for looming: the giant silhouette behind the hero, one of {sorted(recipes.OBJECTS - {'cloud', 'torch'})} that matches the story, or figure", "army": "true only for ancient or medieval stories, false for modern ones", "enemy_role": "role of the opposing side", "enemy_color": "colour name", "badge": "optional short date like 476 AD or empty", "objects": ["1-2 of {sorted(recipes.OBJECTS - {'cloud', 'torch'})} matching the story setting"]}}]}}"""
     m = _llm(prompt, 0.7)
     if isinstance(m, list):
         m = next((x for x in m if isinstance(x, dict)), {})
@@ -306,9 +312,9 @@ def plan(job, pdir, settings, hint=None):
         scripts += [(i, s) for s in scenes]
     wc = sum(len(s["narration"].split()) for _, s in scripts)
     _log(job, f"script: {wc} words, {len(scripts)} scenes")
-    if not FAKE() and wc < 1450:
+    if not FAKE() and wc < 1750:
         _log(job, "  script is short for 8 minutes; extending the shortest chapters")
-        for _ in range(2):
+        for _ in range(3):
             counts = {}
             for ci, s in scripts:
                 counts[ci] = counts.get(ci, 0) + len(s["narration"].split())
@@ -318,7 +324,7 @@ def plan(job, pdir, settings, hint=None):
             scripts += [(ci, s) for s in extra]
             scripts.sort(key=lambda cs: cs[0])
             wc = sum(len(s["narration"].split()) for _, s in scripts)
-            if wc >= 1450:
+            if wc >= 1750:
                 break
     if wc > 2450:
         _log(job, "  script is long for 15 minutes; trimming")
@@ -345,7 +351,7 @@ def plan(job, pdir, settings, hint=None):
 
     _stage(job, 4)
     v = settings
-    cfg = {"voice": {"name": v.get("voice", "en-US-AndrewMultilingualNeural"), "rate": v.get("rate", "+0%"), "pitch": v.get("pitch", "+0Hz")}}
+    cfg = {"voice": {"name": v.get("voice", "en-US-AndrewMultilingualNeural"), "rate": v.get("rate", "+5%"), "pitch": v.get("pitch", "+0Hz")}}
 
     def _speak(i):
         text = scripts[i][1]["narration"].strip()

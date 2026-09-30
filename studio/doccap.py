@@ -10,24 +10,54 @@ FONT = str(ROOT / "assets/fonts/InstrumentSans-Bold.ttf")
 TEXT, HI = (245, 243, 236), (255, 206, 84)
 
 
-def phrases(words, max_words=9, min_words=3, pause=0.5):
-    out, cur = [], []
+STOP = {"a", "an", "the", "of", "to", "in", "on", "at", "for", "and", "or", "but", "with", "by", "from", "as", "that", "than", "his", "her",
+        "its", "their", "our", "my", "was", "were", "is", "are", "be", "had", "has", "have", "into", "onto", "over", "under", "who", "which"}
+
+
+def _bare(w):
+    return re.sub(r"[^\w']", "", w).lower()
+
+
+def _split_sentence(ws, max_words):
+    """Split one sentence into balanced phrases, preferring commas, never ending a phrase on a function word."""
+    if len(ws) <= max_words + 1:
+        return [ws]
+    n = -(-len(ws) // max_words)
+    out, i = [], 0
+    for k in range(n - 1):
+        ideal = i + round((len(ws) - i) / (n - k))
+        best = ideal
+        for cut in range(max(i + 3, ideal - 3), min(len(ws) - 2, ideal + 3) + 1):   # look a few words either side of the ideal cut
+            w = ws[cut - 1][0]
+            if re.search(r"[,;:\u2014]$", w):
+                best = cut
+                break
+            if _bare(w) in STOP:
+                continue
+            if abs(cut - ideal) < abs(best - ideal) or _bare(ws[best - 1][0]) in STOP:
+                best = cut
+        while best > i + 2 and _bare(ws[best - 1][0]) in STOP:
+            best -= 1
+        out.append(ws[i:best])
+        i = best
+    out.append(ws[i:])
+    return out
+
+
+def phrases(words, max_words=9, min_words=3, pause=0.4):
+    sentences, cur = [], []
     for w in words:
         if not w[0].strip():
             continue
-        if cur and w[1] - cur[-1][2] > pause and len(cur) >= min_words:
-            out.append(cur)
+        if cur and (w[1] - cur[-1][2] > pause or re.search(r"[.!?]$", cur[-1][0])):
+            sentences.append(cur)
             cur = []
         cur.append(w)
-        end = re.search(r"[.!?;:,]$", w[0]) is not None
-        if len(cur) >= max_words or (end and len(cur) >= min_words and (re.search(r"[.!?]$", w[0]) or len(cur) >= 4)):
-            out.append(cur)
-            cur = []
     if cur:
-        if out and len(cur) < 2 and cur[0][1] - out[-1][-1][2] < pause:
-            out[-1] += cur
-        else:
-            out.append(cur)
+        sentences.append(cur)
+    out = []
+    for sent in sentences:
+        out += _split_sentence(sent, max_words)
     return out
 
 

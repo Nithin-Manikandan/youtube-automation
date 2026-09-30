@@ -20,8 +20,8 @@ from pipeline import tts
 
 # deltas applied on top of the channel's base rate/pitch: (rate %, pitch Hz, volume %, extra pause ms)
 EMOTIONS = {
-    "neutral": (0, 0, 0, 0), "warm": (-2, 2, 2, 0), "tense": (-7, -5, -2, 60), "somber": (-13, -9, -7, 160),
-    "dramatic": (-9, -3, 5, 140), "excited": (8, 7, 6, -30), "urgent": (12, 4, 6, -50), "awed": (-6, 4, 0, 90),
+    "neutral": (0, 0, 0, 0), "warm": (-1, 2, 2, 0), "tense": (-4, -5, -2, 40), "somber": (-8, -9, -7, 110),
+    "dramatic": (-5, -3, 5, 100), "excited": (8, 7, 6, -30), "urgent": (10, 4, 6, -40), "awed": (-3, 4, 0, 60),
 }
 MOOD_EMOTION = {"calm": "warm", "tense": "tense", "epic": "urgent", "sad": "somber", "triumph": "awed", "mystery": "awed"}
 _LOCK = threading.Lock()      # the SSML passthrough briefly patches a module function, so serialise construction
@@ -66,7 +66,7 @@ def prosody_for(sentence, i, n, emotion, base_rate, base_pitch, rng):
         vol += 4
         rate += 3
     if words <= 5:
-        rate -= 6                       # short punchy lines get weight
+        rate -= 4                       # short punchy lines get weight
         vol += 3
     elif words >= 22:
         rate += 3
@@ -158,7 +158,7 @@ def speak(text, cfg, delivery=None, mood=None, synth=None):
         words_out += [[x[0], cursor + x[1], cursor + x[2]] for x in w]
         cursor += len(samples) / tts.SR
         if i < len(sents) - 1:
-            pause = 170 + EMOTIONS[emotion][3] + (110 if s.rstrip().endswith("?") else 0) + (120 if len(s.split()) <= 5 else 0) + rng.randint(-25, 40)
+            pause = 120 + EMOTIONS[emotion][3] + (90 if s.rstrip().endswith("?") else 0) + (90 if len(s.split()) <= 5 else 0) + rng.randint(-25, 40)
             pause = max(90, pause)
             chunks.append(np.zeros(int(pause / 1000 * tts.SR), dtype=np.float32))
             cursor += pause / 1000
