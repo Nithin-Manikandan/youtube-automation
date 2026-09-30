@@ -1,7 +1,7 @@
 edge-tts>=7.0
 imageio-ffmpeg>=0.5
 numpy
-opencv-python-headless
+opencv-python-headless>=4.9,<5
 pillow
 requests
 pyyaml

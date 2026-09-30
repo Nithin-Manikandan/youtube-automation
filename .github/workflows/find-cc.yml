@@ -1,0 +1,25 @@
+name: Find CC videos
+
+on:
+  workflow_dispatch:
+    inputs:
+      query:
+        description: "What to search for"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  find:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install requests
+      - env:
+          YT_API_KEY: ${{ secrets.YT_API_KEY }}
+          QUERY: ${{ github.event.inputs.query }}
+        run: python -m pipeline.find_cc "$QUERY"

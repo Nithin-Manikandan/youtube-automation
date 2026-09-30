@@ -11,7 +11,7 @@ import requests
 cid, secret = sys.argv[1], sys.argv[2]
 PORT = 8765
 redirect = f"http://127.0.0.1:{PORT}"
-scope = "https://www.googleapis.com/auth/youtube.upload"
+scope = "https://www.googleapis.com/auth/youtube"  # upload + set thumbnails
 code = {}
 
 

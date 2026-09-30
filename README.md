@@ -64,3 +64,55 @@ GEMINI_API_KEY=... python -m pipeline.make # real run
 - Free image models can produce hand/face artefacts. Dark, foggy, silhouette-heavy prompts hide most of it.
 - The real image and voice steps have not been tested end to end yet; expect to tune after the first run.
 - Monetisation needs 1,000 subscribers plus 10M Shorts views in 90 days (or 4,000 watch hours). Repetitive mass-produced content can be demonetised, so keep scripts varied.
+
+## Clipper (for footage you have rights to)
+
+`python -m pipeline.clipper --source <file-or-direct-url>` (or the **Make clips** workflow) turns a long video into Shorts:
+transcribe -> the LLM picks the moments people will not skip -> 9:16 reframe that follows the speaker's face ->
+word-by-word captions + hook line.
+
+- `--mode story` (default): 3-4 moments stitched into one Short with tiny spoken bridge lines. `--commentary minimal|light|medium` sets how long the bridges may be.
+- `--mode clips`: one moment per Short.
+
+Use it on footage you own, that is Creative Commons (credit the creator), or that a creator's clipping campaign supplied. It does not download from YouTube. **Find CC videos** lists popular CC BY videos (needs a free `YT_API_KEY` secret).
+
+Heads up on money: YouTube only monetizes reused footage with significant original commentary or transformation, and Content ID can still claim clips. Footage-heavy edits with light commentary are the riskiest. Approved campaigns avoid the problem.
+
+## Video Studio (Google Flow workflow, runs on your computer)
+
+The workflow from the "clone the formula, not the channel" video, with the paid or manual parts automated:
+
+```bash
+pip install -r requirements.txt -r requirements-studio.txt
+python -m studio        # then open http://localhost:5055
+```
+
+1. **Settings**: paste your free Gemini API key (and YouTube keys when you want auto-publish).
+2. **Formula**: paste links to the top 10-15 videos of a proven channel in your niche (default niche: History). Gemini extracts the formula (audience, topics, tone, hooks, script shape, visual style). No YouTube link support on your key? Paste a formula from NotebookLM instead.
+3. **Idea + script**: it suggests 10 channel names and 10 ideas, then writes the original script and the character, image and animation prompts (your four prompts, verbatim).
+4. **Google Flow** (manual, Flow has no API): click the copy buttons, paste into Flow, generate images then clips, download the clips.
+5. **Drop the clips in**: name them "scene 1", "scene 2"... or just drop them in order. It makes the free Microsoft neural voiceover, fits each clip to its line (trim, slow, or ping-pong loop), adds captions and optional music, and exports.
+6. **Review and publish** to YouTube (private by default).
+
+Keep the content original: the formula is the structure, never the wording. History must be accurate; check the script before publishing.
+
+## Auto mode (one button, you approve at the end)
+
+In the Studio, **Make a video** does everything and then stops for your approval:
+
+1. Picks a history topic built to get clicks (broad appeal, high stakes, a twist, solid facts, not one you already made).
+2. Writes an 8-15 minute script chapter by chapter (cold open, open loops, a payoff), then fact-checks it and flags shaky statements.
+3. Turns every line into a stickman scene (stage, animated map, or fact card), speaks it with the free neural voice, and adds music plus sound effects timed to the action (footsteps, sword swings and clashes, thunder, rain, crowd cheers, crown clinks, impact thumps).
+4. Makes three thumbnails and five title options from current click-through research, plus description with chapters, tags, hashtags and a pinned-comment idea.
+5. Shows you the video, thumbnails (with a feed preview), title, description, tags and fact-check flags. **Approve and publish** uploads it with the chosen thumbnail.
+
+Nothing is published until you approve. It takes roughly 30-60 minutes. Publishing needs the YouTube keys; custom thumbnails also need a phone-verified YouTube channel, and the auth token needs the `youtube` scope (re-run `tools/youtube_auth.py` if you made the token earlier). The narration is AI-written, so read the fact-check flags before approving.
+
+Try it without any API keys: `STUDIO_FAKE=1 python -m studio` (test content, silent voice).
+
+### Sound and delivery
+
+- **Score:** six moods (calm, tense, epic, sad, triumph, mystery) in one key and one tempo, so changes are smooth crossfades (about 7 seconds). The AI sets each scene's mood; blips shorter than 14 seconds are absorbed so the music never flutters.
+- **Sound effects:** layered, stereo, panned to the action: footsteps, sword clashes (short, damped, noisy, like steel, not bells), whooshes, thunder, rain, applause, crown clinks, plus ambience (wind, crickets, birds, waves).
+- **Narrator:** reads sentence by sentence with different pace, pitch and loudness for each (set by the scene's emotion, questions, short punchy lines, the falling last line), leans on key words and pauses before reveals. If the service rejects the SSML tags it falls back to plain prosody automatically.
+- **Listen first:** `samples/sound-check.mp3` plays every effect and then all six music moods.

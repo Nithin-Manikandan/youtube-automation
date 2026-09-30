@@ -1,0 +1,213 @@
+"""Turns the simple scene recipes an LLM can write into stickman scene data, and cleans up bad values.
+
+The LLM never writes keyframes; it picks from small vocabularies, so output is reliable.
+"""
+import random
+
+from .stick import BLUE, GOLD, GREY, PURPLE, RED
+
+COLORS = {"red": RED, "blue": BLUE, "purple": PURPLE, "gold": GOLD, "green": (70, 130, 80), "grey": GREY,
+          "white": (238, 234, 224), "brown": (140, 104, 72), "black": (52, 50, 56), "orange": (214, 120, 40)}
+POS = {"far_left": .12, "left": .24, "center_left": .38, "center": .5, "center_right": .62, "right": .76, "far_right": .88}
+ROLES = {  # role -> (props, default tunic colour name)
+    "emperor": (["crown", "cape", "beard"], "purple"), "king": (["crown", "cape"], "red"), "queen": (["crown", "hair"], "purple"),
+    "soldier": (["helmet", "shield", "spear"], "blue"), "warrior": (["helmet", "sword"], "red"), "knight": (["helmet", "shield", "sword"], "grey"),
+    "citizen": (["hair"], "brown"), "peasant": (["hair"], "brown"), "merchant": (["hair", "beard"], "green"), "scholar": (["beard", "scroll"], "white"),
+    "general": (["helmet", "cape", "sword"], "red"), "pirate": (["hair", "sword"], "black"), "explorer": (["hair", "flag"], "green"),
+    "pharaoh": (["crown", "beard"], "gold"), "priest": (["beard", "scroll"], "white"), "rebel": (["hair", "spear"], "orange"),
+}
+ACTIONS = {"stand", "talk", "cheer", "scared", "slump", "point", "proud", "shrug", "sword_up", "crouch", "fight",
+           "enter_walk", "enter_run", "exit_run", "walk", "run"}
+EMOTIONS = {"neutral", "smile", "sad", "angry", "shock", "worried"}
+BACKGROUNDS = {
+    "city_day": dict(sky=((150, 190, 222), (250, 228, 190)), sun=(0.80, 0.22, (252, 214, 120)), ground_color=(176, 158, 120),
+                     hills=[dict(color=(178, 190, 200), base=.66, amp=.05, freq=3.0, seed=1, par=.10), dict(color=(150, 160, 150), base=.72, amp=.045, freq=4.2, seed=4, par=.22)]),
+    "countryside": dict(sky=((140, 190, 235), (238, 240, 214)), sun=(0.2, 0.2, (252, 226, 140)), ground_color=(132, 160, 96),
+                        hills=[dict(color=(150, 184, 160), base=.66, amp=.06, freq=2.6, seed=7, par=.10), dict(color=(108, 148, 92), base=.73, amp=.05, freq=3.8, seed=2, par=.22)]),
+    "desert": dict(sky=((240, 196, 140), (252, 236, 196)), sun=(0.7, 0.2, (255, 240, 200)), ground_color=(222, 190, 130),
+                   hills=[dict(color=(232, 200, 150), base=.68, amp=.04, freq=2.4, seed=3, par=.10), dict(color=(214, 176, 120), base=.74, amp=.035, freq=3.4, seed=5, par=.22)]),
+    "storm": dict(sky=((70, 78, 96), (150, 146, 140)), ground_color=(120, 108, 88),
+                  hills=[dict(color=(92, 98, 110), base=.64, amp=.06, freq=3.2, seed=2, par=.10), dict(color=(72, 76, 84), base=.72, amp=.05, freq=4.6, seed=6, par=.22)]),
+    "night": dict(sky=((14, 20, 48), (52, 54, 90)), sun=(0.78, 0.2, (232, 232, 214)), ground_color=(60, 66, 70), dim=0.10,
+                  hills=[dict(color=(30, 36, 62), base=.66, amp=.05, freq=3.0, seed=8, par=.10), dict(color=(22, 28, 48), base=.73, amp=.045, freq=4.0, seed=9, par=.22)]),
+    "battlefield": dict(sky=((120, 70, 60), (226, 160, 110)), ground_color=(112, 92, 70),
+                        hills=[dict(color=(96, 64, 60), base=.66, amp=.05, freq=3.0, seed=3, par=.10), dict(color=(74, 52, 48), base=.73, amp=.04, freq=4.4, seed=1, par=.22)]),
+    "palace": dict(sky=((232, 214, 176), (246, 236, 214)), ground_color=(200, 184, 150),
+                   hills=[dict(color=(220, 202, 164), base=.62, amp=.03, freq=3.0, seed=2, par=.05)]),
+    "sea": dict(sky=((150, 196, 232), (240, 240, 226)), sun=(0.75, 0.22, (252, 232, 160)), ground_color=(70, 120, 168),
+                hills=[dict(color=(110, 154, 196), base=.62, amp=.012, freq=6.0, seed=1, par=.05)]),
+    "snow": dict(sky=((186, 204, 226), (240, 244, 250)), ground_color=(236, 240, 246),
+                 hills=[dict(color=(214, 222, 236), base=.66, amp=.07, freq=2.8, seed=6, par=.10), dict(color=(228, 234, 244), base=.73, amp=.05, freq=3.6, seed=3, par=.22)]),
+    "forest": dict(sky=((120, 168, 160), (214, 226, 196)), ground_color=(96, 120, 76),
+                   hills=[dict(color=(84, 122, 100), base=.66, amp=.05, freq=3.0, seed=5, par=.10), dict(color=(62, 98, 78), base=.73, amp=.045, freq=4.2, seed=2, par=.22)]),
+}
+OBJECTS = {"castle", "column", "pedestal", "cloud", "tree", "tent", "pyramid", "tower", "torch", "ship"}
+EFFECTS = {"rain", "flash", "sparks", "dust", "shake"}
+CAMERAS = {"push_in": ([1.0, 1.10], None), "pull_out": ([1.12, 1.0], None), "pan_right": ([1.06, 1.06], (-.04, .04)), "pan_left": ([1.06, 1.06], (.04, -.04)), "static": ([1.0, 1.0], None)}
+
+
+def _pick(v, allowed, default):
+    v = str(v or "").lower().strip().replace(" ", "_")
+    return v if v in allowed else default
+
+
+def clean_visual(v, rnd):
+    """Coerce whatever the LLM wrote into values the engine understands."""
+    if not isinstance(v, dict):
+        v = {}
+    t = _pick(v.get("type"), {"stage", "map", "card"}, "stage")
+    out = {"type": t}
+    if t == "card":
+        c = v.get("card") or v
+        out["big"] = str(c.get("big") or c.get("title") or "")[:40]
+        out["small"] = str(c.get("small") or c.get("subtitle") or "")[:80]
+        out["bullets"] = [str(b)[:60] for b in (c.get("bullets") or [])][:4]
+        out["dark"] = bool(c.get("dark", False))
+        return out
+    if t == "map":
+        m = v.get("map") or v
+        out["template"] = _pick(m.get("template"), {"invasion", "route", "expanding"}, "invasion")
+        out["center"] = str(m.get("center") or m.get("center_label") or "EMPIRE")[:24].upper()
+        out["city"] = str(m.get("city") or "")[:20]
+        out["labels"] = [str(x)[:16].upper() for x in (m.get("attackers") or m.get("labels") or m.get("points") or [])][:4]
+        out["title"] = str(m.get("title") or v.get("title") or "")[:40].upper()
+        return out
+    out["background"] = _pick(v.get("background"), BACKGROUNDS, rnd.choice(["city_day", "countryside", "palace"]))
+    actors = []
+    for a in (v.get("actors") or [])[:5]:
+        if not isinstance(a, dict):
+            continue
+        actors.append({"role": _pick(a.get("role"), ROLES, "citizen"), "color": _pick(a.get("color"), COLORS, ""),
+                       "pos": _pick(a.get("pos") or a.get("position"), POS, "center"), "action": _pick(a.get("action"), ACTIONS, "talk"),
+                       "emotion": _pick(a.get("emotion"), EMOTIONS, "neutral"), "facing": _pick(a.get("facing"), {"left", "right"}, ""),
+                       "scale": max(0.6, min(1.2, float(a.get("scale", 1) or 1)))})
+    out["actors"] = actors
+    out["objects"] = [o for o in (str(x).lower() for x in (v.get("objects") or [])) if o in OBJECTS][:4]
+    out["effects"] = [e for e in (str(x).lower() for x in (v.get("effects") or [])) if e in EFFECTS][:3]
+    out["title"] = str(v.get("title") or "")[:34].upper()
+    out["camera"] = _pick(v.get("camera"), CAMERAS, rnd.choice(["push_in", "pan_right", "pull_out", "pan_left"]))
+    return out
+
+
+def actor_keys(a, dur, idx, n):
+    x = POS[a["pos"]]
+    center = .5
+    facing = 1 if (a["facing"] == "right" or (not a["facing"] and x < center - .05)) else -1
+    if a["pos"] == "center" and not a["facing"]:
+        facing = 1
+    em = a["emotion"]
+    act = a["action"]
+    K = lambda t, xx, pose, **kw: dict(t=t, x=xx, pose=pose, face=em, facing=facing, **kw)
+    if act == "talk":
+        seq, per = ["stand", "point", "stand", "shrug", "stand", "proud"], 1.7
+        return [K(i * per, x, seq[(i + idx) % len(seq)]) for i in range(int(dur / per) + 2)]
+    if act in ("enter_walk", "enter_run"):
+        start = -0.12 if x < .5 else 1.12
+        f0 = 1 if start < 0 else -1
+        pose = "walk" if act == "enter_walk" else "run"
+        k1 = min(dur * 0.45, 2.6)
+        return [dict(t=0, x=start, pose=pose, face=em, facing=f0), dict(t=k1, x=x, pose=pose, face=em, facing=f0), dict(t=k1 + .5, x=x, pose="stand", face=em, facing=facing)]
+    if act == "exit_run":
+        end = 1.15 if x >= .5 else -0.15
+        f1 = 1 if end > x else -1
+        return [dict(t=0, x=x, pose="stand", face=em, facing=f1), dict(t=dur * .4, x=x, pose="stand", face=em, facing=f1), dict(t=dur * .4 + .6, x=end, pose="run", face=em, facing=f1)]
+    if act in ("walk", "run"):
+        end = x + (.2 if facing > 0 else -.2)
+        return [K(0, x, act), K(dur, end, act)]
+    if act == "fight":
+        return [K(0, x, "sword_up"), K(min(1.2, dur * .3), x, "fight_swing")]
+    pose = act if act not in ("stand",) else "stand"
+    return [K(0, x, pose), K(dur, x, pose)]
+
+
+def build_stage(v, dur, rnd, seed=0):
+    bg = BACKGROUNDS[v["background"]]
+    scene = {k: bg[k] for k in ("sky", "ground_color", "hills") if k in bg}
+    if "sun" in bg:
+        scene["sun"] = bg["sun"]
+    scene["dim"] = bg.get("dim", 0)
+    scene["duration"] = dur
+    scene["bg_name"] = v["background"]
+    actors = []
+    for i, a in enumerate(v["actors"]):
+        props, tun = ROLES[a["role"]]
+        col = COLORS.get(a["color"] or tun, COLORS[tun])
+        keys = actor_keys(a, dur, i, len(v["actors"]))
+        for k in keys:
+            if k["pose"] == "fight_swing":
+                k["pose"] = "swing"
+        crown_fall = dur * 0.3 if ("crown" in props and a["action"] in ("slump", "scared")) else None
+        actors.append(dict(id=f"a{i}", crown_fall=crown_fall, color=col, tunic=col if a["role"] not in ("scholar", "priest") else (238, 234, 224),
+                           props=props, scale=a["scale"] * (0.98 if a["role"] in ("soldier", "knight") else 1.0),
+                           hair=(random.Random(i + seed).choice([(70, 48, 30), (40, 30, 24), (150, 110, 60), (200, 200, 196)])), keys=keys))
+    scene["actors"] = actors
+    xs = [.12, .88, .3, .7]
+    objs = []
+    for j, o in enumerate(v["objects"]):
+        objs.append(dict(type=o, x=[.16, .84, .5, .3][j % 4] if o not in ("torch",) else xs[j % 4], y=.18 + .05 * j, r=.05, scale=1.0,
+                         color=(255, 255, 255, 160) if v["background"] not in ("storm", "night", "battlefield") else (92, 94, 104)))
+    if not objs and v["background"] in ("city_day", "palace"):
+        objs = [dict(type="column", x=.1), dict(type="column", x=.9)]
+    if not objs and v["background"] in ("countryside", "forest"):
+        objs = [dict(type="tree", x=.1), dict(type="tree", x=.9, scale=.9)]
+    scene["objects"] = objs
+    fx = []
+    for e in v["effects"]:
+        if e == "rain":
+            fx.append(dict(type="rain", t0=0, t1=dur))
+        elif e == "flash":
+            fx.append(dict(type="flash", t=min(dur * .4, 2.0)))
+        elif e == "sparks":
+            fx.append(dict(type="sparks", t=dur * .55, x=.5, y=.52))
+        elif e == "dust":
+            fx += [dict(type="dust", actor=a["id"]) for a in actors]
+        elif e == "shake":
+            scene["shake"] = [dict(t=dur * .5, dur=.5, amp=12)]
+    scene["fx"] = fx
+    if v.get("title"):
+        scene["text"] = [dict(t=.35, end=min(dur - .2, 3.6), text=v["title"], y=.085,
+                              color=(255, 255, 255) if v["background"] in ("storm", "night", "battlefield") else (27, 27, 32))]
+    z, pan = CAMERAS[v["camera"]]
+    scene["zoom"] = z
+    scene["focus"] = (.5 + (pan[0] if pan else 0), .6)
+    if pan:
+        scene["focus_to"] = (.5 + pan[1], .6)
+    scene["blur"] = "fight" in [a["action"] for a in v["actors"]] or "run" in " ".join(a["action"] for a in v["actors"])
+    return scene
+
+
+def build_map(v, dur):
+    t = v["template"]
+    lands = [dict(pts=[(.10, .06), (.92, .05), (.94, .22), (.72, .26), (.55, .23), (.36, .22), (.2, .26), (.08, .18)], color=(224, 214, 178)),
+             dict(pts=[(.78, .30), (.96, .27), (.96, .72), (.80, .68), (.73, .50)], color=(224, 214, 178)),
+             dict(pts=[(.12, .45), (.22, .30), (.40, .28), (.58, .34), (.70, .47), (.66, .65), (.52, .73), (.34, .71), (.20, .62)], color=(236, 204, 132),
+                  label=v["center"], label_at=(.40, .36), label_color=(120, 70, 30))]
+    city = dict(name=v["city"], x=.44, y=.56) if v["city"] else None
+    labels = v["labels"] or ["", "", ""]
+    scene = dict(kind="map", duration=dur, land=lands, cities=[city] if city else [], arrows=[],
+                 text=[dict(t=.3, end=min(dur - .2, 3.6), text=v["title"], y=.03, color=(196, 57, 43))] if v["title"] else [])
+    if t == "invasion":
+        routes = [[(.70, .15), (.58, .38), (.47, .53)], [(.88, .52), (.70, .55), (.50, .57)], [(.16, .14), (.24, .36), (.41, .52)], [(.5, .95), (.47, .75), (.45, .6)]]
+        lab_at = [(.69, .10), (.80, .44), (.10, .10), (.52, .88)]
+        for i, lab in enumerate(labels[:4]):
+            t0 = .5 + i * dur * .14
+            scene["arrows"].append(dict(pts=routes[i], t0=t0, t1=min(t0 + dur * .35, dur - .3), label=lab, label_at=lab_at[i]))
+    elif t == "route":
+        pts = [(.14, .55), (.30, .40), (.50, .48), (.68, .36), (.86, .50)]
+        scene["land"] = [dict(pts=[(.06, .30), (.30, .20), (.60, .24), (.92, .28), (.95, .70), (.66, .78), (.34, .74), (.08, .66)], color=(236, 222, 184))]
+        scene["cities"] = [dict(name=n, x=p[0], y=p[1]) for n, p in zip(labels, pts)]
+        scene["arrows"] = [dict(pts=pts[:max(2, len(labels))], t0=.6, t1=dur - .4, color=(196, 57, 43))]
+    else:  # expanding
+        ce = (.5, .55)
+        scene["land"] = [dict(pts=[(.06, .16), (.94, .14), (.96, .86), (.05, .88)], color=(236, 222, 184))]
+        scene["cities"] = [dict(name=v["city"] or v["center"], x=ce[0], y=ce[1])]
+        outs = [((.20, .32), (.08, .24)), ((.80, .32), (.72, .24)), ((.80, .72), (.72, .80)), ((.20, .72), (.08, .80))]
+        for i, (end, la) in enumerate(outs[:max(2, len(labels))]):
+            t0 = .5 + i * dur * .12
+            scene["arrows"].append(dict(pts=[ce, end], t0=t0, t1=min(t0 + dur * .4, dur - .3), color=(196, 57, 43),
+                                        label=labels[i] if i < len(labels) else "", label_at=la))
+    return scene
+
+
+def build_card(v, dur):
+    return dict(kind="card", duration=dur, card=dict(big=v["big"], small=v["small"], bullets=v["bullets"], dark=v["dark"]))

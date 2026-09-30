@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Video Studio</title>
+<style>
+:root{--bg:#0f1115;--card:#171a21;--line:#2a2f3a;--text:#e8eaf0;--mute:#9aa3b5;--acc:#ffd23f;--ok:#46d39a;--bad:#ff6b6b}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,sans-serif}
+header{display:flex;gap:10px;align-items:center;padding:14px 20px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:5;flex-wrap:wrap}
+header h1{font-size:17px;margin:0 10px 0 0}main{max-width:1000px;margin:0 auto;padding:16px 16px 80px}
+section{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin:14px 0}
+h2{margin:0 0 4px;font-size:16px}.hint{color:var(--mute);font-size:13px;margin:0 0 12px}
+textarea,input,select{width:100%;background:#0f1218;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:9px;font:inherit}
+textarea{min-height:90px;resize:vertical}label{display:block;font-size:12px;color:var(--mute);margin:10px 0 4px}
+button{background:var(--acc);color:#111;border:0;border-radius:8px;padding:9px 14px;font-weight:600;cursor:pointer;font:inherit;font-weight:600}
+button.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}button:disabled{opacity:.5;cursor:wait}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}.row>*{flex:1;min-width:140px}.row>button{flex:0 0 auto}
+.scene{border:1px solid var(--line);border-radius:10px;padding:10px;margin:10px 0;display:grid;grid-template-columns:34px 1fr;gap:10px}
+.n{background:var(--line);border-radius:50%;width:30px;height:30px;display:grid;place-items:center;font-weight:700}
+.p{font-size:13px;color:var(--mute);margin:6px 0 0;white-space:pre-wrap}.p b{color:var(--text)}
+.chip{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:5px 11px;margin:4px 6px 0 0;cursor:pointer;font-size:13px}.chip:hover{border-color:var(--acc)}
+pre.log{background:#0b0d11;border:1px solid var(--line);border-radius:8px;padding:10px;max-height:240px;overflow:auto;font-size:12px;white-space:pre-wrap}
+.err{color:var(--bad)}.good{color:var(--ok)}video{width:100%;max-height:520px;background:#000;border-radius:8px}
+.small{font-size:12px;padding:5px 9px}dialog{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:12px;max-width:520px;width:92%}
+#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#222;border:1px solid var(--line);padding:9px 14px;border-radius:8px;display:none}
+.stage{display:flex;gap:8px;align-items:center;padding:3px 0;color:var(--mute)}.stage.cur{color:var(--text);font-weight:600}.stage.done{color:var(--ok)}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--line)}.stage.cur .dot{background:var(--acc)}.stage.done .dot{background:var(--ok)}
+.thumbs{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.thumbs img{width:100%;border-radius:8px;border:3px solid transparent;cursor:pointer}.thumbs img.sel{border-color:var(--acc)}
+.feed{display:flex;gap:12px;background:#0b0d11;border:1px solid var(--line);border-radius:10px;padding:10px;margin-top:10px;max-width:420px}.feed img{width:168px;border-radius:6px}.feed b{font-size:13px;line-height:1.3}
+.flag{border-left:3px solid var(--line);padding:4px 10px;margin:6px 0;font-size:13px}.flag.high{border-color:var(--bad)}.flag.medium{border-color:var(--acc)}
+.big{font-size:17px;padding:13px 22px}h3{font-size:14px;margin:14px 0 4px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Video Studio</h1>
+  <select id="proj" style="max-width:260px"></select>
+  <button class="ghost small" onclick="newProject()">New project</button>
+  <button class="ghost small" onclick="document.getElementById('settings').showModal()">Settings</button>
+</header>
+<main id="automain"></main>
+<main id="main"><p class="hint">Create a project to start.</p></main>
+<dialog id="settings">
+  <h2>Settings</h2><p class="hint">Stored only on this computer. Leave a field blank to keep what is saved (saved fields show "set").</p>
+  <label>Gemini API key (free at aistudio.google.com/apikey) <span id="s_g"></span></label><input id="GEMINI_API_KEY" type="password">
+  <label>YouTube client ID <span id="s_ci"></span></label><input id="YT_CLIENT_ID" type="password">
+  <label>YouTube client secret <span id="s_cs"></span></label><input id="YT_CLIENT_SECRET" type="password">
+  <label>YouTube refresh token <span id="s_rt"></span></label><input id="YT_REFRESH_TOKEN" type="password">
+  <div class="row" style="margin-top:14px"><button onclick="saveSettings()">Save</button><button class="ghost" onclick="document.getElementById('settings').close()">Close</button></div>
+</dialog>
+<div id="toast"></div>
+<script>
+let pid=null,P=null,poll=null;
+const $=s=>document.querySelector(s), esc=t=>String(t??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function api(path,opt={}){const r=await fetch(path,opt);const j=await r.json();if(!j.ok)throw new Error(j.error||'Request failed');return j}
+const post=(p,b)=>api(p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})});
+function toast(m,bad){const t=$('#toast');t.textContent=m;t.style.color=bad?'var(--bad)':'var(--text)';t.style.display='block';clearTimeout(t._t);t._t=setTimeout(()=>t.style.display='none',3500)}
+async function guard(btn,fn){btn&&(btn.disabled=true);try{await fn()}catch(e){toast(e.message,true)}finally{btn&&(btn.disabled=false)}}
+function copy(t){navigator.clipboard.writeText(t).then(()=>toast('Copied'))}
+async function loadProjects(sel){const j=await api('/api/projects');$('#proj').innerHTML=j.projects.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  if(j.projects.length){pid=sel||pid||j.projects[0].id;$('#proj').value=pid;await load()}}
+$('#proj').onchange=e=>{pid=e.target.value;load()};
+async function newProject(){const name=prompt('Project name (your channel or video)');if(!name)return;const j=await post('/api/projects',{name});await loadProjects(j.id)}
+async function load(){const j=await api('/api/p/'+pid);P=j.project;render();if(j.job&&j.job.state==='running')watch()}
+async function save(extra){Object.assign(P,extra||{});await api('/api/p/'+pid,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(P)})}
+async function saveSettings(){const b={};['GEMINI_API_KEY','YT_CLIENT_ID','YT_CLIENT_SECRET','YT_REFRESH_TOKEN'].forEach(k=>b[k]=$('#'+k).value);
+  await post('/api/settings',b);['GEMINI_API_KEY','YT_CLIENT_ID','YT_CLIENT_SECRET','YT_REFRESH_TOKEN'].forEach(k=>$('#'+k).value='');$('#settings').close();toast('Saved');showSettings()}
+async function showSettings(){const s=(await api('/api/settings')).settings;$('#s_g').textContent=s.GEMINI_API_KEY?'(set)':'';$('#s_ci').textContent=s.YT_CLIENT_ID?'(set)':'';$('#s_cs').textContent=s.YT_CLIENT_SECRET?'(set)':'';$('#s_rt').textContent=s.YT_REFRESH_TOKEN?'(set)':''}
+const flowChars=()=>'insert scenes\n'+(P.characters||[]).map(c=>`${c.tag}: ${c.prompt}`).join('\n');
+const flowImages=()=>'insert all scenes\n'+P.scenes.map(s=>`Scene ${s.n}: ${s.image_prompt}`).join('\n')+'\nRename each generated image by its scene number like scene 1, scene 2, scene 3.';
+const flowVideo=()=>'insert all scenes\n'+P.scenes.map(s=>`Scene ${s.n}: ${s.anim_prompt}`).join('\n');
+function render(){const S=P.settings,sc=P.scenes,clips=P.clip_files||[],have=sc.filter(s=>s.clip).length;
+$('#main').innerHTML=`
+<section><h2>1. Channel formula</h2><p class="hint">Paste links to 10-15 of the best videos from a channel that already works. The AI extracts its formula (audience, hooks, script shape, visual style). Or paste a formula you already have.</p>
+<label>Niche</label><input id="niche" value="${esc(S.niche||'History')}" onchange="P.settings.niche=this.value;save()">
+<label>Top video links (one per line)</label><textarea id="urls" placeholder="https://www.youtube.com/watch?v=..."></textarea>
+<div class="row"><button onclick="guard(this,doFormula)">Decode formula</button></div>
+<label>Formula ${P.formula?'<span class="good">(ready)</span>':''}</label><textarea id="formula" style="min-height:120px" onchange="save({formula:this.value})">${esc(P.formula)}</textarea></section>
+
+<section><h2>2. Video idea and script</h2><p class="hint">Get ideas from the formula, pick one, and it writes the full script plus every image and animation prompt.</p>
+<div class="row"><button class="ghost" onclick="guard(this,doIdeas)">Suggest 10 ideas</button></div>
+<div id="ideas">${ideasHtml()}</div>
+<label>Video idea</label><input id="idea" value="${esc(P.idea)}">
+<div class="row"><div><label>Length (minutes)</label><input id="minutes" type="number" step="0.5" value="${S.minutes||3}"></div>
+<div><label>Format</label><select id="aspect"><option value="16:9" ${S.aspect==='16:9'?'selected':''}>Long form 16:9</option><option value="9:16" ${S.aspect==='9:16'?'selected':''}>Short 9:16</option></select></div>
+<button onclick="guard(this,doPlan)">Write script + prompts</button></div></section>
+
+<section><h2>3. Prompts for Google Flow</h2><p class="hint">Flow has no API, so this part is copy, paste, download. Generate the images, then the video clips, and download them.</p>
+${sc.length?`<div class="row"><button class="ghost" onclick="copy(flowChars())">Copy character prompts</button><button class="ghost" onclick="copy(flowImages())">Copy all image prompts</button><button class="ghost" onclick="copy(flowVideo())">Copy all animation prompts</button></div>
+<p class="hint" style="margin-top:10px"><b>${esc(P.meta.title||'')}</b><br>${esc(P.meta.description||'')}</p>`:'<p class="hint">Nothing yet. Do step 2.</p>'}
+${sc.map(s=>`<div class="scene"><div class="n">${s.n}</div><div><div>${esc(s.voiceover)}</div>
+<div class="p"><b>Image:</b> ${esc(s.image_prompt)} <button class="ghost small" onclick="copy(P.scenes[${s.n-1}].image_prompt)">copy</button></div>
+<div class="p"><b>Animation:</b> ${esc(s.anim_prompt)} <button class="ghost small" onclick="copy(P.scenes[${s.n-1}].anim_prompt)">copy</button></div></div></div>`).join('')}
+<details style="margin-top:10px"><summary class="hint">Already have a script or a NotebookLM scene table? Import it</summary>
+<textarea id="imp" placeholder="Paste the scene table, or just the voiceover text"></textarea><div class="row"><button class="ghost" onclick="guard(this,doImport)">Import</button></div></details></section>
+
+<section><h2>4. Drop in your clips</h2><p class="hint">Select all the clips Flow made. Files with a scene number in the name (like "scene 3") go to that scene, the rest fill in order. ${have}/${sc.length} scenes have a clip.</p>
+<input type="file" id="files" multiple accept="video/*" onchange="guard(null,doUpload)">
+${sc.map(s=>`<div class="row" style="margin-top:8px"><div style="flex:0 0 70px">Scene ${s.n}</div><select onchange="assign(${s.n},this.value)"><option value="">(no clip)</option>${clips.filter(c=>!c.startsWith('music_')).map(c=>`<option ${s.clip===c?'selected':''}>${esc(c)}</option>`).join('')}</select></div>`).join('')}</section>
+
+<section><h2>5. Build the video</h2><p class="hint">Makes the voiceover, fits every clip to its line, adds captions and music, and exports.</p>
+<div class="row"><div><label>Voice (Microsoft neural, free)</label><select id="voice">${['en-US-AndrewMultilingualNeural','en-US-BrianMultilingualNeural','en-US-AvaMultilingualNeural','en-US-AndrewNeural','en-US-GuyNeural','en-GB-RyanNeural','en-GB-SoniaNeural','en-AU-WilliamNeural'].map(v=>`<option ${S.voice===v?'selected':''}>${v}</option>`).join('')}</select></div>
+<div><label>Speed</label><select id="rate">${['-10%','+0%','+6%','+12%'].map(v=>`<option ${S.rate===v?'selected':''}>${v}</option>`).join('')}</select></div>
+<div><label>Captions</label><select id="captions"><option value="1" ${S.captions!==false?'selected':''}>On</option><option value="0" ${S.captions===false?'selected':''}>Off</option></select></div></div>
+<label>Opening hook text (first 2 seconds, optional)</label><input id="hook" value="${esc(S.hook_text||'')}">
+<label>Background music (optional mp3/wav, mixed quietly) ${P.music?'<span class="good">'+esc(P.music)+'</span>':''}</label><input type="file" id="music" accept="audio/*" onchange="guard(null,doMusic)">
+<div class="row" style="margin-top:14px"><button id="buildBtn" onclick="guard(this,doBuild)">Build video</button></div><pre class="log" id="log" style="display:none"></pre></section>
+
+<section><h2>6. Review and publish</h2>
+${P.has_final?`<video controls src="/api/p/${pid}/file/out/final.mp4?t=${Date.now()}"></video>
+<label>Title</label><input id="title" value="${esc(P.meta.title)}"><label>Description</label><textarea id="desc">${esc(P.meta.description)}</textarea>
+<label>Tags (comma separated)</label><input id="tags" value="${esc((P.meta.tags||[]).join(', '))}">
+<div class="row"><div><label>Visibility</label><select id="privacy"><option ${S.privacy==='private'?'selected':''}>private</option><option ${S.privacy==='unlisted'?'selected':''}>unlisted</option><option ${S.privacy==='public'?'selected':''}>public</option></select></div>
+<button onclick="guard(this,doPublish)">Publish to YouTube</button></div><p class="hint" id="pubmsg"></p>`:'<p class="hint">Build the video first.</p>'}</section>`;
+showSettings()}
+function ideasHtml(){const i=P.ideas;if(!i)return'';return '<label>Ideas (click one)</label>'+(i.ideas||[]).map(t=>`<span class="chip" onclick="document.getElementById('idea').value=this.textContent">${esc(t)}</span>`).join('')+'<label>Channel name ideas</label>'+(i.channel_names||[]).map(c=>`<span class="chip" title="${esc(c.why)}">${esc(c.name)}</span>`).join('')}
+async function doFormula(){const j=await post(`/api/p/${pid}/formula`,{urls:$('#urls').value,text:$('#formula').value});P.formula=j.formula;render();toast('Formula ready')}
+async function doIdeas(){const j=await post(`/api/p/${pid}/ideas`,{});P.ideas=j.ideas;$('#ideas').innerHTML=ideasHtml()}
+async function doPlan(){const j=await post(`/api/p/${pid}/plan`,{idea:$('#idea').value,settings:{minutes:+$('#minutes').value,aspect:$('#aspect').value}});await load();toast('Script and prompts ready')}
+async function doImport(){await post(`/api/p/${pid}/import`,{text:$('#imp').value});await load()}
+async function doUpload(){const fd=new FormData();[...$('#files').files].forEach(f=>fd.append('files',f));toast('Uploading...');await api(`/api/p/${pid}/clips`,{method:'POST',body:fd});await load();toast('Clips added')}
+async function doMusic(){const fd=new FormData();fd.append('file',$('#music').files[0]);await api(`/api/p/${pid}/music`,{method:'POST',body:fd});await load()}
+async function assign(n,name){P.scenes[n-1].clip=name||null;await save()}
+async function doBuild(){Object.assign(P.settings,{voice:$('#voice').value,rate:$('#rate').value,captions:$('#captions').value==='1',hook_text:$('#hook').value});await save();await post(`/api/p/${pid}/build`);watch()}
+function watch(){clearInterval(poll);const box=$('#log');if(box)box.style.display='block';poll=setInterval(async()=>{const j=await api(`/api/p/${pid}/job`);const jb=j.job;if(!jb)return;const b=$('#log');if(b){b.style.display='block';b.textContent=jb.log.join('\n');b.scrollTop=1e9}
+  if(jb.state!=='running'){clearInterval(poll);if(jb.state==='done'){await load();toast('Video ready')}else toast('Build failed, see log',true)}},1500)}
+async function doPublish(){P.meta={title:$('#title').value,description:$('#desc').value,tags:$('#tags').value.split(',').map(s=>s.trim()).filter(Boolean)};P.settings.privacy=$('#privacy').value;await save();
+  const j=await post(`/api/p/${pid}/publish`);$('#pubmsg').innerHTML='Uploaded: <a style="color:var(--acc)" target="_blank" href="'+esc(j.url.split(' ')[1]||'#')+'">'+esc(j.url)+'</a>'}
+loadProjects();
+
+/* ---------- AUTO MODE ---------- */
+let aPoll=null,AP=[],aSel=null,aThumb=null;
+async function autoInit(){await autoStatus();await autoPending()}
+async function autoStart(btn){await guard(btn,async()=>{await post('/api/auto/start',{hint:$('#ahint').value});toast('Started');aWatch()})}
+function aWatch(){clearInterval(aPoll);aPoll=setInterval(async()=>{const j=await autoStatus();if(!j||!j.job||j.job.state!=='running'){clearInterval(aPoll);await autoPending()}},2000)}
+async function autoStatus(){const j=await api('/api/auto/status');autoRender(j);return j}
+async function autoPending(){const j=await api('/api/auto/pending');AP=j.pending;autoRender(await api('/api/auto/status'))}
+function autoRender(st){const job=st.job,run=job&&job.state==='running';
+const prog=job?`<div style="margin:12px 0">${job.stages.map((n,i)=>`<div class="stage ${job.state==='done'||i<job.stage?'done':(run&&i===job.stage?'cur':'')}"><span class="dot"></span>${n}</div>`).join('')}</div>
+<pre class="log" style="max-height:150px">${esc(job.log.slice(-14).join('\n'))}</pre>${job.state==='error'?'<p class="err">Something failed. You can press the button to try again.</p>':''}`:'';
+const rev=AP.length&&!run?reviewHtml(AP.find(p=>p.pid===aSel)||AP[0]):'';
+$('#automain').innerHTML=`<section><h2>Make a history video automatically</h2><p class="hint">One button. It picks a topic people will actually click, writes and fact-checks the script, draws the stickman scenes, records the voice with sound effects and music, makes thumbnails, title, description and tags, then stops and shows you everything to approve. Takes roughly 30-60 minutes.</p>
+<div class="row"><div><label>Optional topic hint (leave empty and the AI decides)</label><input id="ahint" placeholder="e.g. something about ancient Egypt"></div><button class="big" ${run?'disabled':''} onclick="autoStart(this)">${run?'Working...':'Make a video'}</button></div>${prog}</section>${rev}`}
+function reviewHtml(p){aSel=p.pid;aThumb=aThumb&&p.thumbs.includes(aThumb)?aThumb:p.chosen_thumb;
+const img=n=>`/api/p/${p.pid}/file/out/${n}`;
+return `<section><h2>Ready for your approval</h2><p class="hint">${esc(p.topic)}<br>${p.minutes} minutes, ${p.words} words, built in ${p.made_in_min} min ${p.length_ok?'':'<span class="err"> - outside the 8-15 minute target</span>'}</p>
+<video controls src="${img('final.mp4')}" preload="metadata"></video>
+<h3>Thumbnail (click to choose)</h3><div class="thumbs">${p.thumbs.map(t=>`<img src="${img(t)}" data-t="${t}" class="${t===aThumb?'sel':''}" onclick="pickThumb('${t}','${p.pid}')">`).join('')}</div>
+<div class="feed"><img id="feedimg" src="${img(aThumb)}"><div><b id="feedtitle">${esc(p.title)}</b><div class="hint" style="margin:4px 0 0">Your Channel - how it looks in the feed</div></div></div>
+<h3>Title</h3><select onchange="$('#atitle').value=this.value;$('#feedtitle').textContent=this.value">${p.title_options.map(t=>`<option ${t===p.title?'selected':''}>${esc(t)}</option>`).join('')}</select><input id="atitle" value="${esc(p.title)}" style="margin-top:6px" oninput="$('#feedtitle').textContent=this.value">
+<h3>Description (chapters included)</h3><textarea id="adesc" style="min-height:230px">${esc(p.description)}</textarea>
+<h3>Tags</h3><input id="atags" value="${esc(p.tags.join(', '))}">
+<h3>Pinned comment to post after publishing</h3><input readonly value="${esc(p.pinned_comment)}">
+<h3>Fact-check: statements to double check (${p.flags.length})</h3>${p.flags.length?p.flags.map(f=>`<div class="flag ${esc(f.severity)}"><b>${esc(f.severity)}</b>: ${esc(f.claim)}<br><span class="hint">${esc(f.issue)}${f.fix?' Safer: '+esc(f.fix):''}</span></div>`).join(''):'<p class="hint">Nothing flagged.</p>'}
+<div class="row" style="margin-top:16px"><div><label>Visibility</label><select id="apriv"><option>public</option><option>unlisted</option><option>private</option></select></div>
+<button class="big" onclick="autoPublish(this,'${p.pid}')">Approve and publish</button><button class="ghost" onclick="autoDiscard('${p.pid}')">Discard</button></div><p class="hint" id="apub"></p></section>`}
+function pickThumb(t,pid){aThumb=t;document.querySelectorAll('.thumbs img').forEach(i=>i.classList.toggle('sel',i.dataset.t===t));$('#feedimg').src=`/api/p/${pid}/file/out/${t}`}
+async function autoPublish(btn,pid){if(!confirm('Publish this video to YouTube now?'))return;await guard(btn,async()=>{const j=await post(`/api/auto/${pid}/publish`,{title:$('#atitle').value,description:$('#adesc').value,tags:$('#atags').value.split(',').map(s=>s.trim()).filter(Boolean),privacy:$('#apriv').value,thumb:aThumb});
+$('#apub').innerHTML='Published: <a style="color:var(--acc)" target="_blank" href="'+j.url+'">'+j.url+'</a>'+(j.log.filter(l=>l.includes('thumbnail')).length?'<br><span class="err">'+esc(j.log.filter(l=>l.includes('thumbnail')).join(' '))+'</span>':'');toast('Published')})}
+async function autoDiscard(pid){if(!confirm('Discard this video?'))return;await post(`/api/auto/${pid}/discard`);await autoPending()}
+autoInit();
+</script>
+</body>
+</html>

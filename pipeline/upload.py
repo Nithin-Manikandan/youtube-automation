@@ -13,14 +13,14 @@ def _access_token():
     return r.json()["access_token"]
 
 
-def upload(mp4, data, cfg, log=print):
+def upload(mp4, data, cfg, log=print, shorts=True, thumb=None):
     up = cfg.get("upload", {})
     title = data["title"][:100]
     desc = data.get("description", "")
-    if "#shorts" not in desc.lower():
+    if shorts and "#shorts" not in desc.lower():
         desc += "\n#shorts"
     body = {
-        "snippet": {"title": title, "description": desc, "tags": data.get("tags", [])[:15],
+        "snippet": {"title": title, "description": desc, "tags": data.get("tags", [])[:15], "defaultLanguage": "en", "defaultAudioLanguage": "en",
                     "categoryId": up.get("category_id", "24")},
         "status": {"privacyStatus": up.get("privacy", "private"), "selfDeclaredMadeForKids": False,
                    "containsSyntheticMedia": bool(up.get("synthetic_media_disclosure", True))},
@@ -37,5 +37,14 @@ def upload(mp4, data, cfg, log=print):
         r = requests.put(init.headers["Location"], data=f, headers={"Content-Type": "video/mp4"}, timeout=600)
     r.raise_for_status()
     vid = r.json()["id"]
-    log(f"uploaded: https://youtube.com/shorts/{vid}  (privacy: {body['status']['privacyStatus']})")
+    if thumb:
+        try:
+            with open(thumb, "rb") as tf:
+                tr = requests.post(f"https://www.googleapis.com/upload/youtube/v3/thumbnails/set?videoId={vid}",
+                                   headers={"Authorization": f"Bearer {token}", "Content-Type": "image/jpeg"}, data=tf.read(), timeout=120)
+            if tr.status_code != 200:
+                log(f"thumbnail not set ({tr.status_code}): {tr.text[:160]}")
+        except Exception as e:
+            log(f"thumbnail not set: {e}")
+    log(f"uploaded: https://youtube.com/{'shorts/' if shorts else 'watch?v='}{vid}  (privacy: {body['status']['privacyStatus']})")
     return vid
