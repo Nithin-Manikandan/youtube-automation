@@ -93,6 +93,9 @@ class Captions:
             w = [re.sub(r"\s+", "", w[0]).upper(), w[1], w[2]]
             if not w[0]:
                 continue
+            if cur and w[1] - cur[-1][2] > 0.5:  # a pause (or a different speaker) starts a new caption
+                self.chunks.append(cur)
+                cur = []
             cur.append(w)
             if len(cur) >= n or (len(cur) >= 2 and re.search(r"[.!?…]$", w[0])):
                 self.chunks.append(cur)

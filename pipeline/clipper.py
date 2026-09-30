@@ -18,7 +18,7 @@ import cv2
 import numpy as np
 import requests
 
-from . import ffmpeg, script
+from . import audio as audiolib, ffmpeg, script, tts
 from .config import ROOT, load
 from .render import Captions, _blend, make_hook_image
 
@@ -103,10 +103,13 @@ class FaceFollower:
         self.cx = src_w / 2
         self.target = src_w / 2
         self.w = src_w
-        self.det = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+        try:  # needs OpenCV 4.x; without it we simply keep a centred crop
+            self.det = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+        except AttributeError:
+            self.det = None
 
     def update(self, frame, detect):
-        if detect:
+        if detect and self.det is not None:
             small = cv2.resize(frame, None, fx=0.4, fy=0.4)
             gray = cv2.cvtColor(small, cv2.COLOR_RGB2GRAY)
             faces = self.det.detectMultiScale(gray, 1.15, 5, minSize=(40, 40))
@@ -173,10 +176,163 @@ def render_clip(src, clip, words, out, cfg):
         raise RuntimeError("ffmpeg failed")
 
 
+def pick_stories(cfg, segments, count, duration, commentary):
+    """LLM builds short story arcs out of several moments, each joined by a tiny bridge line."""
+    words_cap = {"minimal": 8, "light": 14, "medium": 24}.get(commentary, 14)
+    lines = "\n".join(f"[{s:.1f}s -> {e:.1f}s] {t}" for s, e, t in segments)
+    prompt = f"""You edit viral vertical Shorts for "{cfg['channel_name']}" from a long video ({duration / 60:.0f} min).
+Build {count} different Shorts. Each Short is a mini story made of 3 or 4 moments from the transcript, in the order
+that builds the most tension, surprise or humour. The footage does the talking; you only add tiny bridge lines.
+
+Rules:
+- Each moment is 8 to 20 seconds, starts and ends on segment boundaries (use the exact seconds shown), no overlap
+  between moments inside a Short, total length 35 to 58 seconds.
+- The FIRST moment must be the strongest hook. Each Short must make sense without the rest of the video.
+- "bridge" is a voice-over line spoken over the start of that moment, max {words_cap} words, punchy, sets up what
+  the viewer is about to see. Use "" for moments that need no setup. Never retell what is said in the footage.
+- Never invent facts about real people; bridges may only reflect what the transcript shows.
+
+Return JSON only:
+{{"stories": [{{"title": "<=70 chars", "hook_text": "<=6 words shown on screen", "description": "one sentence plus #shorts",
+"parts": [{{"start": 10.0, "end": 24.5, "bridge": "He had no idea what was coming."}}]}}]}}
+
+TRANSCRIPT:
+{lines}"""
+    out = []
+    for st in script.llm_json(prompt, 0.5).get("stories", []):
+        parts = []
+        for p in st.get("parts", []):
+            try:
+                a, b = float(p["start"]), float(p["end"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            if 5 <= b - a <= 25 and 0 <= a < b <= duration + 1:
+                parts.append({"start": a, "end": b, "bridge": str(p.get("bridge", ""))[:160]})
+        total = sum(p["end"] - p["start"] for p in parts)
+        if len(parts) >= 2 and 20 <= total <= 70:
+            st["parts"] = parts
+            out.append(st)
+    if not out:
+        raise RuntimeError("The LLM returned no usable stories")
+    return out[:count]
+
+
+def _decode_audio(src, start, dur):
+    p = subprocess.run([ffmpeg.exe(), "-loglevel", "error", "-ss", f"{start:.3f}", "-t", f"{dur:.3f}", "-i", str(src),
+                        "-vn", "-f", "f32le", "-ac", "1", "-ar", str(tts.SR), "pipe:1"],
+                       capture_output=True, check=True)
+    a = np.frombuffer(p.stdout, dtype=np.float32).copy()
+    need = int(dur * tts.SR)
+    return np.pad(a, (0, max(0, need - len(a))))[:need]
+
+
+def render_story(src, story, words, out, cfg, narrate=None):
+    """Concatenate moments from the source with short bridge voice-overs. narrate(text)->(samples, words)."""
+    narrate = narrate or (lambda t: tts.narrate(t, cfg))
+    cap = cv2.VideoCapture(str(src))
+    sw, sh = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    sfps = cap.get(cv2.CAP_PROP_FPS) or 30
+    follow, portrait = FaceFollower(sw, sh), sh > sw
+
+    track, cap_words, plan, cursor = [], [], [], 0.0
+    for part in story["parts"]:
+        a, b = part["start"], part["end"]
+        dur = b - a
+        seg = _decode_audio(src, a, dur)
+        bridge = part.get("bridge", "").strip()
+        bwin = None
+        if bridge:
+            voice, bwords = narrate(bridge)
+            blen = len(voice) / tts.SR
+            if blen < dur - 1.5:
+                off = 0.25
+                bwin = (off, off + blen)
+                i0, i1 = int(off * tts.SR), int(off * tts.SR) + len(voice)
+                duck = np.ones(len(seg), dtype=np.float32)
+                duck[max(0, i0 - 2000):i1 + 2000] = 0.18     # footage drops under the voice-over
+                seg = seg * duck
+                seg[i0:i1] += voice[:max(0, len(seg) - i0)][:i1 - i0]
+                cap_words += [[w[0], cursor + off + w[1], cursor + off + w[2]] for w in bwords]
+        for w in words:  # the footage's own speech becomes captions, except under the bridge
+            if w[1] >= a and w[2] <= b + 0.1:
+                rel = w[1] - a
+                if bwin and bwin[0] - 0.1 < rel < bwin[1] + 0.1:
+                    continue
+                cap_words.append([w[0], cursor + rel, cursor + w[2] - a])
+        track.append(seg)
+        plan.append((a, cursor, dur))
+        cursor += dur
+    cap_words.sort(key=lambda w: w[1])
+    mix = np.concatenate(track)
+    peak = float(np.abs(mix).max())
+    if peak > 0:
+        mix = mix / peak * 0.9
+
+    import wave
+    wav_path = str(out) + ".wav"
+    with wave.open(wav_path, "wb") as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(tts.SR)
+        wf.writeframes((np.clip(mix, -1, 1) * 32767).astype(np.int16).tobytes())
+
+    caps = Captions(cap_words, cfg, OW, OH)
+    hook = make_hook_image(story.get("hook_text", ""), OW, caps.font_path) if story.get("hook_text") else None
+    cmd = [ffmpeg.exe(), "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{OW}x{OH}",
+           "-r", str(FPS), "-i", "pipe:0", "-i", wav_path, "-c:v", "libx264", "-preset", "medium", "-crf", "20",
+           "-maxrate", "9M", "-bufsize", "18M", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
+           "-af", "loudnorm=I=-14:TP=-1.5:LRA=11", "-movflags", "+faststart", "-shortest", str(out)]
+    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
+    n_total = int(cursor * FPS)
+    pi, frame, src_idx = 0, None, -1
+    for n in range(n_total):
+        t = n / FPS
+        while pi + 1 < len(plan) and t >= plan[pi + 1][1]:
+            pi += 1
+            src_idx, frame = -1, None
+        a, c0, d = plan[pi]
+        local = t - c0
+        if frame is None or src_idx < 0:
+            cap.set(cv2.CAP_PROP_POS_MSEC, (a + local) * 1000)
+            src_idx = int(round((a + local) * sfps)) - 1
+        want = int(round((a + local) * sfps))
+        while src_idx < want:
+            ok, bgr = cap.read()
+            if not ok:
+                break
+            src_idx += 1
+            frame = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+        if frame is None:
+            break
+        if portrait:
+            fr = cv2.resize(frame, (OW, OH), interpolation=cv2.INTER_CUBIC)
+        else:
+            x0 = follow.update(frame, n % 8 == 0)
+            fr = cv2.resize(frame[:, x0:x0 + follow.cw], (OW, OH), interpolation=cv2.INTER_CUBIC)
+        if pi > 0 and local < 0.1:  # quick flash on each cut
+            fr = np.clip(fr.astype(np.int16) + int(30 * (1 - local / 0.1)), 0, 255).astype(np.uint8)
+        caps.overlay(fr, t)
+        if hook is not None and t < 2.4:
+            al = 1.0 if t < 1.8 else max(0.0, 1 - (t - 1.8) / 0.6)
+            ov = hook.copy()
+            ov[..., 3] = (ov[..., 3] * al).astype(np.uint8)
+            _blend(fr, ov, 0, int(OH * 0.14))
+        proc.stdin.write(fr.tobytes())
+    cap.release()
+    proc.stdin.close()
+    if proc.wait() != 0:
+        raise RuntimeError("ffmpeg failed")
+    pathlib.Path(wav_path).unlink(missing_ok=True)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--source", required=True, help="video file path or DIRECT download URL")
     ap.add_argument("--count", type=int, default=5)
+    ap.add_argument("--mode", choices=["story", "clips"], default="story",
+                    help="story: moments stitched with tiny bridge lines (default); clips: single moments")
+    ap.add_argument("--commentary", choices=["minimal", "light", "medium"], default="light",
+                    help="how long the bridge lines may be. Raise it if you get claims or demonetisation")
     ap.add_argument("--model", default="base.en", help="whisper model: tiny.en, base.en, small.en")
     ap.add_argument("--out", default=str(ROOT / "output" / "clips"))
     ap.add_argument("--config")
@@ -200,15 +356,23 @@ def main():
     log(f"      {len(words)} words, {len(segments)} segments")
 
     log("[3/4] choosing moments")
-    clips = pick_clips(cfg, segments, args.count, duration)
-
-    log(f"[4/4] rendering {len(clips)} clips")
     meta = []
-    for i, c in enumerate(clips, 1):
-        path = out / f"clip{i:02d}.mp4"
-        render_clip(src, c, words, path, cfg)
-        meta.append({"file": path.name, **c})
-        log(f"      {path.name}: {c['end'] - c['start']:.0f}s  {c['title']}")
+    if args.mode == "story":
+        stories = pick_stories(cfg, segments, args.count, duration, args.commentary)
+        log(f"[4/4] rendering {len(stories)} stories")
+        for i, st in enumerate(stories, 1):
+            path = out / f"story{i:02d}.mp4"
+            render_story(src, st, words, path, cfg)
+            meta.append({"file": path.name, **st})
+            log(f"      {path.name}: {st['title']}")
+    else:
+        clips = pick_clips(cfg, segments, args.count, duration)
+        log(f"[4/4] rendering {len(clips)} clips")
+        for i, c in enumerate(clips, 1):
+            path = out / f"clip{i:02d}.mp4"
+            render_clip(src, c, words, path, cfg)
+            meta.append({"file": path.name, **c})
+            log(f"      {path.name}: {c['end'] - c['start']:.0f}s  {c['title']}")
     (out / "clips.json").write_text(json.dumps(meta, indent=2))
     log(f"done in {time.time() - t0:.0f}s")
 

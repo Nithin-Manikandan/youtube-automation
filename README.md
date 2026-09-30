@@ -64,3 +64,16 @@ GEMINI_API_KEY=... python -m pipeline.make # real run
 - Free image models can produce hand/face artefacts. Dark, foggy, silhouette-heavy prompts hide most of it.
 - The real image and voice steps have not been tested end to end yet; expect to tune after the first run.
 - Monetisation needs 1,000 subscribers plus 10M Shorts views in 90 days (or 4,000 watch hours). Repetitive mass-produced content can be demonetised, so keep scripts varied.
+
+## Clipper (for footage you have rights to)
+
+`python -m pipeline.clipper --source <file-or-direct-url>` (or the **Make clips** workflow) turns a long video into Shorts:
+transcribe -> the LLM picks the moments people will not skip -> 9:16 reframe that follows the speaker's face ->
+word-by-word captions + hook line.
+
+- `--mode story` (default): 3-4 moments stitched into one Short with tiny spoken bridge lines. `--commentary minimal|light|medium` sets how long the bridges may be.
+- `--mode clips`: one moment per Short.
+
+Use it on footage you own, that is Creative Commons (credit the creator), or that a creator's clipping campaign supplied. It does not download from YouTube. **Find CC videos** lists popular CC BY videos (needs a free `YT_API_KEY` secret).
+
+Heads up on money: YouTube only monetizes reused footage with significant original commentary or transformation, and Content ID can still claim clips. Footage-heavy edits with light commentary are the riskiest. Approved campaigns avoid the problem.
