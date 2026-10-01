@@ -56,7 +56,7 @@ BACKGROUNDS = {
 }
 OBJECTS = {"castle", "column", "pedestal", "cloud", "tree", "tent", "pyramid", "tower", "torch", "ship",
            "submarine", "warship", "missile", "plane", "building", "hatch", "pipes", "gauge",
-           "volcano", "ash_cloud", "wave", "fire", "smoke", "house", "explosion", "depth_charge", "torpedo"}
+           "volcano", "ash_cloud", "wave", "fire", "smoke", "house", "explosion", "depth_charge", "torpedo", "crowd"}
 EFFECTS = {"rain", "flash", "sparks", "dust", "shake", "ashfall", "embers", "bubbles", "sonar"}
 CAMERAS = {"push_in": ([1.0, 1.10], None), "pull_out": ([1.12, 1.0], None), "pan_right": ([1.06, 1.06], (-.04, .04)), "pan_left": ([1.06, 1.06], (.04, -.04)), "static": ([1.0, 1.0], None)}
 
@@ -191,7 +191,7 @@ def build_stage(v, dur, rnd, seed=0):
     flags = v.get("flags") or {}
     for j, o in enumerate(v["objects"]):
         objs.append(dict(type=o, x=BIG.get(o, [.16, .84, .5, .3][j % 4]) if o not in ("torch",) else xs[j % 4], y=.18 + .05 * j, r=.05, scale=1.0,
-                         dur=dur, afloat=v["background"] == "underwater", launch=bool(flags.get("launch")),
+                         dur=dur, modern=bool(flags.get("modern")), afloat=v["background"] == "underwater", launch=bool(flags.get("launch")),
                          t0=dur * (.3 + .12 * j) if o in ("depth_charge", "explosion", "torpedo") else .4,
                          color=(255, 255, 255, 160) if v["background"] not in ("storm", "night", "battlefield", "volcanic", "ashen") else (92, 94, 104)))
     dc = [o for o in objs if o["type"] == "depth_charge"]
@@ -250,6 +250,11 @@ def build_stage(v, dur, rnd, seed=0):
     scene["blur"] = "fight" in [a["action"] for a in v["actors"]] or "run" in " ".join(a["action"] for a in v["actors"])
     from . import stick
     stick.make_shots(scene, rnd)
+    ms = [o for o in objs if o["type"] == "missile" and o.get("launch")]
+    if ms:                                                                # the camera tilts up with the rocket
+        m = ms[0]
+        scene["shots"] = [dict(t0=0, t1=dur, z0=1.35, z1=1.35, x0=m["x"], x1=m["x"], y0=.62, y1=.12)]
+        scene["hits"] = [m["t0"]]
     return scene
 
 
@@ -264,8 +269,8 @@ def build_map(v, dur):
     scene = dict(kind="map", duration=dur, land=lands, cities=[city] if city else [], arrows=[],
                  text=[dict(t=.3, end=min(dur - .2, 3.6), text=v["title"], y=.03, color=(196, 57, 43))] if v["title"] else [])
     if t == "invasion":
-        routes = [[(.70, .15), (.58, .38), (.47, .53)], [(.88, .52), (.70, .55), (.50, .57)], [(.16, .14), (.24, .36), (.41, .52)], [(.5, .95), (.47, .75), (.45, .6)]]
-        lab_at = [(.69, .10), (.80, .44), (.10, .10), (.52, .88)]
+        routes = [[(.70, .22), (.58, .38), (.47, .53)], [(.88, .52), (.70, .55), (.50, .57)], [(.16, .22), (.24, .36), (.41, .52)], [(.5, .95), (.47, .75), (.45, .6)]]
+        lab_at = [(.69, .18), (.80, .44), (.10, .18), (.52, .88)]
         for i, lab in enumerate(labels[:4]):
             t0 = .5 + i * dur * .14
             scene["arrows"].append(dict(pts=routes[i], t0=t0, t1=min(t0 + dur * .35, dur - .3), label=lab, label_at=lab_at[i]))

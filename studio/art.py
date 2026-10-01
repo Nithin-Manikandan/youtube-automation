@@ -207,4 +207,47 @@ def seascape(d, o, x, S, gy, t, WS):
         _circle(d, sx, sy, 2 + 3 * rng.random(), (220, 240, 250, 90))
 
 
-DRAW = {"wave": wave, "explosion": explosion, "submarine": submarine, "warship": warship, "plane": plane, "seascape": seascape}
+def crowd(d, o, x, S, gy, t, WS):
+    """Two ranks of small marching figures, charging in from the edges; ancient armies carry spears, modern ones rifles."""
+    dur = max(o.get("dur", 6.0), 1.0)
+    u = _clamp(t / (dur * 0.85))
+    sides = ((1, (170, 54, 46)), (-1, (52, 96, 170))) if not o.get("one_side") else ((1, (170, 54, 46)),)
+    for sd, col in sides:
+        rng = random.Random(7 + sd)
+        for row in range(5):
+            for i in range(8):
+                depth = 1 - row * 0.1
+                h = S * 0.2 * depth
+                lane = (i + (0.5 if row % 2 else 0) + rng.random() * .5) / 7.0
+                start = WS * (0.97 + 0.3 * lane) if sd > 0 else WS * (0.03 - 0.3 * lane)
+                goal = WS * (0.54 + 0.34 * lane + 0.012 * row) if sd > 0 else WS * (0.46 - 0.34 * lane - 0.012 * row)
+                e = u ** 0.7
+                fx = start + (goal - start) * e
+                moving = u < 0.995
+                ph = t * 9 + i * 1.3 + row
+                bob = abs(math.sin(ph)) * h * 0.04 if moving else 0
+                fy = gy - row * S * 0.03 - bob
+                face = -sd
+                lw = max(3, int(h * 0.04))
+                hip = (fx, fy - h * 0.46)
+                sh = (fx, fy - h * 0.8)
+                for k in (-1, 1):                                    # legs
+                    sw = math.sin(ph + (0 if k < 0 else math.pi)) * (h * 0.2 if moving else 0)
+                    d.line([hip, (hip[0] + sw * face, fy)], fill=INK, width=lw)
+                d.polygon([(sh[0] - h * .09, sh[1]), (sh[0] + h * .09, sh[1]), (hip[0] + h * .07, hip[1]), (hip[0] - h * .07, hip[1])], fill=col, outline=INK)
+                _circle(d, sh[0], sh[1] - h * .1, h * .1, (240, 214, 184), INK, 2)
+                d.rectangle([sh[0] - h * .1, sh[1] - h * .2, sh[0] + h * .1, sh[1] - h * .12], fill=(60, 60, 66))
+                tip_y = sh[1] - h * (0.45 if not o.get("modern") else 0.0)
+                hand = (sh[0] + face * h * .14, sh[1] + h * .12)
+                d.line([(sh[0], sh[1] + h * .04), hand], fill=INK, width=lw)
+                if o.get("modern"):
+                    d.line([(hand[0] - face * h * .1, hand[1] + h * .02), (hand[0] + face * h * .3, hand[1] - h * .04)], fill=(70, 62, 56), width=lw + 1)
+                else:
+                    d.line([(hand[0], hand[1] + h * .2), (hand[0] + face * h * .1, tip_y)], fill=(120, 96, 70), width=lw)
+                    d.polygon([(hand[0] + face * h * .1, tip_y), (hand[0] + face * h * .07, tip_y + h * .08), (hand[0] + face * h * .13, tip_y + h * .08)], fill=(200, 204, 210))
+    if u > 0.95:                                               # the lines collide in a haze of dust
+        for k in range(12):
+            _circle(d, WS * .5 + math.sin(k * 2.1 + t * 5) * S * .15, gy - S * (.02 + .06 * (k % 4)), S * (.03 + .015 * (k % 3)), (196, 176, 146, 46))
+
+
+DRAW = {"crowd": crowd, "wave": wave, "explosion": explosion, "submarine": submarine, "warship": warship, "plane": plane, "seascape": seascape}

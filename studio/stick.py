@@ -329,9 +329,15 @@ def draw_object(d, o, W, H, gy, t):
         h, w = S * 0.46 * o.get("scale", 1), S * 0.05
         if o.get("launch"):
             t0 = o.get("t0", 1.0)
-            lift = max(0.0, t - t0) ** 2 * S * 0.09
+            lift = max(0.0, t - t0) ** 1.8 * S * 0.07
             gy0 = gy
             gy = gy - lift
+            d.line([(x - S * .13, gy0), (x - S * .13, gy0 - S * .45)], fill=INK, width=8)          # launch gantry
+            for q in range(5):
+                yy = gy0 - S * (.08 + .08 * q)
+                d.line([(x - S * .13, yy), (x - S * .07, yy - S * .04)], fill=INK, width=4)
+            if t > t0:
+                d.polygon([(x - w * 1.4, gy0), (x + w * 1.4, gy0), (x + w * .5, gy), (x - w * .5, gy)], fill=(214, 212, 208, 95))   # smoke column left behind
             if t > t0:
                 fl = S * (0.05 + 0.12 * min(1.0, (t - t0)))
                 d.polygon([(x - w * .6, gy), (x, gy + fl * (1 + .2 * math.sin(t * 30))), (x + w * .6, gy)], fill=(255, 170, 40, 235))
