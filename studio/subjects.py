@@ -10,6 +10,7 @@ ANCIENT_PROPS_ROLES = {"soldier", "warrior", "knight", "general", "king", "queen
 
 # (regex, objects to add, effects to add, background hint, extra flags)
 RULES = [
+    (r"\b(zeppelins?|airships?|dirigibles?|hindenburg|blimps?|graf zeppelin)\b", ["airship"], [], "countryside", {}),
     (r"depth[- ]?charge", ["submarine", "depth_charge"], ["bubbles", "shake"], "underwater", {}),
     (r"\b(submarine|u-boat|periscope|b-59|submerged|submariners?)\b", ["submarine"], ["bubbles"], "underwater", {}),
     (r"\btorpedo", ["submarine", "torpedo"], ["bubbles"], "underwater", {}),
@@ -19,7 +20,7 @@ RULES = [
     (r"\b(warships?|destroyers?|cruiser|battleship|fleet|navy|naval|carrier|flotilla)\b", ["warship"], [], "sea", {}),
     (r"\b(?:missiles?|rockets?|icbms?)\b.{0,40}\b(?:launch\w*|fired|fire|lift\w* off)\b|\blaunch\w* (?:the |a |its |their )?(?:nuclear )?(?:missiles?|rockets?)|\blift\w* off\b|\bsilos?\b|\brockets?\b", ["missile"], [], None, {"launch": True}),
     (r"\b(planes?|aircraft|bombers?|airplane|jets?)\b", ["plane"], [], None, {}),
-    (r"\b(volcano|volcanic|eruption|erupt\w*|lava|magma|crater|caldera)\b", ["volcano"], ["embers"], "volcanic", {}),
+    (r"\b(volcano|volcanic|eruption|lava|magma|crater|caldera)\b", ["volcano"], ["embers"], "volcanic", {}),
     (r"\b(ash|ashfall|pumice|soot)\b", ["ash_cloud"], ["ashfall"], "ashen", {}),
     (r"\b(tsunami|tidal wave|flood\w*|(?:ocean|sea|giant|huge|massive|towering|enormous) waves?|waves? (?:crash\w*|hit|struck|rose|rolled|swept|slammed))\b", ["wave"], [], "sea", {}),
     (r"\b(fires?|burn\w*|blaze|flames?|inferno|ablaze)\b", ["fire", "smoke"], ["embers"], None, {}),
@@ -144,7 +145,7 @@ def enrich(visual, narration, modern, anchor=None, story_has_sub=True, domain=No
             hinted_bg = hinted_bg or bghint
             flags.update(extra)
     # objects that depict an event or vehicle are only drawn when the narration is literally about them
-    bound = {"missile", "torpedo", "depth_charge", "explosion", "volcano", "wave", "fire", "plane", "warship", "submarine", "pyramid", "castle", "ash_cloud", "crowd", "liner", "iceberg"}
+    bound = {"missile", "torpedo", "depth_charge", "explosion", "volcano", "wave", "fire", "plane", "warship", "submarine", "pyramid", "castle", "ash_cloud", "crowd", "liner", "iceberg", "airship"}
     said = {o for pat, add_o, _, _, _ in RULES if re.search(pat, text) for o in add_o}
     objs = [o for o in objs if o not in bound or o in said]
     inside = re.search(r"\b(inside|aboard|hull|control room|crew|compartment|cramped|bunk|captain|commander|officers?|shouted|declared|declaration|consent|vot(?:e|ed|es)|refus\w+|argued|orders?|ordered|authoriz\w+|veto|beside him|protocol|sailors|men)\b", text)
@@ -174,10 +175,14 @@ def enrich(visual, narration, modern, anchor=None, story_has_sub=True, domain=No
     if modern and "ship" in objs and ("warship" in objs or "submarine" in objs):
         objs.remove("ship")
     naval = re.search(r"\b(navy|naval|warships?|destroyers?|cruiser|battleship|fleet|gunboat|frigate)\b", text)
-    if modern and "ship" in objs:
+    if modern and "ship" in objs and "airship" not in objs:
         objs[objs.index("ship")] = "warship" if naval else "liner"
     if modern and "warship" in objs and not naval and re.search(r"\b(liner|steamship|steamer|passenger|cargo|vessel|ship)\b", text) and not re.search(r"\b(navy|naval|warships?|destroyers?)\b", text):
         objs[objs.index("warship")] = "liner"                     # a civilian ship is not a gunboat
+    if "airship" in objs:
+        objs = [o for o in objs if o not in ("liner", "ship", "warship")]
+        if re.search(r"\b(fire|flames?|burn\w*|inferno|blaze|ignit\w*|spark|explo\w+|crash\w*|collaps\w*|tilt\w*)\b", text):
+            flags["burning"] = True
     # keep what the narration named first, then the AI's own picks; cap to three objects
     named = [o for o in objs if any(o in r[1] for r in RULES if re.search(r[0], text))]
     rest = [o for o in objs if o not in named]
