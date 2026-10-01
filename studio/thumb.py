@@ -213,6 +213,8 @@ def _subject_scene(recipe, flip, variant=0):
         if k > 0:
             sd.line([(x, 0), (x, H)], fill=(0, 0, 0, int(165 * k ** 1.4)))
     frame.alpha_composite(shade)
+    if bg == "space":                                       # bright craft + bloom blow out to a cream blob: tone it down
+        frame.alpha_composite(Image.new("RGBA", (W, H), (0, 0, 8, 90)))
     if variant == 2:                                         # danger variant: red wash and a ringed focus point
         red = Image.new("RGBA", (W, H), (255, 30, 20, 58))
         frame.alpha_composite(red)
