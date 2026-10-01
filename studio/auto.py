@@ -132,7 +132,7 @@ Chapter target_words must sum to about 2000 (between 1800 and 2200)."""
     return o
 
 
-REWIND = "The opening hook has already shown the dramatic moment and ends by promising to go back. Open with the first concrete fact of the backstory. Do NOT say "to understand" or announce that you are going back (the hook's last line already did), and do NOT repeat the events of the hook."
+REWIND = "The opening hook has already shown the dramatic moment and ends by promising to go back. Open with the first concrete fact of the backstory. Do NOT say \"to understand\" or announce that you are going back (the hook's last line already did), and do NOT repeat the events of the hook."
 LEAK_HOOK = re.compile(r"\b(refus\w+|said no|says no|saved|prevent\w*|stopped the|averted|survived|spared|talked (?:him|them) out|decides? (?:not|to say no))\b", re.I)
 BANNED_HOOK = re.compile(r"\b(imagine|picture this|welcome|in this video|today we|armageddon|precipice|brink of|chess match|tapestry|little did|unimaginable|"
                          r"terrifying|single-handedly|forever change[sd]?|the world (?:would|will) never|what if i told|but here'?s the thing|you won'?t believe|"
