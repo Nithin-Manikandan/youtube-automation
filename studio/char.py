@@ -107,7 +107,7 @@ def draw_v2(a, img, t, gy, scene, ctx):
     x, gl = bw / 2, S * 1.38
     L = Image.new("RGBA", (bw, bh), (0, 0, 0, 0))
     d = ImageDraw.Draw(L, "RGBA")
-    Lb = dict(torso=0.30, upper=0.17, fore=0.17, thigh=0.22, shin=0.22, head=0.118, neck=0.035)
+    Lb = dict(torso=0.30, upper=0.17, fore=0.17, thigh=0.22, shin=0.22, head=0.132, neck=0.035)
     add = lambda p, q: (p[0] + q[0], p[1] + q[1])
     l1 = K.seg((0, 0), pose["l1"], Lb["thigh"] * S, f)
     l2 = K.seg(l1, pose["l1"] + pose["l2"], Lb["shin"] * S, f)
@@ -271,9 +271,9 @@ def _face(d, a, K, head, rad, f, face, ex, S, t, skin, props):
     blink = ex.get("blink", 0.0)                                       # 0 open .. 1 shut
     mo = ex.get("mouth", 0.0)                                          # 0 closed .. 1 wide open
     talk_brow = ex.get("brow", 0.0)
-    er_x, er_y = rad * 0.185, rad * 0.255
+    er_x, er_y = rad * 0.245, rad * 0.33
     big = 1.18 if face == "shock" else 1.0
-    eyes = [(head[0] + f * rad * 0.28, head[1] - rad * 0.12), (head[0] + f * rad * 0.72, head[1] - rad * 0.12)]
+    eyes = [(head[0] + f * rad * 0.24, head[1] - rad * 0.10), (head[0] + f * rad * 0.76, head[1] - rad * 0.10)]
     far = 0
     # nose: a small rounded bump on the facing side
     nx, ny = head[0] + f * rad * 1.0, head[1] + rad * 0.12
@@ -288,7 +288,7 @@ def _face(d, a, K, head, rad, f, face, ex, S, t, skin, props):
         erx, ery = er_x * big, er_y * big
         if i_ == 1:
             erx *= 0.88
-        d.ellipse([ex_ - erx, ey_ - ery, ex_ + erx, ey_ + ery], fill=(255, 255, 255), outline=INK, width=max(2, int(S * 0.006)))
+        d.ellipse([ex_ - erx, ey_ - ery, ex_ + erx, ey_ + ery], fill=(255, 255, 255), outline=None if "glasses" in props else INK, width=max(2, int(S * 0.006)))
         pr = erx * (0.62 if face != "shock" else 0.42)
         px_ = ex_ + look[0] * erx * 0.55
         py_ = ey_ + look[1] * ery * 0.55
@@ -301,38 +301,39 @@ def _face(d, a, K, head, rad, f, face, ex, S, t, skin, props):
                        (ex_ + erx * 1.12, ly + slope * ery * f * (1 if i_ == 0 else -1) * 0.8), (ex_ - erx * 1.12, ly - slope * ery * f * (1 if i_ == 0 else -1) * 0.8)], fill=skin)
             d.line([(ex_ - erx * 1.05, ly), (ex_ + erx * 1.05, ly)], fill=INK, width=max(2, int(S * 0.006)))
     # brows
-    bw = max(3, int(S * 0.012))
-    by = head[1] - rad * 0.56 - talk_brow * rad * 0.10
-    tilt = {"angry": (-1, 0.34), "worried": (1, 0.32), "sad": (1, 0.30), "shock": (0, 0.0), "smile": (0, 0.0)}.get(face, (0, 0))
-    lift = rad * (0.14 if face == "shock" else 0.0)
+    bw = max(4, int(S * 0.021))
+    by = head[1] - rad * 0.66 - talk_brow * rad * 0.14
+    tilt = {"angry": (-1, 0.30), "worried": (1, 0.30), "sad": (1, 0.28), "shock": (0, 0.0), "smile": (0, 0.0)}.get(face, (0, 0))
+    lift = rad * (0.22 if face == "shock" else 0.10 if face == "smile" else 0.0)
     for k_, (ex_, ey_) in enumerate(eyes):
         sgn = 1 if k_ == 0 else -1
         din = tilt[0] * rad * tilt[1] * sgn * f * -1
-        d.line([(ex_ - rad * .20, by - lift + din), (ex_ + rad * .20, by - lift - din)], fill=(46, 36, 30), width=bw)
+        arch = rad * (0.06 if face in ("smile", "shock") else 0.0)
+        d.line([(ex_ - rad * .21, by - lift + din), (ex_, by - lift - arch), (ex_ + rad * .21, by - lift - din)], fill=(34, 26, 22), width=bw, joint="curve")
     # mouth
-    mx, my = head[0] + f * rad * 0.46, head[1] + rad * 0.52
-    mw = max(3, int(S * 0.011))
+    mx, my = head[0] + f * rad * 0.46, head[1] + rad * 0.56
+    mw = max(4, int(S * 0.016))
     if mo > 0.12:
-        wd = rad * (0.19 + 0.10 * mo)
-        ht = rad * (0.05 + 0.34 * mo)
+        wd = rad * (0.24 + 0.12 * mo)
+        ht = rad * (0.07 + 0.42 * mo)
         d.ellipse([mx - wd, my - ht * 0.45, mx + wd, my + ht], fill=(96, 34, 44), outline=INK, width=max(2, int(S * 0.006)))
         if mo > 0.35:
             d.ellipse([mx - wd * 0.6, my + ht * 0.2, mx + wd * 0.6, my + ht * 0.92], fill=(214, 96, 104))
             d.rectangle([mx - wd * 0.7, my - ht * 0.42, mx + wd * 0.7, my - ht * 0.18], fill=(250, 250, 244))
     elif face == "smile":
-        d.arc([mx - rad * .34, my - rad * .26, mx + rad * .34, my + rad * .22], 15, 165, fill=INK, width=mw)
+        d.arc([mx - rad * .42, my - rad * .30, mx + rad * .42, my + rad * .26], 10, 170, fill=INK, width=mw)
     elif face in ("sad", "worried"):
-        d.arc([mx - rad * .30, my - rad * .02, mx + rad * .30, my + rad * .42], 200, 340, fill=INK, width=mw)
+        d.arc([mx - rad * .36, my - rad * .02, mx + rad * .36, my + rad * .46], 200, 340, fill=INK, width=mw)
     elif face == "angry":
-        d.line([mx - rad * .30, my + rad * .06, mx + rad * .30, my - rad * .02], fill=INK, width=mw)
+        d.line([mx - rad * .36, my + rad * .08, mx + rad * .36, my - rad * .04], fill=INK, width=mw)
     elif face == "shock":
         d.ellipse([mx - rad * .17, my - rad * .08, mx + rad * .17, my + rad * .34], fill=(96, 34, 44), outline=INK, width=max(2, int(S * 0.006)))
     else:
-        d.line([mx - rad * .24, my, mx + rad * .24, my], fill=INK, width=mw)
+        d.line([mx - rad * .30, my, mx + rad * .30, my], fill=INK, width=mw)
     if "glasses" in props:
         for ex_, ey_ in eyes:
-            d.ellipse([ex_ - er_x * 1.7, ey_ - er_x * 1.7, ex_ + er_x * 1.7, ey_ + er_x * 1.7], outline=INK, width=max(2, int(S * 0.005)))
-        d.line([eyes[0][0] + er_x * 1.7, eyes[0][1], eyes[1][0] - er_x * 1.7, eyes[1][1]], fill=INK, width=max(2, int(S * 0.005)))
+            d.ellipse([ex_ - er_x * 1.45, ey_ - er_x * 1.45, ex_ + er_x * 1.45, ey_ + er_x * 1.45], outline=INK, width=max(3, int(S * 0.008)))
+        d.line([eyes[0][0] + er_x * 1.45, eyes[0][1], eyes[1][0] - er_x * 1.45, eyes[1][1]], fill=INK, width=max(3, int(S * 0.008)))
     # emotion marks above the head
     exx, eyy = head[0], head[1] - rad * 1.7
     pulse = 0.5 + 0.5 * math.sin(t * 6)

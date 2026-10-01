@@ -277,7 +277,7 @@ def ambient(d, bg, t, S, gy, WS):
             d.line([(fx, fy - h * .45), (fx - math.sin(ph) * h * .12, fy)], fill=(40, 40, 46, 200), width=3)
             d.rectangle([fx - h * .09, fy - h * .85, fx + h * .09, fy - h * .42], fill=col + (210,))
             _circle(d, fx, fy - h * .95, h * .1, (232, 205, 175, 230))
-    if bg in ("night", "storm", "ashen", "volcanic", "city_modern", "space"):
+    if bg in ("night", "storm", "ashen", "volcanic", "city_modern", "space", "moon"):
         for i in range(36):                                            # twinkling stars / lights
             sx, sy = rng.random() * WS, rng.random() * gy * .55
             a = 90 + 120 * (0.5 + 0.5 * math.sin(t * (1.5 + rng.random() * 2) + i))
@@ -617,4 +617,118 @@ def reactor(d, o, x, S, gy, t, WS):
         _circle(d, rx, gy - hh - rh * .2, S * (.1 + .04 * k) * sc, (120, 255, 140, 14 + int(8 * math.sin(t * 2))))
 
 
-DRAW = {"airship": airship, "reactor": reactor, "spacecraft": spacecraft, "planet": planet, "capsule_interior": capsule_interior, "mission_control": mission_control, "ship": ship, "burning_town": burning_town, "liner": liner, "iceberg": iceberg, "interior": interior, "crowd": crowd, "wave": wave, "explosion": explosion, "submarine": submarine, "warship": warship, "plane": plane, "seascape": seascape}
+def tank(d, o, x, S, gy, t, WS):
+    """A pressure tank: steel cylinder with domed ends, bands, a valve wheel, a gauge with a trembling needle and frost; vents gas when o['venting']."""
+    sc = o.get("scale", 1)
+    w, h = S * 0.30 * sc, S * 0.20 * sc
+    yb = gy - S * 0.03
+    for k in range(2):                                                    # legs
+        _rect(d, x - w * (.34 - .6 * k), yb - h * .05, x - w * (.28 - .6 * k), yb + S * .03, fill=(70, 74, 84))
+    d.rounded_rectangle([x - w / 2, yb - h, x + w / 2, yb], radius=h * .5, fill=(176, 184, 196), outline=INK, width=4)
+    d.rounded_rectangle([x - w / 2 + w * .06, yb - h * .94, x + w / 2 - w * .06, yb - h * .62], radius=h * .2, fill=(214, 222, 232))
+    for bx in (-.22, .22):
+        _rect(d, x + bx * w - w * .02, yb - h, x + bx * w + w * .02, yb, fill=(96, 104, 118))
+    gx, gy_ = x, yb - h - S * .02                                         # gauge on top
+    _rect(d, gx - w * .02, gy_, gx + w * .02, yb - h, fill=(70, 74, 84))
+    _circle(d, gx, gy_ - S * .035, S * .04, (246, 246, 240), INK, 3)
+    ang = -2.2 + 1.6 * (0.5 + 0.5 * math.sin(t * 1.4)) + (math.sin(t * 30) * .08 if o.get("venting") else 0)
+    d.line([(gx, gy_ - S * .035), (gx + math.cos(ang) * S * .032, gy_ - S * .035 + math.sin(ang) * S * .032)], fill=(200, 40, 40), width=4)
+    _circle(d, x + w * .5, yb - h * .55, S * .022, (190, 60, 50), INK, 3)   # valve wheel
+    if o.get("venting"):
+        for k in range(9):
+            age = (t * .9 + k / 9) % 1.0
+            _circle(d, x + w * .5 + S * .02 + age * S * .22, yb - h * .55 - age * S * .12, S * (.012 + .03 * age), (230, 240, 250, int(190 * (1 - age))))
+
+
+def parachute(d, o, x, S, gy, t, WS):
+    """Three big striped canopies lowering a capsule on lines, swinging gently as it descends."""
+    dur = max(o.get("dur", 6.0), 1.0)
+    u = min(1.0, t / dur)
+    sc = o.get("scale", 1)
+    cy = S * (0.16 + 0.34 * u) + math.sin(t * 1.3) * S * .006
+    sway = math.sin(t * 1.1) * S * .02
+    cap = (x + sway * 1.6, cy + S * .30 * sc)
+    for k, off in enumerate((-.19, 0.0, .19)):
+        cx = x + off * S * sc + sway
+        r = S * .12 * sc
+        top = cy - S * (.04 if k == 1 else 0) * sc
+        for i in range(6):                                              # alternating gores
+            a0, a1 = math.pi + i * math.pi / 6, math.pi + (i + 1) * math.pi / 6
+            pts = [(cx, top)] + [(cx + math.cos(a0 + (a1 - a0) * j / 4) * r, top + math.sin(a0 + (a1 - a0) * j / 4) * r * .8) for j in range(5)]
+            d.polygon(pts, fill=(238, 118, 40) if i % 2 == 0 else (248, 246, 240), outline=INK)
+        for sx_ in (-r, 0, r):
+            d.line([(cx + sx_, top), (cap[0], cap[1] - S * .02)], fill=(60, 60, 66), width=2)
+    d.polygon([(cap[0] - S * .045 * sc, cap[1] + S * .06 * sc), (cap[0] + S * .045 * sc, cap[1] + S * .06 * sc), (cap[0] + S * .02 * sc, cap[1] - S * .035 * sc), (cap[0] - S * .02 * sc, cap[1] - S * .035 * sc)], fill=(206, 198, 184), outline=INK)
+
+
+def flag(d, o, x, S, gy, t, WS):
+    """A tall pole with a flag rippling in the wind."""
+    col = o.get("color")
+    if not col or len(col) == 4 or tuple(col[:3]) == (255, 255, 255):
+        col = (196, 57, 43)
+    col = tuple(col[:3])
+    sc = o.get("scale", 1)
+    h = S * .52 * sc
+    _rect(d, x - S * .006, gy - h, x + S * .006, gy, fill=(110, 80, 52), outline=INK, width=2)
+    _circle(d, x, gy - h, S * .012, (226, 176, 40), INK, 2)
+    w, hh = S * .26 * sc, S * .15 * sc
+    top = gy - h + S * .02
+    n = 14
+    up, down = [], []
+    for i in range(n + 1):
+        u = i / n
+        wave = math.sin(t * 4 - u * 5) * S * .018 * u
+        up.append((x + S * .006 + u * w, top + wave))
+        down.append((x + S * .006 + u * w, top + hh + wave))
+    d.polygon(up + down[::-1], fill=col, outline=INK)
+    mid = [((a[0] + b[0]) / 2, (a[1] + b[1]) / 2) for a, b in zip(up, down)]
+    d.line(mid[2:-2], fill=(248, 246, 238), width=max(3, int(S * .01)))
+
+
+def cannon(d, o, x, S, gy, t, WS):
+    """An old iron cannon on a wooden carriage; fires with a flash and smoke at o['t0']."""
+    sc = o.get("scale", 1)
+    f = -1 if o.get("flip") else 1
+    L = S * .30 * sc
+    cx, cy = x, gy - S * .07 * sc
+    t0 = o.get("t0", 1.0)
+    rec = 0.0
+    if 0 <= t - t0 < .5:
+        rec = math.exp(-(t - t0) * 7) * S * .02 * f
+    ang = -.22
+    bx, by = cx - f * L * .45 - rec, cy
+    tx, ty = bx + f * math.cos(ang) * L, by + math.sin(ang) * L
+    d.line([(bx, by), (tx, ty)], fill=(44, 46, 52), width=int(S * .055 * sc))
+    d.line([(bx, by - S * .01), (tx, ty - S * .01)], fill=(86, 90, 100), width=int(S * .012 * sc))
+    _circle(d, bx, by, S * .032 * sc, (44, 46, 52), INK, 3)
+    d.polygon([(cx - S * .08 * sc, cy + S * .01), (cx + S * .08 * sc, cy + S * .01), (cx + S * .06 * sc, cy + S * .045 * sc), (cx - S * .06 * sc, cy + S * .045 * sc)], fill=(120, 84, 52), outline=INK)
+    _circle(d, cx - f * S * .02, gy - S * .045 * sc, S * .05 * sc, (140, 100, 62), INK, 4)
+    for k in range(6):
+        a_ = k * math.pi / 3 + 0.3
+        d.line([(cx - f * S * .02, gy - S * .045 * sc), (cx - f * S * .02 + math.cos(a_) * S * .05 * sc, gy - S * .045 * sc + math.sin(a_) * S * .05 * sc)], fill=INK, width=2)
+    if 0 <= t - t0 < 1.4:
+        u = (t - t0) / 1.4
+        if u < .12:
+            _circle(d, tx + f * S * .03, ty, S * (.05 + .06 * u / .12), (255, 220, 120, 235))
+        for k in range(6):
+            _circle(d, tx + f * (S * .04 + u * S * (.10 + .05 * k)), ty - u * S * .05 * k * .4, S * (.025 + .05 * u + .01 * k), (210, 210, 214, int(170 * (1 - u))))
+
+
+def clock(d, o, x, S, gy, t, WS):
+    """A big clock hanging in the sky of the scene: the second hand ticks, the hour hand creeps."""
+    r = S * .15 * o.get("scale", 1)
+    cy = S * .27
+    _circle(d, x, cy, r * 1.08, (60, 52, 46), INK, 4)
+    _circle(d, x, cy, r, (248, 244, 232), INK, 3)
+    for k in range(12):
+        a_ = k * math.pi / 6
+        d.line([(x + math.sin(a_) * r * .84, cy - math.cos(a_) * r * .84), (x + math.sin(a_) * r * .94, cy - math.cos(a_) * r * .94)], fill=INK, width=4 if k % 3 == 0 else 2)
+    sec = int(t * 2) / 2 * 6
+    hr = 0.5 * (o.get("t0", 0) + t) * .3
+    for ang, ln, wd, col in ((hr * 12, .5, 7, INK), (hr * 1.0 * 6, .72, 5, INK), (sec * 1.0, .82, 3, (200, 40, 40))):
+        a_ = math.radians(ang)
+        d.line([(x, cy), (x + math.sin(a_) * r * ln, cy - math.cos(a_) * r * ln)], fill=col, width=wd)
+    _circle(d, x, cy, r * .06, (200, 40, 40), INK, 2)
+
+
+DRAW = {"tank": tank, "parachute": parachute, "flag": flag, "cannon": cannon, "clock": clock, "airship": airship, "reactor": reactor, "spacecraft": spacecraft, "planet": planet, "capsule_interior": capsule_interior, "mission_control": mission_control, "ship": ship, "burning_town": burning_town, "liner": liner, "iceberg": iceberg, "interior": interior, "crowd": crowd, "wave": wave, "explosion": explosion, "submarine": submarine, "warship": warship, "plane": plane, "seascape": seascape}

@@ -48,6 +48,7 @@ BACKGROUNDS = {
     "snow": dict(sky=((186, 204, 226), (240, 244, 250)), ground_color=(236, 240, 246),
                  hills=[dict(color=(214, 222, 236), base=.66, amp=.07, freq=2.8, seed=6, par=.10), dict(color=(228, 234, 244), base=.73, amp=.05, freq=3.6, seed=3, par=.22)]),
     "space": dict(sky=((1, 3, 12), (12, 16, 40)), ground_color=(6, 8, 18), hills=[]),
+    "moon": dict(sky=((1, 2, 8), (10, 12, 28)), ground_color=(148, 148, 156), hills=[dict(color=(104, 104, 114), base=.70, amp=.035, freq=2.6, seed=3, par=.10), dict(color=(124, 124, 134), base=.76, amp=.03, freq=3.8, seed=6, par=.22)]),
     "capsule": dict(sky=((40, 46, 48), (60, 66, 68)), ground_color=(40, 44, 46), hills=[]),
     "mission_control": dict(sky=((18, 24, 38), (30, 38, 56)), ground_color=(24, 30, 44), hills=[]),
     "harbor": dict(sky=((150, 196, 226), (236, 232, 214)), sun=(0.78, 0.2, (252, 214, 120)), ground_color=(190, 170, 126),
@@ -66,7 +67,7 @@ BACKGROUNDS = {
 }
 OBJECTS = {"castle", "column", "pedestal", "cloud", "tree", "tent", "pyramid", "tower", "torch", "ship",
            "submarine", "warship", "missile", "plane", "building", "hatch", "pipes", "gauge",
-           "volcano", "ash_cloud", "wave", "fire", "smoke", "house", "explosion", "depth_charge", "torpedo", "crowd", "liner", "iceberg", "burning_town", "airship", "spacecraft", "planet", "capsule_interior", "mission_control", "reactor"}
+           "volcano", "ash_cloud", "wave", "fire", "smoke", "house", "explosion", "depth_charge", "torpedo", "crowd", "liner", "iceberg", "burning_town", "airship", "tank", "parachute", "flag", "cannon", "clock", "spacecraft", "planet", "capsule_interior", "mission_control", "reactor"}
 EFFECTS = {"rain", "flash", "sparks", "dust", "shake", "ashfall", "embers", "bubbles", "sonar"}
 CAMERAS = {"push_in": ([1.0, 1.10], None), "pull_out": ([1.12, 1.0], None), "pan_right": ([1.06, 1.06], (-.04, .04)), "pan_left": ([1.06, 1.06], (.04, -.04)), "static": ([1.0, 1.0], None)}
 
@@ -214,7 +215,7 @@ def build_stage(v, dur, rnd, seed=0, wins=None):
     scene["actors"] = actors
     xs = [.12, .88, .3, .7]
     objs = []
-    BIG = {"airship": .5, "reactor": .72, "spacecraft": .5, "planet": .84, "liner": .5, "iceberg": .76, "submarine": .56, "warship": .56, "plane": .3, "missile": .86, "pyramid": .5, "ship": .6, "volcano": .62, "wave": .6, "ash_cloud": .05, "explosion": .5, "fire": .5}
+    BIG = {"tank": .72, "parachute": .5, "flag": .84, "cannon": .78, "clock": .5, "airship": .5, "reactor": .72, "spacecraft": .5, "planet": .84, "liner": .5, "iceberg": .76, "submarine": .56, "warship": .56, "plane": .3, "missile": .86, "pyramid": .5, "ship": .6, "volcano": .62, "wave": .6, "ash_cloud": .05, "explosion": .5, "fire": .5}
     flags = v.get("flags") or {}
     for j, o in enumerate(v["objects"]):
         objs.append(dict(type=o, x=BIG.get(o, [.16, .84, .5, .3][j % 4]) if o not in ("torch",) else xs[j % 4], y=.18 + .05 * j, r=.05, scale=1.0,

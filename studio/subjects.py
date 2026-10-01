@@ -10,6 +10,12 @@ ANCIENT_PROPS_ROLES = {"soldier", "warrior", "knight", "general", "king", "queen
 
 # (regex, objects to add, effects to add, background hint, extra flags)
 RULES = [
+    (r"\b(lunar surface|surface of the moon|moon'?s surface|moonwalk\w*|tranquility base|walked on the moon|lunar landscape|stepped (?:out )?onto the moon)\b", ["planet"], [], "moon", {}),
+    (r"\b(?:oxygen|fuel|hydrogen|cryogenic|propellant|pressure) (?:tanks?|vessels?|cylinders?)|\bcryogenic\b|\b(?:tank|cylinder) (?:blew|ruptured|exploded|burst)\b", ["tank"], [], None, {}),
+    (r"\b(parachutes?|chutes?|splashdown|splashed down|descended under)\b", ["parachute"], [], None, {}),
+    (r"\b(flags?|banners?|standards?|colou?rs raised)\b", ["flag"], [], None, {}),
+    (r"\b(cannons?|artillery|cannonballs?|bombard\w*|broadsides?)\b", ["cannon"], ["shake"], None, {}),
+    (r"\b(countdown|ticking|clock|the final (?:seconds|minutes|hour)|minutes (?:left|remaining)|deadline|running out of time)\b", ["clock"], [], None, {}),
     (r"\b(zeppelins?|airships?|dirigibles?|hindenburg|blimps?|graf zeppelin)\b", ["airship"], [], "countryside", {}),
     (r"depth[- ]?charge", ["submarine", "depth_charge"], ["bubbles", "shake"], "underwater", {}),
     (r"\b(submarine(?! (?:caldera|volcano|volcanic|eruption|landslide|earthquake|canyon|crater|vent|shock|blast|collapse))|u-boat|periscope|b-59|submerged (?:in|beneath) the (?:boat|sub)|submariners?)\b", ["submarine"], ["bubbles"], "underwater", {}),
@@ -147,7 +153,7 @@ def enrich(visual, narration, modern, anchor=None, story_has_sub=True, domain=No
             hinted_bg = hinted_bg or bghint
             flags.update(extra)
     # objects that depict an event or vehicle are only drawn when the narration is literally about them
-    bound = {"missile", "torpedo", "depth_charge", "explosion", "volcano", "wave", "fire", "plane", "warship", "submarine", "pyramid", "castle", "ash_cloud", "crowd", "liner", "iceberg", "airship"}
+    bound = {"missile", "torpedo", "depth_charge", "explosion", "volcano", "wave", "fire", "plane", "warship", "submarine", "pyramid", "castle", "ash_cloud", "crowd", "liner", "iceberg", "airship", "tank", "parachute", "flag", "cannon", "clock"}
     said = {o for pat, add_o, _, _, _ in RULES if re.search(pat, text) for o in add_o}
     objs = [o for o in objs if o not in bound or o in said]
     inside = re.search(r"\b(inside|aboard|hull|control room|crew|compartment|cramped|bunk|captain|commander|officers?|shouted|declared|declaration|consent|vot(?:e|ed|es)|refus\w+|argued|orders?|ordered|authoriz\w+|veto|beside him|protocol|sailors|men)\b", text)
@@ -203,7 +209,7 @@ def enrich(visual, narration, modern, anchor=None, story_has_sub=True, domain=No
             bg = "city_day"                                            # no modern skyline before 1800
         for a_ in v.get("actors", []):
             a_["role"] = MODERN_TO_ANCIENT.get(a_.get("role"), a_.get("role"))
-        mapped = {"warship": "ship", "liner": "ship", "submarine": "ship", "plane": "cloud", "missile": "tower", "depth_charge": "ship", "torpedo": "ship", "building": "house"}
+        mapped = {"warship": "ship", "liner": "ship", "submarine": "ship", "plane": "cloud", "missile": "tower", "depth_charge": "ship", "torpedo": "ship", "building": "house", "tank": "cloud", "parachute": "cloud", "clock": "cloud"}
         objs = [mapped.get(o, o) for o in objs]
         objs = [o for o in objs if o != "cloud"]
         objs = list(dict.fromkeys(objs))

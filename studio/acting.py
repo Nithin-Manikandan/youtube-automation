@@ -173,7 +173,7 @@ def _face_schedule(em0, dur, evs_faces):
     """[(t0, t1, face)]: the scene's mood comes in waves rather than as a permanent frown; beats override it for their length."""
     sched = []
     if em0 != "neutral":
-        t = 0.2
+        t = 0.0
         while t < dur + 2:
             sched.append((t, t + 1.9, em0))
             t += 3.8
@@ -198,7 +198,7 @@ def _apply_faces(keys, sched):
         if i + 1 < len(keys) and not _static(k, keys[i + 1]):
             continue
         for tb in cut:
-            if k["t"] + 0.3 < tb < nxt - 0.3:
+            if k["t"] + 0.12 < tb < nxt - 0.2:
                 dup = dict(k)
                 dup.update(t=tb, xf=0.06, ct0=k.get("ct0", k["t"] - k.get("xf", 0.3)))
                 out.append(dup)
