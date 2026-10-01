@@ -1,5 +1,6 @@
 name: Auto video
 
+# plan (AI + narration + sound)  ->  draw the scenes on 4 machines at once  ->  assemble
 on:
   workflow_dispatch:
     inputs:
@@ -11,9 +12,9 @@ permissions:
   contents: read
 
 jobs:
-  make:
+  plan:
     runs-on: ubuntu-latest
-    timeout-minutes: 170
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -21,17 +22,78 @@ jobs:
           python-version: "3.11"
           cache: pip
       - run: pip install -r requirements.txt
-      - name: Make the video (topic, script, scenes, voice, sound, thumbnails)
+      - name: Topic, script, fact-check, narration, music and sound effects, thumbnails
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           HINT: ${{ github.event.inputs.hint }}
-        run: python -m studio.run_auto --hint "$HINT" --out output/auto
-      - name: Download the result from the run page
-        if: always()
+        run: python -m studio.run_auto --phase plan --hint "$HINT" --out output/auto
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plan
+          retention-days: 1
+          compression-level: 0
+          path: |
+            output/auto/plan.pkl
+            output/auto/mix.flac
+            output/auto/out/thumb*.jpg
+
+  draw:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: true
+      matrix:
+        shard: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          name: plan
+          path: output/auto
+      - name: Draw this machine's share of the scenes
+        run: python -m studio.run_auto --phase render --shard ${{ matrix.shard }} --shards 4 --out output/auto
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scenes-${{ matrix.shard }}
+          retention-days: 1
+          compression-level: 0
+          path: output/auto/seg/*.mp4
+
+  assemble:
+    needs: draw
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          name: plan
+          path: output/auto
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: scenes-*
+          merge-multiple: true
+          path: output/auto/seg
+      - name: Join the scenes and add the audio
+        run: python -m studio.run_auto --phase assemble --out output/auto
+      - name: The finished video, thumbnails and publishing package
         uses: actions/upload-artifact@v4
         with:
           name: auto-video
+          retention-days: 7
+          compression-level: 0
           path: |
             output/auto/out/*
             output/auto/auto.json

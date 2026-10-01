@@ -15,6 +15,10 @@ ROLES = {  # role -> (props, default tunic colour name)
     "citizen": (["hair"], "brown"), "peasant": (["hair"], "brown"), "merchant": (["hair", "beard"], "green"), "scholar": (["beard", "scroll"], "white"),
     "general": (["helmet", "cape", "sword"], "red"), "pirate": (["hair", "sword"], "black"), "explorer": (["hair", "flag"], "green"),
     "pharaoh": (["crown", "beard"], "gold"), "priest": (["beard", "scroll"], "white"), "rebel": (["hair", "spear"], "orange"),
+    # modern (1800s onward): no swords, spears or shields
+    "sailor": (["navycap"], "white"), "captain": (["navycap", "beard"], "blue"), "officer": (["navycap", "tie"], "grey"),
+    "scientist": (["glasses", "hair"], "white"), "president": (["hair", "tie"], "black"), "worker": (["hat"], "orange"),
+    "pilot": (["helmet"], "green"), "modern_soldier": (["helmet", "rifle"], "green"), "spy": (["hat", "tie"], "black"), "reporter": (["hat", "tie"], "brown"),
 }
 ACTIONS = {"stand", "talk", "cheer", "scared", "slump", "point", "proud", "shrug", "sword_up", "crouch", "fight",
            "enter_walk", "enter_run", "exit_run", "walk", "run"}
@@ -38,11 +42,22 @@ BACKGROUNDS = {
                 hills=[dict(color=(110, 154, 196), base=.62, amp=.012, freq=6.0, seed=1, par=.05)]),
     "snow": dict(sky=((186, 204, 226), (240, 244, 250)), ground_color=(236, 240, 246),
                  hills=[dict(color=(214, 222, 236), base=.66, amp=.07, freq=2.8, seed=6, par=.10), dict(color=(228, 234, 244), base=.73, amp=.05, freq=3.6, seed=3, par=.22)]),
+    "underwater": dict(sky=((8, 52, 104), (40, 150, 176)), ground_color=(158, 146, 106),
+                       hills=[dict(color=(22, 92, 132), base=.70, amp=.03, freq=3.4, seed=4, par=.10)]),
+    "submarine_interior": dict(sky=((26, 36, 40), (60, 74, 76)), ground_color=(72, 80, 82), hills=[]),
+    "city_modern": dict(sky=((70, 80, 120), (244, 176, 124)), sun=(0.3, 0.5, (255, 214, 150)), ground_color=(92, 92, 100),
+                        hills=[dict(color=(60, 66, 92), base=.62, amp=.04, freq=9.0, seed=2, par=.10), dict(color=(44, 48, 68), base=.70, amp=.05, freq=12.0, seed=5, par=.22)]),
+    "volcanic": dict(sky=((38, 14, 16), (206, 92, 52)), ground_color=(62, 50, 46),
+                     hills=[dict(color=(64, 40, 40), base=.64, amp=.05, freq=3.0, seed=3, par=.10), dict(color=(44, 30, 30), base=.72, amp=.045, freq=4.4, seed=1, par=.22)]),
+    "ashen": dict(sky=((70, 68, 72), (152, 148, 146)), ground_color=(96, 92, 90),
+                  hills=[dict(color=(104, 100, 102), base=.66, amp=.05, freq=3.0, seed=7, par=.10), dict(color=(80, 76, 78), base=.73, amp=.04, freq=4.2, seed=2, par=.22)]),
     "forest": dict(sky=((120, 168, 160), (214, 226, 196)), ground_color=(96, 120, 76),
                    hills=[dict(color=(84, 122, 100), base=.66, amp=.05, freq=3.0, seed=5, par=.10), dict(color=(62, 98, 78), base=.73, amp=.045, freq=4.2, seed=2, par=.22)]),
 }
-OBJECTS = {"castle", "column", "pedestal", "cloud", "tree", "tent", "pyramid", "tower", "torch", "ship"}
-EFFECTS = {"rain", "flash", "sparks", "dust", "shake"}
+OBJECTS = {"castle", "column", "pedestal", "cloud", "tree", "tent", "pyramid", "tower", "torch", "ship",
+           "submarine", "warship", "missile", "plane", "building", "hatch", "pipes", "gauge",
+           "volcano", "ash_cloud", "wave", "fire", "smoke", "house", "explosion", "depth_charge", "torpedo"}
+EFFECTS = {"rain", "flash", "sparks", "dust", "shake", "ashfall", "embers", "bubbles", "sonar"}
 CAMERAS = {"push_in": ([1.0, 1.10], None), "pull_out": ([1.12, 1.0], None), "pan_right": ([1.06, 1.06], (-.04, .04)), "pan_left": ([1.06, 1.06], (.04, -.04)), "static": ([1.0, 1.0], None)}
 
 
@@ -115,7 +130,16 @@ def actor_keys(a, dur, idx, n):
         end = x + (.2 if facing > 0 else -.2)
         return [K(0, x, act), K(dur, end, act)]
     if act == "fight":
-        return [K(0, x, "sword_up"), K(min(1.2, dur * .3), x, "fight_swing")]
+        meet = .5 + (-.065 if x < center else .065)            # both fighters charge in and trade blows at the middle
+        t1 = min(1.0 + .15 * idx, dur * .3)
+        ks = [K(0, x, "sword_up"), K(t1, meet, "run"), K(t1 + .25, meet, "fight_swing")]
+        t, j = t1 + .25, 0
+        while t < dur + 1:
+            t += 1.0
+            j += 1
+            back = meet + (-.03 if x < center else .03) * (1 if j % 2 else 0)
+            ks.append(K(t, back, "sword_up" if j % 2 else "fight_swing"))
+        return ks
     pose = act if act not in ("stand",) else "stand"
     return [K(0, x, pose), K(dur, x, pose)]
 
@@ -143,9 +167,18 @@ def build_stage(v, dur, rnd, seed=0):
     scene["actors"] = actors
     xs = [.12, .88, .3, .7]
     objs = []
+    BIG = {"submarine": .56, "warship": .56, "plane": .3, "missile": .86, "pyramid": .5, "ship": .6, "volcano": .62, "wave": .6, "ash_cloud": .05, "explosion": .5, "fire": .5}
+    flags = v.get("flags") or {}
     for j, o in enumerate(v["objects"]):
-        objs.append(dict(type=o, x=[.16, .84, .5, .3][j % 4] if o not in ("torch",) else xs[j % 4], y=.18 + .05 * j, r=.05, scale=1.0,
-                         color=(255, 255, 255, 160) if v["background"] not in ("storm", "night", "battlefield") else (92, 94, 104)))
+        objs.append(dict(type=o, x=BIG.get(o, [.16, .84, .5, .3][j % 4]) if o not in ("torch",) else xs[j % 4], y=.18 + .05 * j, r=.05, scale=1.0,
+                         dur=dur, afloat=v["background"] == "underwater", launch=bool(flags.get("launch")),
+                         t0=dur * (.3 + .12 * j) if o in ("depth_charge", "explosion", "torpedo") else .4,
+                         color=(255, 255, 255, 160) if v["background"] not in ("storm", "night", "battlefield", "volcanic", "ashen") else (92, 94, 104)))
+    dc = [o for o in objs if o["type"] == "depth_charge"]
+    if not objs and v["background"] == "submarine_interior":
+        objs = [dict(type="pipes", x=.5), dict(type="gauge", x=.14, y=.34), dict(type="gauge", x=.86, y=.4), dict(type="hatch", x=.5)]
+    if not objs and v["background"] == "city_modern":
+        objs = [dict(type="building", x=.12), dict(type="building", x=.88, scale=1.15)]
     if not objs and v["background"] in ("city_day", "palace"):
         objs = [dict(type="column", x=.1), dict(type="column", x=.9)]
     if not objs and v["background"] in ("countryside", "forest"):
@@ -162,17 +195,29 @@ def build_stage(v, dur, rnd, seed=0):
         elif e == "dust":
             fx += [dict(type="dust", actor=a["id"]) for a in actors]
         elif e == "shake":
-            scene["shake"] = [dict(t=dur * .5, dur=.5, amp=12)]
+            scene["shake"] = [dict(t=(dc[0]["t0"] + 1.3) if dc else dur * .5, dur=.6, amp=14)]
+        elif e == "bubbles":
+            fx.append(dict(type="bubbles", t0=0, t1=dur))
+        elif e == "sonar":
+            fx.append(dict(type="sonar", t0=0, t1=dur))
+    if sum(a["action"] == "fight" for a in v["actors"]) >= 2:      # a spark burst on every exchange of blows
+        tt = min(1.0, dur * .3) + .5
+        while tt < dur - .3:
+            fx.append(dict(type="sparks", t=tt, x=.5, y=.40))
+            tt += 1.0
     scene["fx"] = fx
     if v.get("title"):
         scene["text"] = [dict(t=.35, end=min(dur - .2, 3.6), text=v["title"], y=.085,
-                              color=(255, 255, 255) if v["background"] in ("storm", "night", "battlefield") else (27, 27, 32))]
+                              color=(255, 255, 255) if v["background"] in ("storm", "night", "battlefield", "underwater", "submarine_interior", "city_modern", "volcanic", "ashen") else (27, 27, 32))]
     z, pan = CAMERAS[v["camera"]]
     scene["zoom"] = z
+    _late_shots = True
     scene["focus"] = (.5 + (pan[0] if pan else 0), .6)
     if pan:
         scene["focus_to"] = (.5 + pan[1], .6)
     scene["blur"] = "fight" in [a["action"] for a in v["actors"]] or "run" in " ".join(a["action"] for a in v["actors"])
+    from . import stick
+    stick.make_shots(scene, rnd)
     return scene
 
 

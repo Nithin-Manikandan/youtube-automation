@@ -41,17 +41,27 @@ def _chord_env(t, k, ramp=2.5):
     return np.clip((t - (s - ramp)) / (2 * ramp), 0, 1) * np.clip(((e + ramp) - t) / (2 * ramp), 0, 1)
 
 
+def _win(a, n, k, ramp=2.5):
+    """Sample range of this segment that chord window k can touch (its envelope is zero outside)."""
+    s, e = k * CH_LEN - ramp, (k + 1) * CH_LEN + ramp
+    i0 = max(0, int(np.floor((s - a) * SR)))
+    i1 = min(n, int(np.ceil((e - a) * SR)) + 1)
+    return i0, i1
+
+
 def _pad(t, a, b, amps, det=0.004, rng=None):
     """Sustained chord layers. amps = {octave_multiplier: amplitude}."""
     out = np.zeros(len(t))
     for k, chord in _chord_windows(a, b):
-        env = _chord_env(t, k)
-        if not env.any():
+        i0, i1 = _win(a, len(t), k)
+        if i1 <= i0:
             continue
+        tt = t[i0:i1]
+        env = _chord_env(tt, k)
         for f in chord:
             for mult, amp in amps.items():
                 for d in (-det, 0.0, det):
-                    out += env * amp * np.sin(2 * np.pi * f * mult * (1 + d) * t + (k * 7 + f) % 6.28)
+                    out[i0:i1] += env * amp * np.sin(2 * np.pi * f * mult * (1 + d) * tt + (k * 7 + f) % 6.28)
     return out
 
 
@@ -113,7 +123,9 @@ def tense(t, a, b):
     y += 0.05 * np.sin(2 * np.pi * 58.27 * t)                                       # a slow, uneasy beat against the drone
     trem = 0.6 + 0.4 * np.sin(2 * np.pi * 5.5 * t)
     for k, ch in _chord_windows(a, b):
-        y += _chord_env(t, k) * trem * 0.07 * _lp(_saw(t, ch[0] * 2, 7), 1400)
+        i0, i1 = _win(a, len(t), k)
+        if i1 > i0:
+            y[i0:i1] += _chord_env(t[i0:i1], k) * trem[i0:i1] * 0.07 * _lp(_saw(t[i0:i1], ch[0] * 2, 7), 1400)
     for n in _beats(a, b, BEAT * 2):                                                  # heartbeat
         te = n * BEAT * 2
         _note(y, a, te, 50, 0.3, 0.30, "kick")
@@ -124,9 +136,14 @@ def tense(t, a, b):
 def epic(t, a, b):
     y = _pad(t, a, b, {0.5: 0.08, 1: 0.13, 2: 0.10}, det=0.006)
     for k, ch in _chord_windows(a, b):
-        env = _chord_env(t, k)
+        i0, i1 = _win(a, len(t), k)
+        if i1 <= i0:
+            continue
+        tt = t[i0:i1]
+        env = _chord_env(tt, k)
+        swell = 0.75 + 0.25 * np.sin(2 * np.pi * 0.5 * tt)
         for f in (ch[0], ch[0] * 1.5, ch[0] * 2):                                     # power chord "brass"
-            y += env * 0.05 * _lp(_saw(t, f, 10), 2200) * (0.75 + 0.25 * np.sin(2 * np.pi * 0.5 * t))
+            y[i0:i1] += env * 0.05 * _lp(_saw(tt, f, 10), 2200) * swell
     for n in _beats(a, b, BEAT):
         te = n * BEAT
         beat_in_bar = n % 4
@@ -156,7 +173,10 @@ def sad(t, a, b):
 def triumph(t, a, b):
     y = _pad(t, a, b, {1: 0.05, 2: 0.13, 4: 0.12, 8: 0.03})
     for k, ch in _chord_windows(a, b):
-        y += _chord_env(t, k) * 0.05 * _lp(_saw(t, ch[0] * 4, 8), 3800) * (0.8 + 0.2 * np.sin(2 * np.pi * 0.25 * t))
+        i0, i1 = _win(a, len(t), k)
+        if i1 > i0:
+            tt = t[i0:i1]
+            y[i0:i1] += _chord_env(tt, k) * 0.05 * _lp(_saw(tt, ch[0] * 4, 8), 3800) * (0.8 + 0.2 * np.sin(2 * np.pi * 0.25 * tt))
     for n in _beats(a, b, BEAT / 2):
         te = n * BEAT / 2
         ch = _chord_at(te)

@@ -1,6 +1,7 @@
 """One button: pick an engaging history topic -> script -> fact-check -> stickman scenes -> voice, music, sound effects
 -> video -> thumbnails -> metadata, then stop and wait for you to approve."""
 import concurrent.futures as cf
+import pickle
 import multiprocessing as mp
 import json
 import os
@@ -15,17 +16,17 @@ import cv2
 import numpy as np
 
 from pipeline import audio as audiolib, ffmpeg, tts
-from . import ai, moods, music, recipes, score, sfx, stick, thumb
+from . import ai, moods, music, recipes, score, sfx, stick, subjects, thumb
 from . import voice as narrator
 from .doccap import DocCaptions
 
 W, H, FPS = 1280, 720, 30
-GAP, LEAD = 0.55, 0.12
+GAP, LEAD = 0.4, 0.12
 MIN_S, MAX_S = 8 * 60, 15 * 60
 FAKE = lambda: bool(os.environ.get("STUDIO_FAKE"))
 HERE = pathlib.Path(__file__).parent
 STAGES = ["Picking a topic", "Writing the script", "Fact-checking", "Planning visuals", "Recording the voiceover",
-          "Drawing the scenes", "Mixing music and sound effects", "Making thumbnails", "Packaging"]
+          "Mixing music and sound effects", "Thumbnails and publishing package", "Drawing the scenes", "Putting it together"]
 
 VOCAB = f"""VISUAL RECIPE VOCABULARY (use only these words):
 - type: "stage" (stick figures), "map", or "card" (big text).
@@ -62,6 +63,19 @@ def _llm(prompt, temp=0.8):
     return None
 
 
+def _unwrap(o, key):
+    """Gemini sometimes returns a bare list, or wraps the list under another key. Normalise to {key: list}."""
+    if isinstance(o, list):
+        return {key: o}
+    if isinstance(o, dict):
+        if key in o:
+            return o
+        for v in o.values():
+            if isinstance(v, list) and v and isinstance(v[0], (dict, str)):
+                return {key: v}
+    return {key: []}
+
+
 def used_topics():
     p = HERE / "topics_used.json"
     return json.loads(p.read_text()) if p.exists() else []
@@ -87,7 +101,7 @@ Pick a topic that MANY people would click and watch to the end:
 
 Brainstorm 8 candidates, score each 1-10 for: broad_appeal, story_drama, factual_solidity. Return JSON:
 {{"candidates": [{{"topic": "working title as a sentence", "hook": "the one-line hook", "broad_appeal": 0, "story_drama": 0, "factual_solidity": 0}}]}}"""
-    c = _llm(prompt, 1.0).get("candidates", [])
+    c = [x for x in _unwrap(_llm(prompt, 1.0), "candidates")["candidates"] if isinstance(x, dict) and x.get("topic")]
     if not c:
         raise RuntimeError("No topic candidates came back.")
     best = max(c, key=lambda x: (x.get("broad_appeal", 0) + x.get("story_drama", 0) + 1.5 * x.get("factual_solidity", 0)))
@@ -109,7 +123,11 @@ lands one memorable takeaway. Chronology must be correct. Use only well-document
 Return JSON: {{"working_title": "", "chapters": [{{"title": "", "purpose": "", "key_facts": ["specific documented facts/dates/names this chapter must use"], "target_words": 240}}]}}
 Chapter target_words must sum to about 2000 (between 1800 and 2200)."""
     o = _llm(prompt, 0.7)
-    if len(o.get("chapters", [])) < 4:
+    if isinstance(o, dict) and "working_title" not in o and "chapters" not in o:
+        o = _unwrap(o, "chapters")
+    o = o if isinstance(o, dict) else {"chapters": o}
+    o["chapters"] = [c for c in _unwrap(o, "chapters")["chapters"] if isinstance(c, dict) and c.get("title")]
+    if len(o["chapters"]) < 4:
         raise RuntimeError("The outline came back too short.")
     return o
 
@@ -118,7 +136,8 @@ def write_chapter(topic, outline, idx, prev_tail, words):
     ch = outline["chapters"][idx]
     if FAKE():
         return _fake_chapter(idx, ch["title"])
-    n_scenes = max(5, round(words / 24))
+    words = int(words * 1.4)                      # the model reliably delivers about 70% of the length it is asked for
+    n_scenes = max(5, round(words / 26))
     prompt = f"""You are writing chapter {idx + 1} of {len(outline['chapters'])} of the voiceover for a YouTube history video.
 VIDEO TOPIC: {topic}
 FULL OUTLINE: {json.dumps([{'title': c['title'], 'purpose': c.get('purpose', '')} for c in outline['chapters']])}
@@ -132,6 +151,12 @@ open loop leading to the next one (except the final chapter, which gives the pay
 For each scene choose a visual recipe that ILLUSTRATES what is said. Vary backgrounds and compositions; use a map when geography matters and a card
 for key dates and numbers (about 1 scene in 5); keep characters consistent (same role and color for the same person across scenes).
 
+ERA RULE: match the drawing to the period. For stories after about 1800 use the modern roles (sailor, captain, officer, scientist, president, worker,
+pilot, modern_soldier, spy, reporter) and modern objects and backgrounds (submarine, warship, missile, plane, building, hatch, pipes, gauge, underwater,
+submarine_interior, city_modern, sea). Never give modern characters swords, spears, shields or castles; use those only for ancient and medieval stories.
+For natural disasters and wars use the matching scenery: volcano, ash_cloud, wave, fire, smoke, house, explosion with the volcanic or ashen background and the ashfall, embers, flash, shake and rain effects.
+Use 2-3 actors in most stage scenes so the screen feels alive; show the actual subject of each line (the volcano erupting, the wave hitting, the ship sinking) rather than a generic scene.
+
 {VOCAB}
 
 Also direct the narrator like a great documentary reader. For every scene give a "mood" for the music ("calm", "tense", "epic", "sad", "triumph" or "mystery";
@@ -140,11 +165,12 @@ change it only when the story's feeling really changes, at most once every 15-20
 "pause_before_ms" (0-700) for dramatic beats (a pause before a reveal). Vary the delivery across scenes so the reading never sounds flat.
 
 Return JSON only: {{"scenes": [{{"narration": "...", "mood": "calm", "delivery": {{"emotion": "warm", "emphasis": ["thousand"], "pause_before_ms": 0}}, "visual": {{"type": "stage", "background": "city_day", "actors": [{{"role": "emperor", "color": "purple", "pos": "center", "action": "talk", "emotion": "worried"}}], "objects": ["column"], "effects": [], "title": "", "camera": "push_in"}}}}]}}"""
-    o = _llm(prompt, 0.8)
-    sc = [s for s in o.get("scenes", []) if isinstance(s, dict) and str(s.get("narration", "")).strip()]
-    if len(sc) < 3:
-        raise RuntimeError(f"Chapter {idx + 1} came back with too few scenes.")
-    return sc
+    for attempt in range(3):
+        o = _unwrap(_llm(prompt, 0.8), "scenes")
+        sc = [s for s in o["scenes"] if isinstance(s, dict) and str(s.get("narration", "")).strip()]
+        if len(sc) >= 3:
+            return sc
+    raise RuntimeError(f"Chapter {idx + 1} came back with too few scenes after 3 tries.")
 
 
 def factcheck(topic, text):
@@ -156,7 +182,7 @@ Be specific and honest; if a claim is fine do not list it. Return JSON: {{"flags
 
 NARRATION:
 {text}"""
-    return _llm(prompt, 0.2).get("flags", [])
+    return [f for f in _unwrap(_llm(prompt, 0.2), "flags")["flags"] if isinstance(f, dict)]
 
 
 def make_metadata(topic, outline, chapters, text):
@@ -181,7 +207,7 @@ emotional word. No ALL CAPS, no lies, nothing the video does not deliver. Write 
 THUMBNAIL RULES: 2-3 words maximum, huge and readable on a phone; the text must ADD to the title, not repeat it (tease the twist or stakes);
 one clear focal character with a strong emotion; scale contrast (a small hero against something huge) is proven to work; high contrast; an optional
 date badge (like "476 AD"). Make 3 different concepts, one per layout: "looming" (hero vs a giant menacing silhouette and an army), "ruin" (a burning
-skyline of the story's setting), "versus" (two sides clashing). Different text, mood, character and emotion in each.
+skyline of the story's setting), "versus" (two sides clashing, ONLY if the story really has two opposing sides such as a war, duel or rivalry; for disasters, mysteries and discoveries use "looming" or "ruin" instead). Different text, mood, character and emotion in each.
 
 Return JSON:
 {{"title": "best title",
@@ -190,8 +216,13 @@ Return JSON:
  "tags": ["12-15 search tags, most important first, mix of broad and specific"],
  "hashtags": ["#three", "#relevant", "#hashtags"],
  "pinned_comment": "a question that sparks comments",
- "thumbs": [{{"text": "2-3 WORDS", "mood": "fire|ice|gold|storm|blood|night", "role": "one of {sorted(recipes.ROLES)}", "color": "one of {sorted(recipes.COLORS)}", "action": "scared|point|sword_up|proud|shrug|cheer|slump", "emotion": "shock|angry|worried|sad|smile", "concept": "looming|ruin|versus", "enemy_role": "role of the opposing side", "enemy_color": "colour name", "badge": "optional short date like 476 AD or empty", "objects": ["1-2 of {sorted(recipes.OBJECTS - {'cloud', 'torch'})} matching the story setting"]}}]}}"""
-    return _llm(prompt, 0.7)
+ "thumbs": [{{"text": "2-3 WORDS", "mood": "fire|ice|gold|storm|blood|night", "role": "one of {sorted(recipes.ROLES)}", "color": "one of {sorted(recipes.COLORS)}", "action": "scared|point|sword_up|proud|shrug|cheer|slump", "emotion": "shock|angry|worried|sad|smile", "concept": "looming|ruin|versus", "backdrop": "for looming: the giant silhouette behind the hero, one of {sorted(recipes.OBJECTS - {'cloud', 'torch'})} that matches the story, or figure", "army": "true only for ancient or medieval stories, false for modern ones", "enemy_role": "role of the opposing side", "enemy_color": "colour name", "badge": "optional short date like 476 AD or empty", "objects": ["1-2 of {sorted(recipes.OBJECTS - {'cloud', 'torch'})} matching the story setting"]}}]}}"""
+    m = _llm(prompt, 0.7)
+    if isinstance(m, list):
+        m = next((x for x in m if isinstance(x, dict)), {})
+    if not m.get("title"):
+        raise RuntimeError("The package came back without a title.")
+    return m
 
 
 def _fixture():
@@ -253,12 +284,21 @@ def _wav(path, x):
         wf.writeframes((np.clip(x.T, -1, 1) * 32767).astype(np.int16).tobytes())
 
 
-def run(job, pdir, settings, hint=None):
-    """Runs the whole chain. Saves everything needed for review into pdir/auto.json."""
+def _clean_title(t):
+    """YouTube chapter names should read like titles: drop 'Chapter 3:' and 'Cold Open:' style prefixes."""
+    t = re.sub(r"^\s*(cold open|prologue|chapter\s*\d+|part\s*\d+)\s*[:\-\u2013\u2014.]\s*", "", str(t), flags=re.I).strip()
+    return t[:1].upper() + t[1:] if t else "Chapter"
+
+
+def _stamp(sec):
+    sec = int(sec)
+    return f"{sec // 60:02d}:{sec % 60:02d}" if sec < 3600 else f"{sec // 3600}:{sec % 3600 // 60:02d}:{sec % 60:02d}"
+
+
+def plan(job, pdir, settings, hint=None):
+    """Phases 1-6: topic, script, fact-check, voice, music/sfx mix, thumbnails, package. Saves plan.pkl + mix.flac."""
     pdir = pathlib.Path(pdir)
     (pdir / "out").mkdir(parents=True, exist_ok=True)
-    seg_dir = pdir / "seg"
-    seg_dir.mkdir(exist_ok=True)
     t_start = time.time()
 
     _stage(job, 0)
@@ -269,7 +309,6 @@ def run(job, pdir, settings, hint=None):
     _stage(job, 1)
     outline = write_outline(topic, hook)
     chapters = outline["chapters"]
-    total_target = sum(int(c.get("target_words", 220)) for c in chapters) or 1
     scripts = []  # list of (chapter_idx, scene)
     prev_tail = ""
     for i, ch in enumerate(chapters):
@@ -280,9 +319,9 @@ def run(job, pdir, settings, hint=None):
         scripts += [(i, s) for s in scenes]
     wc = sum(len(s["narration"].split()) for _, s in scripts)
     _log(job, f"script: {wc} words, {len(scripts)} scenes")
-    if not FAKE() and wc < 1450:
+    if not FAKE() and wc < 1750:
         _log(job, "  script is short for 8 minutes; extending the shortest chapters")
-        for _ in range(2):
+        for _ in range(3):
             counts = {}
             for ci, s in scripts:
                 counts[ci] = counts.get(ci, 0) + len(s["narration"].split())
@@ -292,7 +331,7 @@ def run(job, pdir, settings, hint=None):
             scripts += [(ci, s) for s in extra]
             scripts.sort(key=lambda cs: cs[0])
             wc = sum(len(s["narration"].split()) for _, s in scripts)
-            if wc >= 1450:
+            if wc >= 1750:
                 break
     if wc > 2450:
         _log(job, "  script is long for 15 minutes; trimming")
@@ -310,6 +349,8 @@ def run(job, pdir, settings, hint=None):
     _stage(job, 3)
     rnd = random.Random(7)
     visuals = [recipes.clean_visual(s.get("visual"), rnd) for _, s in scripts]
+    modern = subjects.era_modern(full_text)
+    visuals = [subjects.enrich(vis, s["narration"], modern) for vis, (_, s) in zip(visuals, scripts)]
     scene_moods = []
     cur = "calm"
     for vis, (_, s) in zip(visuals, scripts):
@@ -318,16 +359,22 @@ def run(job, pdir, settings, hint=None):
         scene_moods.append(cur)              # maps and date cards keep the previous mood
 
     _stage(job, 4)
-    voices, words_all, scenes, cursor, starts = [], [], [], 0.0, []
     v = settings
-    cfg = {"voice": {"name": v.get("voice", "en-US-AndrewMultilingualNeural"), "rate": v.get("rate", "+0%"), "pitch": v.get("pitch", "+0Hz")}}
+    cfg = {"voice": {"name": v.get("voice", "en-US-AndrewMultilingualNeural"), "rate": v.get("rate", "+5%"), "pitch": v.get("pitch", "+0Hz")}}
+
+    def _speak(i):
+        text = scripts[i][1]["narration"].strip()
+        if FAKE():
+            return tts.silent(text)
+        return narrator.speak(text, cfg, scripts[i][1].get("delivery"), scene_moods[i])
+    workers = int(os.environ.get("STUDIO_TTS_WORKERS", 6))
+    with cf.ThreadPoolExecutor(max_workers=max(1, workers)) as ex:       # sentences are independent: record them in parallel
+        spoken = list(ex.map(_speak, range(len(scripts))))
+    _log(job, f"  voiced {len(scripts)} scenes")
+    voices, words_all, scenes, cursor, starts = [], [], [], 0.0, []
     for i, (ci, s) in enumerate(scripts):
         vis = visuals[i]
-        text = s["narration"].strip()
-        if FAKE():
-            vx, w = tts.silent(text)
-        else:
-            vx, w = narrator.speak(text, cfg, s.get("delivery"), scene_moods[i])
+        vx, w = spoken[i]
         dur = LEAD + len(vx) / tts.SR + GAP
         if vis["type"] == "card":
             dur = max(dur, 3.2)
@@ -344,38 +391,15 @@ def run(job, pdir, settings, hint=None):
         scenes.append(sc)
         voices.append(vx)
         starts.append(cursor + LEAD)
-        words_all += [[x[0], cursor + LEAD + x[1], cursor + LEAD + x[2]] for x in w]
+        words_all += [[x[0], cursor + LEAD + x[1], cursor + LEAD + x[2], k == 0] for k, x in enumerate(w)]
         sc["_t0"] = cursor
         cursor += dur
-        if i % 10 == 0:
-            _log(job, f"  voiced {i + 1}/{len(scripts)} scenes")
     total = cursor
     _log(job, f"total length {total / 60:.1f} minutes")
     if not FAKE() and not (MIN_S <= total <= MAX_S):
         _log(job, f"  WARNING: outside the 8-15 minute target ({total / 60:.1f} min)")
 
     _stage(job, 5)
-    jobs = []
-    for i, sc in enumerate(scenes):
-        plain = {k: v_ for k, v_ in sc.items() if not k.startswith("_actors")}
-        jobs.append((plain, sc["_t0"], words_all, seg_dir / f"s{i:03d}.mp4", i == 0, i == len(scenes) - 1))
-    workers = max(1, min(os.cpu_count() or 2, int(os.environ.get("STUDIO_WORKERS", 4))))
-    segs = [None] * len(jobs)
-    with cf.ProcessPoolExecutor(max_workers=workers, mp_context=mp.get_context("spawn")) as ex:
-        futs = {ex.submit(render_segment, j): k for k, j in enumerate(jobs)}
-        done = 0
-        for f in cf.as_completed(futs):
-            segs[futs[f]] = f.result()
-            done += 1
-            if done % 5 == 0 or done == len(jobs):
-                el = time.time() - t_start
-                _log(job, f"  drew {done}/{len(jobs)} scenes")
-    lst = seg_dir / "list.txt"
-    lst.write_text("".join(f"file '{pathlib.Path(p).resolve()}'\n" for p in segs))
-    joined = seg_dir / "joined.mp4"
-    subprocess.run([ffmpeg.exe(), "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", str(lst), "-c", "copy", str(joined)], check=True)
-
-    _stage(job, 6)
     n = int(total * tts.SR)
     voice = np.zeros(n, dtype=np.float32)
     for vv, s0 in zip(voices, starts):
@@ -399,14 +423,13 @@ def run(job, pdir, settings, hint=None):
     fx_duck = 1 - 0.3 * env
     mix = np.stack([voice + music_l * duck + fx_tr[0] * 0.75 * fx_duck, voice + music_r * duck + fx_tr[1] * 0.75 * fx_duck])
     mix = mix / max(1e-6, float(np.abs(mix).max())) * 0.92
-    wav = seg_dir / "mix.wav"
+    wav = pdir / "mix.wav"
     _wav(wav, mix)
-    final = pdir / "out" / "final.mp4"
-    subprocess.run([ffmpeg.exe(), "-y", "-loglevel", "error", "-i", str(joined), "-i", str(wav), "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
-                    "-ar", "48000", "-af", "loudnorm=I=-16:TP=-2.0:LRA=11", "-movflags", "+faststart", "-shortest", str(final)], check=True)
+    subprocess.run([ffmpeg.exe(), "-y", "-loglevel", "error", "-i", str(wav), "-c:a", "flac", str(pdir / "mix.flac")], check=True)
+    wav.unlink()
     _log(job, f"  sound effects: {len(events)} cues")
 
-    _stage(job, 7)
+    _stage(job, 6)
     meta = make_metadata(topic, outline, chapters, full_text)
     thumbs = []
     for k, tr in enumerate((meta.get("thumbs") or [])[:3]):
@@ -416,28 +439,83 @@ def run(job, pdir, settings, hint=None):
     if not thumbs:
         thumb.render(meta["title"][:30], {}, pdir / "out" / "thumb1.jpg", 0)
         thumbs = ["thumb1.jpg"]
-
-    _stage(job, 8)
     starts_ch = {}
     for sc in scenes:
         starts_ch.setdefault(sc["chapter"], sc["_t0"])
-
-    def stamp(sec):
-        sec = int(sec)
-        return f"{sec // 60:02d}:{sec % 60:02d}" if sec < 3600 else f"{sec // 3600}:{sec % 3600 // 60:02d}:{sec % 60:02d}"
-    chap_lines = [f"{stamp(starts_ch.get(i, 0) if i else 0)} {c['title']}" for i, c in enumerate(chapters) if i in starts_ch or i == 0]
+    chap_lines = [f"{_stamp(starts_ch.get(i, 0) if i else 0)} {_clean_title(c['title'])}" for i, c in enumerate(chapters) if i in starts_ch or i == 0]
     desc = (meta.get("description_intro", "").strip() + "\n\nChapters\n" + "\n".join(chap_lines) +
             "\n\nNew history stories every week: subscribe so you don't miss the next one.\n\n"
             "Made with AI-assisted stick-figure illustrations and a synthetic narrator.\n\n" + " ".join(meta.get("hashtags", [])[:3]))
-    package = {"topic": topic, "hook": hook, "title": meta["title"][:100], "title_options": [t for t in (meta.get("title_options") or [meta["title"]])][:6], "description": desc, "tags": meta.get("tags", [])[:15],
-               "pinned_comment": meta.get("pinned_comment", ""), "thumbs": thumbs, "chosen_thumb": thumbs[0], "flags": flags,
-               "chapters": [{"title": c["title"], "start": stamp(starts_ch.get(i, 0))} for i, c in enumerate(chapters)],
-               "minutes": round(total / 60, 1), "words": wc, "script": full_text, "length_ok": MIN_S <= total <= MAX_S,
-               "made_in_min": round((time.time() - t_start) / 60, 1)}
+    package = {"topic": topic, "hook": hook, "title": meta["title"][:100], "title_options": [t for t in (meta.get("title_options") or [meta["title"]])][:6],
+               "description": desc, "tags": meta.get("tags", [])[:15], "pinned_comment": meta.get("pinned_comment", ""), "thumbs": thumbs,
+               "chosen_thumb": thumbs[0], "flags": flags,
+               "chapters": [{"title": _clean_title(c["title"]), "start": _stamp(starts_ch.get(i, 0))} for i, c in enumerate(chapters)],
+               "minutes": round(total / 60, 1), "words": wc, "script": full_text, "length_ok": MIN_S <= total <= MAX_S}
+    plain_scenes = [{k: v_ for k, v_ in sc.items() if k != "_actors"} for sc in scenes]
+    with open(pdir / "plan.pkl", "wb") as f:
+        pickle.dump({"scenes": plain_scenes, "words": words_all, "total": total, "package": package, "t_start": t_start}, f)
+    _log(job, f"plan ready: {len(scenes)} scenes, {package['minutes']} min")
+    return package
+
+
+def _load_plan(pdir):
+    with open(pathlib.Path(pdir) / "plan.pkl", "rb") as f:
+        return pickle.load(f)
+
+
+def render_shard(job, pdir, shard=0, shards=1):
+    """Phase 7: draw the scenes whose index % shards == shard (other machines draw the rest)."""
+    pdir = pathlib.Path(pdir)
+    P = _load_plan(pdir)
+    seg_dir = pdir / "seg"
+    seg_dir.mkdir(exist_ok=True)
+    scenes, words_all = P["scenes"], P["words"]
+    _stage(job, 7)
+    mine = [i for i in range(len(scenes)) if i % shards == shard]
+    jobs = [(scenes[i], scenes[i]["_t0"], words_all, seg_dir / f"s{i:03d}.mp4", i == 0, i == len(scenes) - 1) for i in mine]
+    workers = max(1, min(os.cpu_count() or 2, int(os.environ.get("STUDIO_WORKERS", 4))))
+    _log(job, f"  drawing {len(jobs)} of {len(scenes)} scenes (shard {shard + 1}/{shards}) with {workers} workers")
+    with cf.ProcessPoolExecutor(max_workers=workers, mp_context=mp.get_context("spawn")) as ex:
+        futs = [ex.submit(render_segment, j) for j in jobs]
+        for k, f in enumerate(cf.as_completed(futs), 1):
+            f.result()
+            if k % 5 == 0 or k == len(jobs):
+                _log(job, f"  drew {k}/{len(jobs)} scenes")
+
+
+def assemble(job, pdir):
+    """Phase 8: join the drawn scenes, add the mixed audio, finish the package."""
+    pdir = pathlib.Path(pdir)
+    P = _load_plan(pdir)
+    seg_dir = pdir / "seg"
+    _stage(job, 8)
+    n = len(P["scenes"])
+    segs = [seg_dir / f"s{i:03d}.mp4" for i in range(n)]
+    missing = [p.name for p in segs if not p.exists()]
+    if missing:
+        raise RuntimeError(f"{len(missing)} scene files are missing, e.g. {missing[:3]}")
+    lst = seg_dir / "list.txt"
+    lst.write_text("".join(f"file '{p.resolve()}'\n" for p in segs))
+    joined = seg_dir / "joined.mp4"
+    subprocess.run([ffmpeg.exe(), "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", str(lst), "-c", "copy", str(joined)], check=True)
+    final = pdir / "out" / "final.mp4"
+    subprocess.run([ffmpeg.exe(), "-y", "-loglevel", "error", "-i", str(joined), "-i", str(pdir / "mix.flac"), "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
+                    "-ar", "48000", "-af", "loudnorm=I=-16:TP=-2.0:LRA=11", "-movflags", "+faststart", "-shortest", str(final)], check=True)
+    package = P["package"]
+    package["made_in_min"] = round((time.time() - P["t_start"]) / 60, 1)
     (pdir / "auto.json").write_text(json.dumps(package, indent=1))
     for f in seg_dir.glob("*"):
         f.unlink()
     seg_dir.rmdir()
-    remember_topic(topic)
+    (pdir / "plan.pkl").unlink()
+    (pdir / "mix.flac").unlink()
+    remember_topic(package["topic"])
     _log(job, f"ready for review ({package['minutes']} min video, built in {package['made_in_min']} min)")
     return package
+
+
+def run(job, pdir, settings, hint=None):
+    """Everything on this machine, start to finish (used by the local app). Saves the review package to pdir/auto.json."""
+    plan(job, pdir, settings, hint)
+    render_shard(job, pdir, 0, 1)
+    return assemble(job, pdir)
