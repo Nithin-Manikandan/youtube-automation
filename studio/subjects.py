@@ -62,7 +62,56 @@ def anchor_for(topic_text):
 GEO_WORDS = re.compile(r"\b(march\w*|invad\w*|invasion|route|sail\w*|voyage|spread|spreading|border\w*|empire|territor\w*|advanc\w*|retreat\w*|expand\w*|conquer\w*|kingdom|coast|island|continent|across the|crossed|trade route|armies|fleet)\b", re.I)
 
 
-def enrich(visual, narration, modern, anchor=None, story_has_sub=True):
+def domain_for(topic_text):
+    return "space" if re.search(r"\b(apollo|nasa|astronauts?|spacecraft|spaceflight|space shuttle|challenger|saturn v|moon landing|lunar|orbit\w*|cosmonaut|sputnik|gemini|mercury seven|voyager|hubble)\b", topic_text.lower()) else None
+
+
+SPACE_MC = re.compile(r"\b(mission control|houston|flight director|flight controllers?|controllers?|consoles?|ground team|kranz|capcom|engineers? (?:on|at)|on the ground|simulator)\b", re.I)
+SPACE_IN = re.compile(r"\b(inside|aboard|cabin|cockpit|panel|alarm|warning|switch\w*|gauge\w*|dials?|hatch|suits?|cold|freez\w*|breath\w*|carbon dioxide|crew|astronauts?|lovell|swigert|haise|exhausted|shiver\w*|cramped)\b", re.I)
+SPACE_OUT = re.compile(r"\b(moon|lunar|earth|reentry|re-entry|splashdown|orbit\w*|trajectory|launch\w*|lifted|rocket|saturn|engines?|burn|vent\w*|explo\w+|bang|spacecraft|space|drift\w*|tumbl\w*|miles|stage|separat\w*|window|stars?|home)\b", re.I)
+SPACE_VENT = re.compile(r"\b(vent\w*|leak\w*|explo\w+|rupture\w*|damag\w*|blew|blast\w*|burst|tank|crippled|debris)\b", re.I)
+
+
+def _space(v, text):
+    v = dict(v)
+    flags = {"modern": True, "venting": bool(SPACE_VENT.search(text))}
+    objs, fx = [], []
+    if SPACE_MC.search(text):
+        bg = "mission_control"
+        roles = ("scientist", "officer")
+    elif len(SPACE_IN.findall(text)) > len(SPACE_OUT.findall(text)) or (SPACE_IN.search(text) and len(SPACE_IN.findall(text)) == len(SPACE_OUT.findall(text)) and len(text) % 2):
+        bg = "capsule"
+        roles = ("astronaut", "astronaut")
+    else:
+        bg = "space"
+        roles = ()
+        objs = ["spacecraft"]
+    if bg == "space":
+        if re.search(r"\b(earth|home|reentry|re-entry|splashdown|atmosphere|pacific)\b", text):
+            objs.append("planet")
+            flags["kind"] = "earth"
+        elif re.search(r"\b(moon|lunar|crater)\b", text):
+            objs.append("planet")
+            flags["kind"] = "moon"
+        v["actors"] = []
+    else:
+        acts = list(v.get("actors") or [])[:2]
+        while len(acts) < 2:
+            acts.append(dict(role=roles[len(acts) % 2], color="", pos="left" if not acts else "right", action="talk", emotion="worried", facing="", scale=1.0))
+        for i, a in enumerate(acts):
+            a["role"] = roles[i % 2]
+            a["pos"] = ("center_left", "center_right")[i % 2]
+        v["actors"] = acts
+    if SPACE_VENT.search(text) and re.search(r"\b(explo\w+|blast|blew|boom|bang)\b", text) and bg == "space":
+        objs.append("explosion")
+        fx += ["shake", "flash"]
+    v.update(background=bg, objects=objs[:3], effects=fx, flags=flags)
+    if str(v.get("title", "")).strip().lower().replace(" ", "_") in {"space", "capsule", "mission_control"}:
+        v["title"] = ""
+    return v
+
+
+def enrich(visual, narration, modern, anchor=None, story_has_sub=True, domain=None):
     """Return the visual with the narration's subjects added. Only stage scenes are touched."""
     if visual.get("type") == "map" and not GEO_WORDS.search(narration):
         # a map with no geography in the line is decoration: draw the scene instead
@@ -71,6 +120,8 @@ def enrich(visual, narration, modern, anchor=None, story_has_sub=True):
         return visual
     v = dict(visual)
     text = narration.lower()
+    if domain == "space":
+        return _space(v, text)
     objs = list(v.get("objects", []))
     fx = list(v.get("effects", []))
     bg = v.get("background")
@@ -140,8 +191,8 @@ def enrich(visual, narration, modern, anchor=None, story_has_sub=True):
     if bg == "underwater":
         objs = ["depth_charge" if o == "explosion" else o for o in objs]          # a blast under water is a blue-white burst, not a fireball
         objs = [o for o in objs if o != "fire"]
-        if "submarine" not in objs:
-            objs.insert(0, "submarine")                                          # never an empty seabed
+        if "submarine" not in objs and story_has_sub:
+            objs.insert(0, "submarine")                                          # a submarine story never shows an empty seabed                                          # never an empty seabed
     if bg != "submarine_interior":                            # interior fittings only make sense inside the boat
         objs = [o for o in objs if o not in ("pipes", "gauge", "hatch")]
     if bg in ("underwater", "submarine_interior"):            # nothing from the surface world belongs down here
@@ -191,7 +242,9 @@ def variety_pass(visuals, modern=False):
         if not (a.get("background") == b.get("background") == c.get("background")):
             continue
         c = dict(c)
-        if c["background"] == "submarine_interior":                       # cutaway to the boat seen from outside
+        if c["background"] in ("capsule", "mission_control"):             # cutaway to the spacecraft from outside
+            c.update(background="space", actors=[], objects=["spacecraft", "planet"], effects=[], flags={"modern": True, "kind": "earth"}, title=c.get("title", ""))
+        elif c["background"] == "submarine_interior":                       # cutaway to the boat seen from outside
             c.update(background="underwater", actors=[], objects=["submarine"], effects=["bubbles"], title=c.get("title", ""))
         elif c["background"] in FAMILY:
             c["background"] = FAMILY[c["background"]][i % 2]
@@ -219,9 +272,16 @@ def company_pass(visuals, modern=False):
     return out
 
 
-def era_fix_thumb(tr, modern):
+def era_fix_thumb(tr, modern, domain=None):
     """Thumbnails use the same era rules as the scenes: no modern roles or vessels in an old story."""
     tr = dict(tr)
+    if domain == "space":
+        tr["role"] = "astronaut"
+        tr["enemy_role"] = "scientist"
+        if tr.get("backdrop") not in ("spacecraft", "planet", "explosion"):
+            tr["backdrop"] = "spacecraft"
+        tr["objects"] = [o for o in (tr.get("objects") or []) if o in ("spacecraft", "planet", "explosion")]
+        return tr
     if not modern:
         for k in ("role", "enemy_role"):
             if tr.get(k) in MODERN_TO_ANCIENT:

@@ -170,7 +170,7 @@ def _text_layer(lines, font, hi, flip, size, x_left, y_top, tilt=-2.2):
 
 SUBJECT_BG = {"submarine": "underwater", "torpedo": "underwater", "depth_charge": "underwater", "warship": "sea", "ship": "sea", "wave": "sea", "plane": "sea",
               "volcano": "volcanic", "ash_cloud": "ashen", "explosion": "night", "fire": "night", "missile": "sea", "pyramid": "desert", "castle": "battlefield",
-              "building": "city_modern", "house": "countryside", "tower": "battlefield", "column": "palace"}
+              "building": "city_modern", "house": "countryside", "tower": "battlefield", "column": "palace", "spacecraft": "space", "planet": "space"}
 
 
 def _subject_scene(recipe, flip, variant=0):
