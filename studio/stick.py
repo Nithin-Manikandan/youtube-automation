@@ -885,7 +885,7 @@ def render_frame(scene, t, W, H):
         near_pm = cv2.bitwise_and(near, near, mask=mask)       # premultiplied by coverage so edges composite cleanly over the moving background
         n_w = _warp(near_pm, W, H, z, cx, cy, sx, sy).astype(np.float32)
         m_w = _warp(mask, W, H, z, cx, cy, sx, sy).astype(np.float32)[..., None] / 255.0
-        f_w = _warp(far, W, H, zf, cxf, cyf, sx * 0.8, sy * 0.8).astype(np.float32)
+        f_w = cv2.GaussianBlur(_warp(far, W, H, zf, cxf, cyf, sx * 0.8, sy * 0.8), (0, 0), 1.6).astype(np.float32)     # distant layer is slightly out of focus: depth of field
         out = np.clip(n_w + f_w * (1.0 - m_w), 0, 255).astype(np.uint8)
         if scene.get("dim"):
             a_ = float(scene["dim"])
@@ -949,6 +949,8 @@ def _grade(arr, W, H, t):
         glow = cv2.resize(cv2.GaussianBlur(bright, (0, 0), 5), (W, H), interpolation=cv2.INTER_LINEAR)
         f += glow * 0.30
     f *= mult
+    lum = f.mean(axis=2, keepdims=True) / 255.0                  # split toning: cool shadows, warm highlights
+    f += (1.0 - lum) ** 2 * np.array([-5.0, 2.0, 9.0], np.float32) + lum ** 2 * np.array([8.0, 3.0, -7.0], np.float32)
     f += bank[int(t * 30) % 12]
     np.clip(f, 0, 255, out=f)
     return f.astype(np.uint8)

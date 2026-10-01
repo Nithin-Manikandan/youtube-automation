@@ -35,6 +35,7 @@ VOCAB = f"""VISUAL RECIPE VOCABULARY (use only these words):
 - stage.objects (0-3): {sorted(recipes.OBJECTS)}
 - stage.effects (0-2): {sorted(recipes.EFFECTS)}  (rain, flash=lightning, sparks=sword clash, dust=running dust, shake=impact)
 - stage.title: optional on-screen label up to 4 words; stage.camera: {sorted(recipes.CAMERAS)}
+- ACTING: pick each actor's action and emotion for what that person is DOING or FEELING in this exact sentence (talk = speaking; scared/flinch = reacting; duck, dodge, run, walk, punch, kick, push, pull, pick_up, stumble, fall, cry, cheer, wave, point, shrug, think, look_around). Show a speaker and a reactor when two people are in the scene. The engine also animates the narrator's verbs word by word, so an actor who "ducks" ducks at that word.
 - map: {{"template":"invasion"|"route"|"expanding","center":"EMPIRE NAME","city":"Capital","labels":["Attacker 1","Attacker 2"],"title":"SHORT TITLE"}} (invasion: labels are who attacks; route: labels are places along a journey in order; expanding: labels are regions reached)
 - card: {{"big":"476 AD","small":"one line","bullets":["up to 3 short points"],"dark":true}} for dates, numbers, key facts."""
 
