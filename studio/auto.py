@@ -521,7 +521,7 @@ def plan(job, pdir, settings, hint=None):
     domain = subjects.domain_for(topic + " " + hook)
     if domain == "airship":
         anchor = None
-    story_has_sub = len(re.findall(r"submarine|u-boat|torpedo|sonar", full_text.lower())) >= 3
+    story_has_sub = len(re.findall(r"submarine(?! (?:caldera|volcano|volcanic|eruption|landslide|earthquake|canyon|crater|vent|shock|blast|collapse))|u-boat|torpedo|sonar", full_text.lower())) >= 3
     visuals = [subjects.enrich(vis, s["narration"], modern, anchor, story_has_sub, domain) for vis, (_, s) in zip(visuals, scripts)]
     visuals = subjects.variety_pass(visuals, modern, domain)
     visuals = subjects.company_pass(visuals, modern)
