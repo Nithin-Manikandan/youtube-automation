@@ -82,7 +82,7 @@ def main():
         print("Dry run: nothing uploaded.")
         return 0
     meta = {"title": pkg["title"], "description": pkg["description"], "tags": pkg.get("tags", [])}
-    cfg = {"upload": {"privacy": a.privacy, "category_id": "27", "synthetic_media_disclosure": True}}
+    cfg = {"upload": {"privacy": a.privacy, "category_id": "27", "synthetic_media_disclosure": False}}
     vid = yt_upload.upload(d / "out" / "final.mp4", meta, cfg, print, shorts=False, thumb=pathlib.Path(a.thumb_file) if a.thumb_file else d / "out" / f"thumb{a.thumb}.jpg")
     print(f"\nPUBLISHED ({a.privacy}): https://www.youtube.com/watch?v={vid}")
     return 0

@@ -323,7 +323,7 @@ def auto_publish(pid):
         raise RuntimeError("Add your YouTube keys in Settings first.")
     b = request.json
     meta = {"title": b["title"], "description": b["description"], "tags": b.get("tags", [])}
-    cfg = {"upload": {"privacy": b.get("privacy", "public"), "category_id": "27", "synthetic_media_disclosure": True}}
+    cfg = {"upload": {"privacy": b.get("privacy", "public"), "category_id": "27", "synthetic_media_disclosure": False}}
     logs = []
     vid = yt_upload.upload(d / "out" / "final.mp4", meta, cfg, logs.append, shorts=False, thumb=d / "out" / b.get("thumb", "thumb1.jpg"))
     (d / "published.json").write_text(json.dumps({"video_id": vid, "log": logs, "at": time.time()}))

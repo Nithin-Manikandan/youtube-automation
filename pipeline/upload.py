@@ -23,7 +23,7 @@ def upload(mp4, data, cfg, log=print, shorts=True, thumb=None):
         "snippet": {"title": title, "description": desc, "tags": data.get("tags", [])[:15], "defaultLanguage": "en", "defaultAudioLanguage": "en",
                     "categoryId": up.get("category_id", "24")},
         "status": {"privacyStatus": up.get("privacy", "private"), "selfDeclaredMadeForKids": False,
-                   "containsSyntheticMedia": bool(up.get("synthetic_media_disclosure", True))},
+                   "containsSyntheticMedia": bool(up.get("synthetic_media_disclosure", False))},
     }
     token = _access_token()
     size = os.path.getsize(mp4)
