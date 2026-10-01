@@ -151,9 +151,13 @@ no 'Imagine', no greeting, no 'in this video', no rhetorical 'what if', no 'litt
 Show the stakes through specifics (the number of men, the depth, the minutes left) instead of saying it was dangerous."""
 
 
+def hook_is_concrete(line):
+    return bool(re.search(r"\d|\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|million|midnight|noon|dawn)\b", line, re.I)) or sum(1 for w_ in line.split()[1:] if w_[:1].isupper()) >= 1
+
+
 def _hook_penalty(lines):
     words = sum(len(l.split()) for l in lines)
-    concrete = bool(re.search(r"\d|\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|million|midnight|noon|dawn)\b", lines[0], re.I)) or sum(1 for w_ in lines[0].split()[1:] if w_[:1].isupper()) >= 1
+    concrete = hook_is_concrete(lines[0])
     asks = any(l.rstrip().endswith("?") for l in lines)
     pen = 3 * sum(1 for l in lines if BANNED_HOOK.search(l))
     pen += 2 * sum(1 for l in lines if LEAK_HOOK.search(l) and not l.rstrip().endswith("?"))
@@ -602,8 +606,8 @@ def plan(job, pdir, settings, hint=None):
     thumbs = []
     for k, tr in enumerate((meta.get("thumbs") or [])[:3]):
         pth = pdir / "out" / f"thumb{k + 1}.jpg"
-        tr = subjects.era_fix_thumb(tr, modern, domain)
-        first_back = ((subjects.era_fix_thumb((meta.get("thumbs") or [{}])[0], modern, domain)).get("backdrop") or "").lower()
+        tr = subjects.era_fix_thumb(tr, modern, domain, anchor)
+        first_back = ((subjects.era_fix_thumb((meta.get("thumbs") or [{}])[0], modern, domain, anchor)).get("backdrop") or "").lower()
         back = str(tr.get("backdrop") or "").lower()
         back = back if back in recipes.OBJECTS else (first_back if first_back in recipes.OBJECTS else "")
         if back:                                                  # all three thumbnails show the story's real subject, framed three different ways

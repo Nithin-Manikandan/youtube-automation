@@ -13,7 +13,7 @@ RULES = [
     (r"depth[- ]?charge", ["submarine", "depth_charge"], ["bubbles", "shake"], "underwater", {}),
     (r"\b(submarine|u-boat|periscope|b-59|submerged|submariners?)\b", ["submarine"], ["bubbles"], "underwater", {}),
     (r"\btorpedo", ["submarine", "torpedo"], ["bubbles"], "underwater", {}),
-    (r"\bsonar|ping\b", ["submarine"], ["sonar", "bubbles"], "underwater", {}),
+    (r"\b(sonar|pings?)\b", ["submarine"], ["sonar", "bubbles"], "underwater", {}),
     (r"\b(titanic|liner|steamships?|steamer|ocean liner|passenger ship|rms|lusitania|carpathia|californian)\b", ["liner"], [], "sea", {}),
     (r"\b(icebergs?|pack ice|ice fields?|bergs?|ice floes?)\b", ["iceberg"], [], "sea", {}),
     (r"\b(warships?|destroyers?|cruiser|battleship|fleet|navy|naval|carrier|flotilla)\b", ["warship"], [], "sea", {}),
@@ -54,6 +54,8 @@ def anchor_for(topic_text):
         return "volcano"
     if re.search(r"\b(pyramids?|giza|pharaoh)\b", t):
         return "pyramid"
+    if re.search(r"\b(chernobyl|nuclear (?:power|plant|reactor|accident|disaster)|reactor|fukushima|three mile island|pripyat|meltdown)\b", t):
+        return "reactor"
     if re.search(r"\b(great fire|fire of|burn(?:ed|ing|t)?|blaze|inferno|fire)\b", t):
         return "burning_town"
     return None
@@ -125,6 +127,10 @@ def enrich(visual, narration, modern, anchor=None, story_has_sub=True, domain=No
     objs = list(v.get("objects", []))
     fx = list(v.get("effects", []))
     bg = v.get("background")
+    if bg == "underwater" and not story_has_sub and not re.search(r"submarine|u-boat|torpedo|sonar|depth[- ]?charge|periscope|diver|diving|scuba", text):
+        bg = "sea"                                                       # nothing in this story goes under water
+    if bg == "submarine_interior" and not story_has_sub:
+        bg = "mission_control"                                           # any other industrial interior is a control room, not a submarine
     flags = {}
     hinted_bg = None
     for pat, add_o, add_f, bghint, extra in RULES:
@@ -272,9 +278,12 @@ def company_pass(visuals, modern=False):
     return out
 
 
-def era_fix_thumb(tr, modern, domain=None):
+def era_fix_thumb(tr, modern, domain=None, anchor=None):
     """Thumbnails use the same era rules as the scenes: no modern roles or vessels in an old story."""
     tr = dict(tr)
+    if anchor in ("reactor", "volcano", "pyramid", "burning_town") and not domain:
+        tr["backdrop"] = anchor                                      # the story's landmark is the subject of every thumbnail
+        tr["objects"] = []
     if domain == "space":
         tr["role"] = "astronaut"
         tr["enemy_role"] = "scientist"

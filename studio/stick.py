@@ -259,6 +259,9 @@ class Actor:
             d.ellipse([b2[0] - sr, b2[1] - sr, b2[0] + sr, b2[1] + sr], fill=col, outline=INK, width=int(lw * .6))
         if "scroll" in props:
             d.rectangle([hand[0] - S * .05, hand[1] - S * .06, hand[0] + S * .05, hand[1] + S * .06], fill=(232, 215, 170), outline=INK)
+        if "hardhat" in props:                                       # yellow safety helmet
+            d.pieslice([head[0] - rad * 1.1, head[1] - rad * 1.25, head[0] + rad * 1.1, head[1] + rad * .15], 180, 360, fill=(246, 200, 40), outline=INK, width=int(lw * .6))
+            d.rectangle([head[0] - rad * 1.3, head[1] - rad * .18, head[0] + rad * 1.3, head[1] - rad * .02], fill=(226, 176, 28), outline=INK, width=int(lw * .5))
         if "spacehelmet" in props:                                   # glass bubble over the head with a ring at the neck, so astronauts read as astronauts
             hr_ = rad * 1.55
             d.ellipse([head[0] - hr_, head[1] - hr_, head[0] + hr_, head[1] + hr_], outline=(236, 242, 248), width=max(4, int(lw * .8)))    # outline only: a tinted fill would wipe the face when drawn on a transparent layer
@@ -890,6 +893,8 @@ def make_shots(scene, rnd):
         shots = []
         for i in range(n):
             st = first if i == 0 else style[i] if rnd.random() < 0.8 else "medium"
+            if len(acts) >= 2 and st == "close":
+                st = "medium"                                    # a close-up would cut the second person in half
             tm = (bounds[i] + bounds[i + 1]) / 2
             if bigs and st != "wide":                      # the subject of the scene stays in frame
                 o = bigs[i % len(bigs)]
