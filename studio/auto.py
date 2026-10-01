@@ -142,7 +142,7 @@ How these openings work:
 1. LINE 1 drops the viewer into ONE concrete moment already in progress: an exact time, place, number or object, present tense, plain words. A camera shot, not a summary.
 2. Two or three more short lines move the moment forward, each adding one new concrete detail. Mix very short lines (3-6 words) with longer ones (10-16 words).
 3. THE TURN: one plain-spoken fact that raises the stakes or flips what the viewer assumed. Stated calmly, no adjectives doing the work.
-4. THE LOOP: promise a specific answer without giving it (who, why, what it cost) in one sentence a viewer would not want to leave unanswered.
+4. THE LOOP: ask the one specific question the rest of the video answers (who, why, what it cost). NEVER state the outcome or the decision in the hook; if a line reveals how it ends, cut it.
 5. THE BRIDGE: one line that rewinds ("To understand how they got here, we have to go back to ...") so the story can start properly.
 Total 70-95 words. Facts only from the supplied list; never invent quotes, numbers, names or dates.
 Write like a person talking, never like marketing copy. No abstract drama words (terrifying, unimaginable, Armageddon, precipice, brink, chess match, tapestry),
