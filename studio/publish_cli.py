@@ -63,6 +63,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("dir")
     ap.add_argument("--thumb", type=int, default=1)
+    ap.add_argument("--thumb-file", default="", help="use this image (a path in the repo) instead of thumb1-3")
     ap.add_argument("--privacy", default="private", choices=["private", "unlisted", "public"])
     ap.add_argument("--upload", action="store_true")
     ap.add_argument("--force", action="store_true", help="upload even if a check fails")
@@ -82,7 +83,7 @@ def main():
         return 0
     meta = {"title": pkg["title"], "description": pkg["description"], "tags": pkg.get("tags", [])}
     cfg = {"upload": {"privacy": a.privacy, "category_id": "27", "synthetic_media_disclosure": True}}
-    vid = yt_upload.upload(d / "out" / "final.mp4", meta, cfg, print, shorts=False, thumb=d / "out" / f"thumb{a.thumb}.jpg")
+    vid = yt_upload.upload(d / "out" / "final.mp4", meta, cfg, print, shorts=False, thumb=pathlib.Path(a.thumb_file) if a.thumb_file else d / "out" / f"thumb{a.thumb}.jpg")
     print(f"\nPUBLISHED ({a.privacy}): https://www.youtube.com/watch?v={vid}")
     return 0
 
