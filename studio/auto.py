@@ -117,7 +117,7 @@ def write_outline(topic, hook):
 TOPIC: {topic}
 HOOK: {hook}
 
-Structure for maximum retention: a cold open that starts inside the most dramatic moment (no greetings, no "welcome back"), then 7-9 chapters
+Structure for maximum retention: chapter 1 is the cold open: pick ONE concrete, documented moment already in progress (exact place, time, number) that holds the story's central tension, give it about 90 target_words and the specific key_facts the opening may use (no greetings, no "welcome back"); then 7-9 more chapters
 that each end with an open loop or twist that pulls the viewer into the next one, and a final payoff that answers the opening question and
 lands one memorable takeaway. Chronology must be correct. Use only well-documented facts.
 Return JSON: {{"working_title": "", "chapters": [{{"title": "", "purpose": "", "key_facts": ["specific documented facts/dates/names this chapter must use"], "target_words": 240}}]}}
@@ -132,6 +132,90 @@ Chapter target_words must sum to about 2000 (between 1800 and 2200)."""
     return o
 
 
+REWIND = "The opening hook has already shown the dramatic moment and ends by promising to go back. Start by rewinding to where the story really begins, in plain words, and do NOT repeat the events of the hook."
+BANNED_HOOK = re.compile(r"\b(imagine|picture this|welcome|in this video|today we|armageddon|precipice|brink of|chess match|tapestry|little did|unimaginable|"
+                         r"terrifying|single-handedly|forever change[sd]?|the world (?:would|will) never|what if i told|but here'?s the thing|you won'?t believe|"
+                         r"dark chapter|unfolded|the stage was set|against all odds|a story of|history'?s? (?:most|greatest))\b|[\u2014\u2013]|!|\?\?", re.I)
+
+HOOK_STYLE = """You write the first 40 seconds of videos for a 5-million-subscriber documentary channel. The audience decides in 5 seconds whether to stay.
+How these openings work:
+1. LINE 1 drops the viewer into ONE concrete moment already in progress: an exact time, place, number or object, present tense, plain words. A camera shot, not a summary.
+2. Two or three more short lines move the moment forward, each adding one new concrete detail. Mix very short lines (3-6 words) with longer ones (10-16 words).
+3. THE TURN: one plain-spoken fact that raises the stakes or flips what the viewer assumed. Stated calmly, no adjectives doing the work.
+4. THE LOOP: promise a specific answer without giving it (who, why, what it cost) in one sentence a viewer would not want to leave unanswered.
+5. THE BRIDGE: one line that rewinds ("To understand how they got here, we have to go back to ...") so the story can start properly.
+Total 70-95 words. Facts only from the supplied list; never invent quotes, numbers, names or dates.
+Write like a person talking, never like marketing copy. No abstract drama words (terrifying, unimaginable, Armageddon, precipice, brink, chess match, tapestry),
+no 'Imagine', no greeting, no 'in this video', no rhetorical 'what if', no 'little did they know', no exclamation marks, no dashes.
+Show the stakes through specifics (the number of men, the depth, the minutes left) instead of saying it was dangerous."""
+
+
+def write_hook(topic, outline):
+    """A short, specific cold open built the way big documentary channels do it: candidates, a hard critic, banned-phrase filter."""
+    ch0 = outline["chapters"][0]
+    if FAKE():
+        return None
+    facts = json.dumps(ch0.get("key_facts", []))
+    cands_prompt = f"""{HOOK_STYLE}
+
+TOPIC: {topic}
+THE MOMENT TO OPEN ON: {ch0.get('title', '')} - {ch0.get('purpose', '')}
+DOCUMENTED FACTS YOU MAY USE: {facts}
+
+Write 4 different openings, each using a different technique: (a) cold moment in progress, (b) a counterintuitive fact that reframes everything,
+(c) a ticking clock (minutes, seconds or a countdown), (d) a quiet contradiction (the safest thing turns out to be the danger).
+Return JSON: {{"candidates": [{{"technique": "a", "lines": ["line 1", "line 2"]}}]}} where every line is one spoken sentence (6-20 words), 6-9 lines each."""
+    c = [x for x in _unwrap(_llm(cands_prompt, 0.95), "candidates")["candidates"] if isinstance(x, dict) and isinstance(x.get("lines"), list)]
+    ok = []
+    for x in c:
+        lines = [str(l).strip() for l in x["lines"] if str(l).strip()]
+        words = sum(len(l.split()) for l in lines)
+        if 4 <= len(lines) <= 10 and 55 <= words <= 120 and not any(BANNED_HOOK.search(l) for l in lines):
+            ok.append({"technique": x.get("technique", ""), "lines": lines})
+    if not ok:                                      # the filter caught everything: take the cleanest and strip the offenders
+        for x in c[:2]:
+            lines = [BANNED_HOOK.sub("", str(l)).strip() for l in x["lines"]]
+            ok.append({"technique": x.get("technique", ""), "lines": [l for l in lines if len(l.split()) > 2]})
+    if not ok:
+        return None
+    if len(ok) == 1:
+        best = ok[0]
+    else:
+        judge = f"""You are the hardest critic at a top documentary channel. Pick the opening that would keep the most viewers watching past 30 seconds.
+Judge: is line 1 a concrete moment (not a summary)? Is every detail specific? Does it sound like a person, not an AI (no stock drama phrases)? Is there a real open loop? Does it flow into the rewind?
+Openings: {json.dumps([{'i': i, 'lines': o['lines']} for i, o in enumerate(ok)])}
+Return JSON: {{"best": 0, "why": "one sentence", "fixes": ["optional: line index and a better wording only if a line is weak"]}}"""
+        try:
+            r = _llm(judge, 0.2)
+            best = ok[int(r.get("best", 0)) % len(ok)]
+        except Exception:
+            best = ok[0]
+    return best["lines"]
+
+
+def direct_hook(topic, lines):
+    """Visuals, mood and delivery for the hook lines: the fastest, tightest scenes of the video."""
+    if FAKE():
+        return None
+    n = len(lines)
+    prompt = f"""You direct the first 40 seconds of a documentary-style stickman video about: {topic}.
+Give each narration line a scene. The opening must feel cinematic: line 1 is a striking establishing image of the exact place; keep every scene visually different
+(vary background, camera and who is on screen); show the ACTUAL subject of the line; use at most one card scene (for a time or number).
+Narrator: use "tense" or "somber" for the moment, "dramatic" with a pause_before_ms of 300-600 on the turn, and "urgent" or "awed" for the loop; emphasise the concrete words (numbers, names).
+Music mood for every scene: "tense" (use "mystery" only for the loop line).
+{VOCAB}
+LINES: {json.dumps(lines)}
+Return JSON only: {{"scenes": [{{"narration": "(copy the line exactly)", "mood": "tense", "delivery": {{"emotion": "tense", "emphasis": ["word"], "pause_before_ms": 0}}, "visual": {{"type": "stage", "background": "night", "actors": [], "objects": [], "effects": [], "title": "", "camera": "push_in"}}}}]}}"""
+    for _ in range(2):
+        o = _unwrap(_llm(prompt, 0.7), "scenes")
+        sc = [x for x in o["scenes"] if isinstance(x, dict) and str(x.get("narration", "")).strip()]
+        if len(sc) >= max(3, n - 2):
+            for x, l in zip(sc, lines):
+                x["narration"] = l                  # never let the director reword the vetted lines
+            return sc[:n]
+    return None
+
+
 def write_chapter(topic, outline, idx, prev_tail, words):
     ch = outline["chapters"][idx]
     if FAKE():
@@ -144,6 +228,7 @@ FULL OUTLINE: {json.dumps([{'title': c['title'], 'purpose': c.get('purpose', '')
 THIS CHAPTER: "{ch['title']}" - {ch.get('purpose', '')}
 FACTS TO USE (accurate only): {json.dumps(ch.get('key_facts', []))}
 {f'The previous chapter ended with: "{prev_tail}"' if prev_tail else 'This is the cold open: start inside the most dramatic moment, no greetings.'}
+{REWIND if idx == 1 else ''}
 
 Write about {words} words of spoken narration split into {n_scenes} scenes (each scene 18-30 words, one idea, short punchy sentences, vivid but factual).
 Rules: never invent quotes, numbers or dates; where historians disagree say so; keep it gripping (tension, stakes, contrast); end the chapter with an
@@ -191,7 +276,7 @@ def make_metadata(topic, outline, chapters, text):
                 "description_intro": "The real story of how the Western Roman Empire ended.",
                 "tags": ["rome", "history", "fall of rome", "roman empire", "476 ad"], "hashtags": ["#history", "#rome", "#ancienthistory"],
                 "pinned_comment": "What surprised you most? Tell me below.",
-                "thumbs": [{"text": "ROME FELL", "mood": "fire", "role": "emperor", "color": "purple", "action": "scared", "emotion": "shock", "badge": "476 AD", "concept": "looming", "enemy_role": "warrior"},
+                "thumbs": [{"text": "ROME FELL", "mood": "fire", "role": "emperor", "color": "purple", "action": "scared", "emotion": "shock", "badge": "476 AD", "concept": "subject", "backdrop": "castle", "enemy_role": "warrior"},
                            {"text": "WHY IT COLLAPSED", "mood": "blood", "role": "king", "color": "purple", "action": "shrug", "emotion": "worried", "badge": "476", "concept": "ruin", "objects": ["castle", "tower", "column"]},
                            {"text": "NO ONE NOTICED", "mood": "ice", "role": "soldier", "color": "blue", "action": "sword_up", "emotion": "angry", "concept": "versus", "enemy_role": "warrior", "enemy_color": "red"}]}
     prompt = f"""Create the YouTube click package for a history video. It must earn the click, honestly.
@@ -206,7 +291,7 @@ emotional word. No ALL CAPS, no lies, nothing the video does not deliver. Write 
 
 THUMBNAIL RULES: 2-3 words maximum, huge and readable on a phone; the text must ADD to the title, not repeat it (tease the twist or stakes);
 one clear focal character with a strong emotion; scale contrast (a small hero against something huge) is proven to work; high contrast; an optional
-date badge (like "476 AD"). Make 3 different concepts, one per layout: "looming" (hero vs a giant menacing silhouette and an army), "ruin" (a burning
+date badge (like "476 AD"). Make 3 different concepts, one per layout. The FIRST thumbnail MUST be "subject": the story's actual subject drawn big and lit (the submarine, the volcano, the wave, the pyramid, the ship, the missile) with a close shocked reaction face beside it; put the object name in "backdrop" (and optionally a second object in "objects"). The other two: "looming" (hero vs a giant menacing silhouette and an army), "ruin" (a burning
 skyline of the story's setting), "versus" (two sides clashing, ONLY if the story really has two opposing sides such as a war, duel or rivalry; for disasters, mysteries and discoveries use "looming" or "ruin" instead). Different text, mood, character and emotion in each.
 
 Return JSON:
@@ -216,7 +301,7 @@ Return JSON:
  "tags": ["12-15 search tags, most important first, mix of broad and specific"],
  "hashtags": ["#three", "#relevant", "#hashtags"],
  "pinned_comment": "a question that sparks comments",
- "thumbs": [{{"text": "2-3 WORDS", "mood": "fire|ice|gold|storm|blood|night", "role": "one of {sorted(recipes.ROLES)}", "color": "one of {sorted(recipes.COLORS)}", "action": "scared|point|sword_up|proud|shrug|cheer|slump", "emotion": "shock|angry|worried|sad|smile", "concept": "looming|ruin|versus", "backdrop": "for looming: the giant silhouette behind the hero, one of {sorted(recipes.OBJECTS - {'cloud', 'torch'})} that matches the story, or figure", "army": "true only for ancient or medieval stories, false for modern ones", "enemy_role": "role of the opposing side", "enemy_color": "colour name", "badge": "optional short date like 476 AD or empty", "objects": ["1-2 of {sorted(recipes.OBJECTS - {'cloud', 'torch'})} matching the story setting"]}}]}}"""
+ "thumbs": [{{"text": "2-3 WORDS", "mood": "fire|ice|gold|storm|blood|night", "role": "one of {sorted(recipes.ROLES)}", "color": "one of {sorted(recipes.COLORS)}", "action": "scared|point|sword_up|proud|shrug|cheer|slump", "emotion": "shock|angry|worried|sad|smile", "concept": "subject|looming|ruin|versus", "backdrop": "for subject: the main object of the story; for looming: the giant silhouette behind the hero, one of {sorted(recipes.OBJECTS - {'cloud', 'torch'})} that matches the story, or figure", "army": "true only for ancient or medieval stories, false for modern ones", "enemy_role": "role of the opposing side", "enemy_color": "colour name", "badge": "optional short date like 476 AD or empty", "objects": ["1-2 of {sorted(recipes.OBJECTS - {'cloud', 'torch'})} matching the story setting"]}}]}}"""
     m = _llm(prompt, 0.7)
     if isinstance(m, list):
         m = next((x for x in m if isinstance(x, dict)), {})
@@ -314,7 +399,17 @@ def plan(job, pdir, settings, hint=None):
     for i, ch in enumerate(chapters):
         words = int(ch.get("target_words", 220))
         _log(job, f"  chapter {i + 1}/{len(chapters)}: {ch['title']}")
-        scenes = write_chapter(topic, outline, i, prev_tail, words)
+        scenes = None
+        if i == 0:
+            try:
+                hl = write_hook(topic, outline)
+                scenes = direct_hook(topic, hl) if hl else None
+                if scenes:
+                    _log(job, "  opening hook: " + " ".join(x["narration"] for x in scenes)[:240])
+            except Exception as e:
+                _log(job, f"  hook step failed ({e}); using the normal cold open")
+        if not scenes:
+            scenes = write_chapter(topic, outline, i, prev_tail, words)
         prev_tail = " ".join(scenes[-1]["narration"].split()[-25:])
         scripts += [(i, s) for s in scenes]
     wc = sum(len(s["narration"].split()) for _, s in scripts)

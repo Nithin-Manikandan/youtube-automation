@@ -3,6 +3,7 @@
 A scene is plain data (actors with keyframes, objects, on-screen text), so an LLM can write it.
 """
 import math
+from . import art
 
 import cv2
 import numpy as np
@@ -256,6 +257,9 @@ def draw_object(d, o, W, H, gy, t):
     x = o["x"] * W * SS
     S = H * SS
     k = o["type"]
+    if k in art.DRAW:
+        art.DRAW[k](d, o, x, S, gy, t, W * SS)
+        return
     if k == "castle":
         w, h = S * 0.30 * o.get("scale", 1), S * 0.36 * o.get("scale", 1)
         d.rectangle([x - w / 2, gy - h, x + w / 2, gy], fill=(198, 190, 172), outline=INK, width=4)
@@ -806,7 +810,8 @@ def make_shots(scene, rnd):
     """Cut long scenes into shots: wide -> medium on a character -> close-up/insert -> wide, each with its own drift."""
     dur = scene["duration"]
     acts = scene.get("actors", [])
-    objs = [o for o in scene.get("objects", []) if o["type"] not in ("cloud", "torch")]
+    objs = [o for o in scene.get("objects", []) if o["type"] not in ("cloud", "torch", "seascape")]
+    bigs = [o for o in objs if o["type"] in ("submarine", "warship", "ship", "volcano", "wave", "pyramid", "plane", "missile", "explosion", "castle")]
     n = 1 if dur < 4.2 else 2 if dur < 8 else 3 if dur < 13 else 4
     if n == 1:
         scene["hits"] = []
@@ -818,7 +823,13 @@ def make_shots(scene, rnd):
         for i in range(n):
             st = first if i == 0 else style[i] if rnd.random() < 0.8 else "medium"
             tm = (bounds[i] + bounds[i + 1]) / 2
-            if len(acts) >= 2 and st == "medium":          # two-shot keeps both characters in frame
+            if bigs and st != "wide":                      # the subject of the scene stays in frame
+                o = bigs[i % len(bigs)]
+                fx, fy = o.get("x", 0.5), 0.52
+                if acts and st == "close" and abs(_kx(acts[0]["keys"], tm) - fx) < .3:
+                    fx = (fx + _kx(acts[0]["keys"], tm)) / 2
+                z0, z1 = (1.15, 1.3) if st == "medium" else (1.35, 1.55)
+            elif len(acts) >= 2 and st == "medium":          # two-shot keeps both characters in frame
                 fx = sum(_kx(a["keys"], tm) for a in acts[:2]) / 2
                 fy, z0, z1 = 0.52, 1.25, 1.4
             elif acts and st != "wide":

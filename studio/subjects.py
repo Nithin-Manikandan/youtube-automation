@@ -15,11 +15,11 @@ RULES = [
     (r"\btorpedo", ["submarine", "torpedo"], ["bubbles"], "underwater", {}),
     (r"\bsonar|ping\b", ["submarine"], ["sonar", "bubbles"], "underwater", {}),
     (r"\b(warships?|destroyers?|cruiser|battleship|fleet|navy|naval|carrier|flotilla)\b", ["warship"], [], "sea", {}),
-    (r"\b(missiles?|rockets?|icbm|launch(?:ed|es|ing)?)\b", ["missile"], [], None, {"launch": True}),
+    (r"\b(rockets?|launch(?:ed|es|ing)?|lift(?:ed|s)? off|silos?)\b", ["missile"], [], None, {"launch": True}),
     (r"\b(planes?|aircraft|bombers?|airplane|jets?)\b", ["plane"], [], None, {}),
     (r"\b(volcano|volcanic|eruption|erupt\w*|lava|magma|crater|caldera)\b", ["volcano"], ["embers"], "volcanic", {}),
     (r"\b(ash|ashfall|pumice|soot)\b", ["ash_cloud"], ["ashfall"], "ashen", {}),
-    (r"\b(tsunami|tidal wave|waves?|flood\w*|surge)\b", ["wave"], [], "sea", {}),
+    (r"\b(tsunami|tidal wave|flood\w*|(?:ocean|sea|giant|huge|massive|towering|enormous) waves?|waves? (?:crash\w*|hit|struck|rose|rolled|swept|slammed))\b", ["wave"], [], "sea", {}),
     (r"\b(fires?|burn\w*|blaze|flames?|inferno|ablaze)\b", ["fire", "smoke"], ["embers"], None, {}),
     (r"\b(explo\w+|blast\w*|detonat\w+|bomb\w*|shell\w*)\b", ["explosion"], ["shake", "flash"], None, {}),
     (r"\b(earthquakes?|tremors?|quakes?|shaking)\b", [], ["shake"], None, {}),
@@ -63,6 +63,10 @@ def enrich(visual, narration, modern):
                     fx.append(f)
             hinted_bg = hinted_bg or bghint
             flags.update(extra)
+    # objects that depict an event or vehicle are only drawn when the narration is literally about them
+    bound = {"missile", "torpedo", "depth_charge", "explosion", "volcano", "wave", "fire", "plane", "warship", "submarine", "pyramid", "castle", "ash_cloud"}
+    said = {o for pat, add_o, _, _, _ in RULES if re.search(pat, text) for o in add_o}
+    objs = [o for o in objs if o not in bound or o in said]
     inside = re.search(r"\b(inside|aboard|hull|control room|crew|compartment|cramped|bunk)\b", text)
     if any(o in UNDERWATER_OBJECTS for o in objs):
         hinted_bg = "submarine_interior" if inside and not re.search(r"depth[- ]?charge|torpedo|sonar", text) else "underwater"

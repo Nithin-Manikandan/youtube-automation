@@ -114,8 +114,28 @@ def actor_keys(a, dur, idx, n):
     act = a["action"]
     K = lambda t, xx, pose, **kw: dict(t=t, x=xx, pose=pose, face=em, facing=facing, **kw)
     if act == "talk":
-        seq, per = ["stand", "point", "stand", "shrug", "stand", "proud"], 1.7
-        return [K(i * per, x, seq[(i + idx) % len(seq)]) for i in range(int(dur / per) + 2)]
+        rng = random.Random(idx * 31 + int(x * 100))
+        per = 1.6
+        gestures = ["point", "proud", "shrug", "point", "stand"]
+        listening = ["stand", "stand", "shrug", "scared", "stand"] if n > 1 else gestures
+        ks, cur, t = [], x, 0.0
+        i = 0
+        while t < dur + per:
+            speaking = n == 1 or (i + idx) % 2 == 0          # two people trade the floor; the other one reacts
+            pose = rng.choice(gestures) if speaking else rng.choice(listening)
+            fc = facing
+            if n > 1:
+                fc = 1 if (x < center) else -1               # face the other person
+            if i % 3 == 2 and speaking:                      # take a few steps while making the point
+                nx = max(.1, min(.9, cur + rng.choice([-1, 1]) * .07))
+                ks.append(dict(t=t, x=cur, pose="walk", face=em, facing=1 if nx > cur else -1))
+                ks.append(dict(t=t + .7, x=nx, pose="walk", face=em, facing=1 if nx > cur else -1))
+                cur, t = nx, t + .7
+            else:
+                ks.append(dict(t=t, x=cur, pose=pose, face=em, facing=fc))
+                t += per
+            i += 1
+        return ks
     if act in ("enter_walk", "enter_run"):
         start = -0.12 if x < .5 else 1.12
         f0 = 1 if start < 0 else -1
@@ -175,6 +195,18 @@ def build_stage(v, dur, rnd, seed=0):
                          t0=dur * (.3 + .12 * j) if o in ("depth_charge", "explosion", "torpedo") else .4,
                          color=(255, 255, 255, 160) if v["background"] not in ("storm", "night", "battlefield", "volcanic", "ashen") else (92, 94, 104)))
     dc = [o for o in objs if o["type"] == "depth_charge"]
+    if v["background"] == "underwater":
+        objs.insert(0, dict(type="seascape", x=.5, dur=dur))
+    for o in objs:
+        if o["type"] == "explosion":
+            o["x"] = .78 if not actors or actors[0]["keys"][0]["x"] < .6 else .22     # blast beside the people, not on top of them
+    big = [o for o in objs if o["type"] in ("submarine", "warship", "ship", "volcano", "wave", "pyramid")]
+    if big and actors:                                                           # keep people out from in front of the main subject
+        for i, a in enumerate(actors):
+            side = .13 if i % 2 == 0 else .87
+            if abs(a["keys"][0]["x"] - big[0]["x"]) < .3:
+                for k in a["keys"]:
+                    k["x"] = side
     if not objs and v["background"] == "submarine_interior":
         objs = [dict(type="pipes", x=.5), dict(type="gauge", x=.14, y=.34), dict(type="gauge", x=.86, y=.4), dict(type="hatch", x=.5)]
     if not objs and v["background"] == "city_modern":
