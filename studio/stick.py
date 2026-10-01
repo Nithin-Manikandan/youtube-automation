@@ -112,6 +112,12 @@ class Actor:
     def _pose_of(self, k, tt):
         """Pose for key k at scene time tt: a retargeted mocap clip ('mc:<clip>') or one of the procedural poses."""
         nm = k["pose"]
+        if nm.startswith("rx:"):
+            from . import reactions
+            tt0 = tt - k.get("ct0", k["t"] - k.get("xf", 0.3))
+            if nm == "rx:look":
+                return dict(reactions.look(tt0, self.seed), hip=0)
+            return dict(reactions.sample(nm[3:], max(0.0, tt0), self.seed), hip=0)
         if nm.startswith("mc:"):
             from . import mocap
             ct0 = k.get("ct0", k["t"] - k.get("xf", 0.3))
@@ -132,7 +138,7 @@ class Actor:
                 k1 = k0
             else:
                 k0 = k1
-        mc = k0["pose"].startswith("mc:") or k1["pose"].startswith("mc:")
+        mc = k0["pose"].startswith(("mc:", "rx:")) or k1["pose"].startswith(("mc:", "rx:"))
         if k1 is k0:
             u = ub = 0.0
         elif mc:

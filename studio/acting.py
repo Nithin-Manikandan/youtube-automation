@@ -12,13 +12,13 @@ TALK = ["talk_1", "talk_2", "talk_3", "talk_4", "talk_5", "talk_6"]
 WALK_BY_EMOTION = {"sad": "walk_sad", "worried": "walk_careful", "shock": "walk_scared", "angry": "walk_brisk", "smile": "walk_happy", "neutral": "walk"}
 # legacy action names -> clip (loop) ; "once" clips are followed by an idle so nobody freezes
 ACTION_CLIP = {"think": ("think", True), "point": ("point", True), "shrug": ("shrug", False), "cheer": ("happy", True), "scared": ("scared", False),
-               "slump": ("sad", True), "crouch": ("duck", False), "demand": ("quarrel_a", True), "proud": ("talk_3", True),
-               "look_around": ("look_around", True), "duck": ("duck", False), "dodge": ("dodge", False), "wave": ("wave", False), "punch": ("punch", True),
-               "kick": ("kick", True), "push": ("push", True), "pull": ("pull", True), "pick_up": ("pick_up", False), "stumble": ("stumble", False),
-               "fall": ("fall", False), "get_up": ("get_up", False), "cry": ("cry", True), "flinch": ("surprised", False), "sit": ("sit_down", False)}
+               "slump": ("slump", False), "crouch": ("duck", False), "demand": ("quarrel_a", True), "proud": ("talk_3", True),
+               "look_around": ("look_around", True), "duck": ("duck", False), "dodge": ("duck", False), "wave": ("wave", False), "punch": ("punch", True),
+               "kick": ("kick", True), "push": ("talk_2", True), "pull": ("talk_2", True), "pick_up": ("talk_4", True), "stumble": ("stumble", False),
+               "fall": ("fall", False), "get_up": ("talk_1", True), "cry": ("cry", True), "flinch": ("flinch", False), "sit": ("slump", False)}
 
 
-LEGACY = {"think": "think", "look_around": "stand"}       # these two captures are crouches; the hand-posed versions read better
+LEGACY = {"think": "think", "look_around": "rx:look", "flinch": "rx:flinch", "scared": "rx:cower", "duck": "rx:duck", "dodge": "rx:duck", "fall": "rx:slump", "stumble": "rx:stumble", "slump": "rx:slump", "cry": "mc:cry", "surprised": "rx:flinch", "sit_down": "rx:slump", "crouch": "rx:duck"}       # these two captures are crouches; the hand-posed versions read better
 
 
 def _pn(clip):
@@ -26,6 +26,22 @@ def _pn(clip):
 
 
 BEND_ACTS = {"pull", "push", "pick_up", "duck", "dodge", "stumble", "fall", "sit", "crouch", "cry", "scared", "kick", "punch"}
+
+
+RX_DUR = {"flinch": 2.0, "cower": 3.4, "duck": 1.7, "slump": None, "stumble": 1.3}
+
+
+def _has(clip):
+    return clip in LEGACY or mocap.has(clip)
+
+
+def _dur(clip):
+    c = LEGACY.get(clip)
+    if c and c.startswith("rx:"):
+        return RX_DUR.get(c[3:], 2.0)
+    if c:
+        return 2.0
+    return mocap.duration(clip)
 
 
 def available():
@@ -48,7 +64,7 @@ def _walk_rate(clip, dxr, dt, scale):
 
 
 def _talk_clip(em, rnd, last=None):
-    pool = {"angry": ["quarrel_a", "threat_a", "talk_3", "talk_5"], "worried": ["talk_2", "talk_4", "talk_5"], "shock": ["talk_6", "talk_1", "talk_4"],
+    pool = {"angry": ["quarrel_a", "quarrel_b", "talk_3", "talk_5"], "worried": ["talk_2", "talk_4", "talk_5"], "shock": ["talk_6", "talk_1", "talk_4"],
             "sad": ["talk_4", "sad", "talk_2"]}.get(em, TALK)
     pool = [c for c in pool if mocap.has(c) and c != last] or [c for c in TALK if mocap.has(c)]
     return rnd.choice(pool)
@@ -90,7 +106,7 @@ def _base_keys(a, dur, idx, n, pos_x, facing, other=None):
     if act in ("walk", "enter_walk", "run", "enter_run", "exit_run"):
         run = "run" in act
         clip = "run" if run else WALK_BY_EMOTION.get(em, "walk")
-        if not mocap.has(clip):
+        if not _has(clip):
             return None
         if act in ("walk", "run"):
             end = pos_x + (.2 if facing > 0 else -.2)
@@ -127,28 +143,84 @@ def _base_keys(a, dur, idx, n, pos_x, facing, other=None):
         return ks
     if act in ACTION_CLIP:
         clip, loop = ACTION_CLIP[act]
-        if not mocap.has(clip):
+        if not _has(clip):
             return None
         px = pos_x + _outward(pos_x, n) if act in BEND_ACTS else pos_x                # a person bending over needs room that the other person is not standing in
         ks = [K(0, px, clip, loop=loop, facing=face_other, speak=False, ct0=0)]
-        if not loop:
-            ks.append(dict(t=mocap.duration(clip) + 0.2, x=px, pose="stand", face=em, facing=face_other, xf=0.5))
+        dn = _dur(clip)
+        if not loop and dn is not None:
+            ks.append(dict(t=dn + 0.2, x=px, pose="stand", face=em, facing=face_other, xf=0.5))
+        elif not loop:
+            ks.append(K(dur + 2, px, clip, loop=False, facing=face_other, ct0=0))
         else:
             ks.append(K(dur + 2, px, clip, loop=True, facing=face_other, ct0=0))
         return ks
     return None
 
 
-BEAT_CLIP = {"flinch": "surprised", "scared": "scared", "cry": "cry", "cheer": "happy", "duck": "duck", "point": "point", "look_around": "look_around", "wave": "wave",
-             "shrug": "shrug", "think": "think", "punch": "punch", "kick": "kick", "fight_burst": "sword_1", "push": "push", "pull": "pull", "pick_up": "pick_up",
-             "stumble": "stumble", "fall": "fall", "sit": "sit_down"}
+BEAT_CLIP = {"flinch": "flinch", "scared": "scared", "cry": "cry", "cheer": "happy", "duck": "duck", "point": "point", "look_around": "look_around", "wave": "wave",
+             "shrug": "shrug", "think": "think", "punch": "punch", "kick": "kick", "fight_burst": "sword_1", "stumble": "stumble", "fall": "fall", "sit": "slump"}
 BEAT_LEN = {"flinch": 1.7, "scared": 2.6, "cry": 3.2, "cheer": 2.8, "duck": 2.2, "point": 2.2, "look_around": 2.6, "wave": 2.2, "shrug": 2.0, "think": 2.6, "punch": 2.0,
             "kick": 2.0, "fight_burst": 2.4, "push": 2.4, "pull": 2.4, "pick_up": 2.4, "stumble": 1.8, "sit": 2.8, "idle": 2.2, "talk_angry": 2.8}
 STATIC = {"talk", "stand", "think", "point", "shrug", "cheer", "scared", "slump", "crouch", "proud", "demand", "look_around", "cry", "sit", "wave"}
 
 
+def _static(k0, k1):
+    return abs(k0["x"] - k1["x"]) < 1e-6 and not k0.get("lin")
+
+
+def _face_schedule(em0, dur, evs_faces):
+    """[(t0, t1, face)]: the scene's mood comes in waves rather than as a permanent frown; beats override it for their length."""
+    sched = []
+    if em0 != "neutral":
+        t = 0.2
+        while t < dur + 2:
+            sched.append((t, t + 1.9, em0))
+            t += 3.8
+    for t0, t1, f in evs_faces:
+        sched = [(a, b, f_) for a, b, f_ in sched if b <= t0 - 0.05 or a >= t1]
+        sched.append((t0, t1, f))
+    return sorted(sched)
+
+
+def _apply_faces(keys, sched):
+    """Give every key the face the schedule asks for at its time, and split static intervals where the face changes."""
+    def face_at(t):
+        for a, b, f in sched:
+            if a <= t < b:
+                return f
+        return "neutral"
+    cut = sorted({x for a, b, _ in sched for x in (a, b)})
+    out = []
+    for i, k in enumerate(keys):
+        out.append(k)
+        nxt = keys[i + 1]["t"] if i + 1 < len(keys) else k["t"] + 1.0
+        if i + 1 < len(keys) and not _static(k, keys[i + 1]):
+            continue
+        for tb in cut:
+            if k["t"] + 0.3 < tb < nxt - 0.3:
+                dup = dict(k)
+                dup.update(t=tb, xf=0.06, ct0=k.get("ct0", k["t"] - k.get("xf", 0.3)))
+                out.append(dup)
+    out.sort(key=lambda k: k["t"])
+    for k in out:
+        k["face"] = face_at(k["t"]) if k.get("face") is not None else "neutral"
+        if k["pose"] in ("stand", "think") and False:
+            pass
+    return out
+
+
 def keys_for(a, dur, idx, n, pos_x, facing, other=None, beats=None):
     """The actor's timeline: the scene's base acting plus beats timed to the words being spoken."""
+    ks = _keys_for(a, dur, idx, n, pos_x, facing, other, beats)
+    if not ks or a["action"] not in STATIC | {"talk"}:
+        return ks
+    ev_faces = [(k["t"], k["t"] + 2.4, k["face"]) for k in ks if k.get("face") not in (None, a["emotion"]) and k["t"] > 0.1] if beats else []
+    # beat events carry their own emotion; collect them before the schedule rewrites faces
+    return _apply_faces(ks, _face_schedule(a["emotion"], dur, ev_faces))
+
+
+def _keys_for(a, dur, idx, n, pos_x, facing, other=None, beats=None):
     base = _base_keys(a, dur, idx, n, pos_x, facing, other)
     if not base or not beats or a["action"] not in STATIC:
         return base
@@ -171,7 +243,7 @@ def keys_for(a, dur, idx, n, pos_x, facing, other=None, beats=None):
         if act in ("run_to", "walk_to"):
             run = act == "run_to"
             clip = "run" if run else WALK_BY_EMOTION.get(emo, "walk")
-            if not mocap.has(clip):
+            if not _has(clip):
                 continue
             if other is not None and n > 1 and "x" in other:
                 ox_ = other["x"]
@@ -190,7 +262,7 @@ def keys_for(a, dur, idx, n, pos_x, facing, other=None, beats=None):
             cur_x, last_end = tx, ts + ln
             continue
         if act == "talk_angry":
-            clip = rnd.choice([c for c in ("quarrel_a", "threat_a") if mocap.has(c)] or [None])
+            clip = rnd.choice([c for c in ("quarrel_a", "quarrel_b") if mocap.has(c)] or [None])
             if clip is None:
                 continue
             ln = BEAT_LEN["talk_angry"]
@@ -202,7 +274,7 @@ def keys_for(a, dur, idx, n, pos_x, facing, other=None, beats=None):
             last_end = ts + BEAT_LEN["idle"]
             continue
         clip = BEAT_CLIP.get(act)
-        if not clip or not mocap.has(clip):
+        if not clip or not _has(clip):
             continue
         ln = BEAT_LEN.get(act, 2.2)
         if act == "fall":
