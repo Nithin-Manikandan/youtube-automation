@@ -87,6 +87,15 @@ def _space(v, text):
     v = dict(v)
     flags = {"modern": True, "venting": bool(SPACE_VENT.search(text))}
     objs, fx = [], []
+    if re.search(r"\b(parachutes?|chutes?|splashdown|splashed down|recovery ship|recovered)\b", text):          # the return to Earth happens under a sky, on the sea
+        v.update(background="sea", objects=["parachute"] if re.search(r"parachute|chute|splash", text) else [], actors=[], effects=[], flags={"modern": True})
+        return v
+    if re.search(r"\b(lunar surface|surface of the moon|moon'?s surface|moonwalk\w*|tranquility base|walked on the moon|lunar landscape|stepped (?:out )?onto the moon)\b", text):
+        acts = list(v.get("actors") or [])[:2] or [dict(role="astronaut", color="", pos="center", action="walk", emotion="smile", facing="", scale=1.0)]
+        for a in acts:
+            a["role"] = "astronaut"
+        v.update(background="moon", actors=acts, objects=["planet"], effects=[], flags={"modern": True, "kind": "earth"})
+        return v
     if SPACE_MC.search(text):
         bg = "mission_control"
         roles = ("scientist", "officer")

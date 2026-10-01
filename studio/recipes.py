@@ -215,7 +215,7 @@ def build_stage(v, dur, rnd, seed=0, wins=None):
     scene["actors"] = actors
     xs = [.12, .88, .3, .7]
     objs = []
-    BIG = {"tank": .72, "parachute": .5, "flag": .84, "cannon": .78, "clock": .5, "airship": .5, "reactor": .72, "spacecraft": .5, "planet": .84, "liner": .5, "iceberg": .76, "submarine": .56, "warship": .56, "plane": .3, "missile": .86, "pyramid": .5, "ship": .6, "volcano": .62, "wave": .6, "ash_cloud": .05, "explosion": .5, "fire": .5}
+    BIG = {"tank": .86, "parachute": .5, "flag": .84, "cannon": .78, "clock": .5, "airship": .5, "reactor": .72, "spacecraft": .5, "planet": .84, "liner": .5, "iceberg": .76, "submarine": .56, "warship": .56, "plane": .3, "missile": .86, "pyramid": .5, "ship": .6, "volcano": .62, "wave": .6, "ash_cloud": .05, "explosion": .5, "fire": .5}
     flags = v.get("flags") or {}
     for j, o in enumerate(v["objects"]):
         objs.append(dict(type=o, x=BIG.get(o, [.16, .84, .5, .3][j % 4]) if o not in ("torch",) else xs[j % 4], y=.18 + .05 * j, r=.05, scale=1.0,
