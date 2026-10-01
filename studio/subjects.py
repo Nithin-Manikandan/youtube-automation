@@ -187,6 +187,9 @@ def enrich(visual, narration, modern, anchor=None, story_has_sub=True, domain=No
             objs.insert(0, "airship")
         if bg in ("sea", "harbor", "underwater", "city_modern", None):
             bg = "countryside"
+        if bg in ("capsule", "mission_control", "submarine_interior", "space"):
+            bg = "night" if re.search(r"\b(night|dark|storm|fire|flames?|inferno|spark|burn\w*)\b", text) else "countryside"   # an airship story is told under the open sky
+        objs = [o for o in objs if o not in ("tower", "capsule_interior", "mission_control", "spacecraft", "planet", "pipes", "gauge")]
     if "airship" in objs:
         objs = [o for o in objs if o not in ("liner", "ship", "warship")]
         if re.search(r"\b(fire|flames?|burn\w*|inferno|blaze|ignit\w*|spark|explo\w+|crash\w*|collaps\w*|tilt\w*)\b", text):

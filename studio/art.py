@@ -378,10 +378,10 @@ def liner(d, o, x, S, gy, t, WS):
 def airship(d, o, x, S, gy, t, WS):
     """A rigid airship: silver envelope with girder rings, tail fins, gondola and propeller pods; burning tail and nose-up tilt when o['burning']."""
     sc = o.get("scale", 1)
-    L, H_ = S * 0.8 * sc, S * 0.1 * sc
+    L, H_ = S * 0.66 * sc, S * 0.082 * sc
     burning = bool(o.get("burning"))
     cx = WS * .5 + math.sin(t * .35) * S * .02 + (t - o.get("dur", 6) / 2) * S * .012
-    cy = S * (.17 if not burning else .2) + math.sin(t * .8) * S * .008
+    cy = S * (.16 if not burning else .19) + math.sin(t * .8) * S * .008
     tilt = -.18 if burning else 0.0
     def P(px, py):
         c_, s_ = math.cos(tilt), math.sin(tilt)
