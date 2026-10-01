@@ -14,6 +14,9 @@ on:
       thumb_file:
         description: "Optional: a thumbnail image in this repo (for example thumbs/apollo13.jpg) used instead of 1-3"
         default: ""
+      publish_at:
+        description: "Optional: schedule the release, UTC like 2026-10-01T19:00:00Z (video stays private until then)"
+        default: ""
       privacy:
         description: "private, unlisted or public"
         default: "private"
@@ -48,10 +51,11 @@ jobs:
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
           THUMB: ${{ github.event.inputs.thumb }}
+          PUBLISH_AT: ${{ github.event.inputs.publish_at }}
           THUMB_FILE: ${{ github.event.inputs.thumb_file }}
           PRIVACY: ${{ github.event.inputs.privacy }}
           DO_UPLOAD: ${{ github.event.inputs.upload }}
         run: |
           FLAG=""
           if [ "$DO_UPLOAD" = "true" ]; then FLAG="--upload"; fi
-          python -m studio.publish_cli output/auto --thumb "$THUMB" --thumb-file "$THUMB_FILE" --privacy "$PRIVACY" $FLAG
+          python -m studio.publish_cli output/auto --thumb "$THUMB" --thumb-file "$THUMB_FILE" --privacy "$PRIVACY" --publish-at "$PUBLISH_AT" $FLAG
