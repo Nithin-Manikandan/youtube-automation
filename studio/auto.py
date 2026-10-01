@@ -256,12 +256,16 @@ change it only when the story's feeling really changes, at most once every 15-20
 "pause_before_ms" (0-700) for dramatic beats (a pause before a reveal). Vary the delivery across scenes so the reading never sounds flat.
 
 Return JSON only: {{"scenes": [{{"narration": "...", "mood": "calm", "delivery": {{"emotion": "warm", "emphasis": ["thousand"], "pause_before_ms": 0}}, "visual": {{"type": "stage", "background": "city_day", "actors": [{{"role": "emperor", "color": "purple", "pos": "center", "action": "talk", "emotion": "worried"}}], "objects": ["column"], "effects": [], "title": "", "camera": "push_in"}}}}]}}"""
-    for attempt in range(3):
-        o = _unwrap(_llm(prompt, 0.8), "scenes")
+    for attempt in range(4):
+        try:
+            o = _unwrap(_llm(prompt, max(0.4, 0.8 - 0.15 * attempt)), "scenes")
+        except RuntimeError:
+            time.sleep(4)
+            continue                                         # unreadable answer: ask again, a little calmer each time
         sc = [s for s in o["scenes"] if isinstance(s, dict) and str(s.get("narration", "")).strip()]
         if len(sc) >= 3:
             return sc
-    raise RuntimeError(f"Chapter {idx + 1} came back with too few scenes after 3 tries.")
+    raise RuntimeError(f"Chapter {idx + 1} came back unusable after 4 tries.")
 
 
 def factcheck(topic, text):
