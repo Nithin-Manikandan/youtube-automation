@@ -275,6 +275,9 @@ def draw_object(d, o, W, H, gy, t):
     elif k == "submarine":
         w, h = S * 0.62 * o.get("scale", 1), S * 0.11 * o.get("scale", 1)
         yb = gy - h * 0.15 + math.sin(t * 1.2) * S * 0.004
+        if o.get("afloat"):
+            yb = gy - S * 0.26 + math.sin(t * 1.2) * S * 0.006
+        x += (t - o.get("dur", 6) / 2) * S * 0.018
         d.ellipse([x - w / 2, yb - h, x + w / 2, yb + h * .35], fill=(74, 84, 96), outline=INK, width=4)
         d.rectangle([x - w * .06, yb - h * 1.55, x + w * .1, yb - h * .75], fill=(84, 94, 106), outline=INK, width=4)
         d.line([(x + w * .06, yb - h * 1.55), (x + w * .06, yb - h * 2.05), (x + w * .14, yb - h * 2.05)], fill=INK, width=6)
@@ -284,12 +287,55 @@ def draw_object(d, o, W, H, gy, t):
     elif k == "warship":
         w, h = S * 0.66 * o.get("scale", 1), S * 0.07 * o.get("scale", 1)
         yb = gy - S * 0.004 + math.sin(t * 1.1) * S * 0.004
+        x += (t - o.get("dur", 6) / 2) * S * 0.02
         d.polygon([(x - w / 2, yb - h), (x + w / 2, yb - h), (x + w * .38, yb), (x - w * .42, yb)], fill=(118, 126, 134), outline=INK)
         d.rectangle([x - w * .1, yb - h * 2.4, x + w * .12, yb - h], fill=(136, 144, 152), outline=INK, width=3)
         d.rectangle([x + w * .02, yb - h * 3.4, x + w * .07, yb - h * 2.4], fill=(92, 98, 104), outline=INK, width=3)
         d.line([(x - w * .3, yb - h * 1.3), (x - w * .15, yb - h * 1.55)], fill=INK, width=6)
+    elif k == "depth_charge":
+        t0 = o.get("t0", 1.0)
+        surf, seabed = gy - S * 0.62, gy - S * 0.2
+        if t < t0 + 1.3:
+            u = max(0.0, (t - t0) / 1.3)
+            cy = surf + (seabed - surf) * u ** 1.3
+            if t >= t0 - 0.3:
+                d.ellipse([x - S * .02, cy - S * .03, x + S * .02, cy + S * .03], fill=(70, 74, 70), outline=INK, width=3)
+                d.line([(x, cy - S * .03), (x, cy - S * .06)], fill=INK, width=3)
+                for j in range(4):
+                    d.ellipse([x - 7 + math.sin(t * 9 + j) * 8, cy - S * .06 - j * S * .03, x + 7 + math.sin(t * 9 + j) * 8, cy - S * .06 - j * S * .03 + 14], outline=(220, 240, 255, 200), width=2)
+        elif t < t0 + 2.6:
+            u = (t - t0 - 1.3) / 1.3
+            r = S * 0.34 * (1 - (1 - u) ** 2)
+            a = int(230 * (1 - u))
+            d.ellipse([x - r, seabed - r * .8, x + r, seabed + r * .8], fill=(210, 240, 255, a // 2), outline=(255, 255, 255, a), width=6)
+            d.ellipse([x - r * .45, seabed - r * .45, x + r * .45, seabed + r * .45], fill=(255, 255, 255, a))
+            d.polygon([(x - r * .3, seabed), (x - r * .2, seabed - r * 2.1 * u), (x + r * .2, seabed - r * 2.1 * u), (x + r * .3, seabed)], fill=(225, 245, 255, a // 2))
+    elif k == "torpedo":
+        t0, dur = o.get("t0", 1.0), o.get("dur", 6)
+        u = max(0.0, min(1.0, (t - t0) / max(dur * 0.55, 1)))
+        xx = (0.2 + 0.7 * u) * W * SS
+        yy = gy - S * (0.26 if o.get("afloat") else 0.1)
+        if t >= t0:
+            d.rounded_rectangle([xx - S * .06, yy - S * .012, xx + S * .06, yy + S * .012], 8, fill=(150, 154, 150), outline=INK, width=3)
+            d.polygon([(xx - S * .06, yy), (xx - S * .08, yy - S * .02), (xx - S * .08, yy + S * .02)], fill=INK)
+            for j in range(14):
+                bx = xx - S * (.08 + j * .02)
+                d.ellipse([bx - 5 - j * .5, yy - 5 - j * .5 + math.sin(t * 8 + j) * 4, bx + 5 + j * .5, yy + 5 + j * .5 + math.sin(t * 8 + j) * 4], outline=(225, 245, 255, 220 - j * 12), width=2)
     elif k == "missile":
         h, w = S * 0.46 * o.get("scale", 1), S * 0.05
+        if o.get("launch"):
+            t0 = o.get("t0", 1.0)
+            lift = max(0.0, t - t0) ** 2 * S * 0.09
+            gy0 = gy
+            gy = gy - lift
+            if t > t0:
+                fl = S * (0.05 + 0.12 * min(1.0, (t - t0)))
+                d.polygon([(x - w * .6, gy), (x, gy + fl * (1 + .2 * math.sin(t * 30))), (x + w * .6, gy)], fill=(255, 170, 40, 235))
+                d.polygon([(x - w * .3, gy), (x, gy + fl * .6), (x + w * .3, gy)], fill=(255, 245, 200, 245))
+                for j in range(10):
+                    sy = gy0 - S * .0 + j * S * .012
+                    rr = S * (.03 + .012 * j)
+                    d.ellipse([x - rr * (1 + j * .2) - S * .03 * (j % 3 - 1), sy - rr * .5, x + rr * (1 + j * .2) - S * .03 * (j % 3 - 1), sy + rr * .5], fill=(210, 208, 205, max(0, 150 - j * 12)))
         d.rectangle([x - w / 2, gy - h, x + w / 2, gy], fill=(236, 236, 232), outline=INK, width=3)
         d.polygon([(x - w / 2, gy - h), (x, gy - h - S * .09), (x + w / 2, gy - h)], fill=(196, 57, 43), outline=INK)
         d.polygon([(x - w / 2, gy), (x - w * 1.1, gy + 1), (x - w / 2, gy - h * .22)], fill=(196, 57, 43), outline=INK)
@@ -499,6 +545,20 @@ def draw_fx(d, scene, t, W, H, gy, actors):
                 x = ((xs[i] + t * 0.12 * sp[i]) % 1.0) * W * SS
                 y = ((ys[i] + t * 1.6 * sp[i]) % 1.0) * S
                 d.line([(x, y), (x - S * 0.012, y + S * 0.04)], fill=(60, 70, 100, 120), width=3)
+        elif k == "bubbles" and fx["t0"] <= t <= fx["t1"]:
+            rng = np.random.default_rng(11)
+            xs, ys, sp = rng.random(60), rng.random(60), 0.4 + rng.random(60)
+            for i in range(60):
+                x = ((xs[i] + math.sin(t * 1.5 + i) * 0.012) % 1.0) * W * SS
+                y = S - ((ys[i] + t * 0.18 * sp[i]) % 1.0) * S
+                r = 3 + 8 * sp[i]
+                d.ellipse([x - r, y - r, x + r, y + r], outline=(230, 246, 255, 190), width=2)
+        elif k == "sonar" and fx["t0"] <= t <= fx["t1"]:
+            cx, cy = W * SS * .5, gy - S * .26
+            for j in range(3):
+                u = ((t * .5 + j / 3) % 1.0)
+                r = S * (.08 + .7 * u)
+                d.ellipse([cx - r, cy - r, cx + r, cy + r], outline=(120, 255, 170, int(220 * (1 - u))), width=4)
         elif k == "ashfall":
             rng = np.random.default_rng(8)
             xs, ys, sp = rng.random(150), rng.random(150), 0.5 + rng.random(150)

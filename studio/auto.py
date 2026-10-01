@@ -16,7 +16,7 @@ import cv2
 import numpy as np
 
 from pipeline import audio as audiolib, ffmpeg, tts
-from . import ai, moods, music, recipes, score, sfx, stick, thumb
+from . import ai, moods, music, recipes, score, sfx, stick, subjects, thumb
 from . import voice as narrator
 from .doccap import DocCaptions
 
@@ -349,6 +349,8 @@ def plan(job, pdir, settings, hint=None):
     _stage(job, 3)
     rnd = random.Random(7)
     visuals = [recipes.clean_visual(s.get("visual"), rnd) for _, s in scripts]
+    modern = subjects.era_modern(full_text)
+    visuals = [subjects.enrich(vis, s["narration"], modern) for vis, (_, s) in zip(visuals, scripts)]
     scene_moods = []
     cur = "calm"
     for vis, (_, s) in zip(visuals, scripts):

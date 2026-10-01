@@ -209,6 +209,23 @@ def clink(seed=0):
     return norm(y, 0.6)
 
 
+def ping(seed=0):
+    """Sonar ping: soft sine blip with a long watery decay."""
+    t = _t(1.6)
+    y = np.sin(2 * np.pi * 1180 * t) * np.exp(-t * 3.2) * np.minimum(1, t * 400)
+    y += 0.35 * np.sin(2 * np.pi * 1770 * t) * np.exp(-t * 4.5)
+    return norm(reverb(y, 0.3), 0.45)
+
+
+def roar(seed=0, dur=3.2):
+    """Rocket launch: low rumble swelling with filtered hiss."""
+    rng = np.random.default_rng(seed)
+    t = _t(dur)
+    env = np.minimum(1, t / 0.8) * np.exp(-np.maximum(0, t - dur * .6) * 1.4)
+    y = filt(brown(len(t), rng), None, 220) * 3.0 + filt(_white(len(t), rng), 300, 2500) * 0.5
+    return norm(y * env, 0.8)
+
+
 def draw_scratch(seed=0, dur=0.6):
     rng = np.random.default_rng(seed)
     n = int(dur * SR)
@@ -363,6 +380,14 @@ def scene_events(sc, t0, prev=None):
     if "explosion" in objs:
         ev.append((t0 + objs["explosion"].get("t0", 0.4), "thump", 1.0, 0.0, 0))
         ev.append((t0 + objs["explosion"].get("t0", 0.4) + 0.05, "thunder", 0.8, 0.0, 0))
+    if "depth_charge" in objs:
+        tb = objs["depth_charge"].get("t0", 1.0) + 1.3
+        ev.append((t0 + tb, "thump", 1.0, 0.0, 0))
+        ev.append((t0 + tb + 0.05, "thunder", 0.7, 0.0, 0))
+    if "torpedo" in objs:
+        ev.append((t0 + objs["torpedo"].get("t0", 1.0), "whoosh", 0.7, 0.0, 0))
+    if "missile" in objs and objs["missile"].get("launch"):
+        ev.append((t0 + objs["missile"].get("t0", 1.0), "roar", 0.9, 0.0, 0))
     if "wave" in objs:
         ev.append((t0, "AMB_waves", 1.0, 0.0, dur + 0.4))
         ev.append((t0 + 1.2, "thunder", 0.6, 0.0, 0))
@@ -395,6 +420,9 @@ def scene_events(sc, t0, prev=None):
         if fx["type"] == "sparks":
             ev.append((t0 + fx["t"], "clash", 1.0, _pan(fx.get("x", .5)), 1))
             ev.append((t0 + fx["t"] + .28, "clash", .7, _pan(fx.get("x", .5)) * .8, 2))
+        elif fx["type"] == "sonar":
+            for j in range(int((fx["t1"] - fx["t0"]) / 2.0) + 1):
+                ev.append((t0 + fx["t0"] + j * 2.0, "ping", 0.5, 0.0, 0))
         elif fx["type"] == "flash":
             ev.append((t0 + fx["t"] + .2, "thunder", 1.0, 0.0, 0))
         elif fx["type"] == "rain":
@@ -427,6 +455,10 @@ def _sound(kind, extra):
         s = applause()
     elif kind == "clink":
         s = clink(extra)
+    elif kind == "ping":
+        s = ping()
+    elif kind == "roar":
+        s = roar()
     elif kind == "scratch":
         s = draw_scratch()
     elif kind == "AMB_rain":

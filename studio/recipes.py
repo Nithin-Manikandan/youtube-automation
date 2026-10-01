@@ -56,8 +56,8 @@ BACKGROUNDS = {
 }
 OBJECTS = {"castle", "column", "pedestal", "cloud", "tree", "tent", "pyramid", "tower", "torch", "ship",
            "submarine", "warship", "missile", "plane", "building", "hatch", "pipes", "gauge",
-           "volcano", "ash_cloud", "wave", "fire", "smoke", "house", "explosion"}
-EFFECTS = {"rain", "flash", "sparks", "dust", "shake", "ashfall", "embers"}
+           "volcano", "ash_cloud", "wave", "fire", "smoke", "house", "explosion", "depth_charge", "torpedo"}
+EFFECTS = {"rain", "flash", "sparks", "dust", "shake", "ashfall", "embers", "bubbles", "sonar"}
 CAMERAS = {"push_in": ([1.0, 1.10], None), "pull_out": ([1.12, 1.0], None), "pan_right": ([1.06, 1.06], (-.04, .04)), "pan_left": ([1.06, 1.06], (.04, -.04)), "static": ([1.0, 1.0], None)}
 
 
@@ -159,9 +159,13 @@ def build_stage(v, dur, rnd, seed=0):
     xs = [.12, .88, .3, .7]
     objs = []
     BIG = {"submarine": .56, "warship": .56, "plane": .3, "missile": .86, "pyramid": .5, "ship": .6, "volcano": .62, "wave": .6, "ash_cloud": .05, "explosion": .5, "fire": .5}
+    flags = v.get("flags") or {}
     for j, o in enumerate(v["objects"]):
         objs.append(dict(type=o, x=BIG.get(o, [.16, .84, .5, .3][j % 4]) if o not in ("torch",) else xs[j % 4], y=.18 + .05 * j, r=.05, scale=1.0,
+                         dur=dur, afloat=v["background"] == "underwater", launch=bool(flags.get("launch")),
+                         t0=dur * (.3 + .12 * j) if o in ("depth_charge", "explosion", "torpedo") else .4,
                          color=(255, 255, 255, 160) if v["background"] not in ("storm", "night", "battlefield", "volcanic", "ashen") else (92, 94, 104)))
+    dc = [o for o in objs if o["type"] == "depth_charge"]
     if not objs and v["background"] == "submarine_interior":
         objs = [dict(type="pipes", x=.5), dict(type="gauge", x=.14, y=.34), dict(type="gauge", x=.86, y=.4), dict(type="hatch", x=.5)]
     if not objs and v["background"] == "city_modern":
@@ -182,7 +186,11 @@ def build_stage(v, dur, rnd, seed=0):
         elif e == "dust":
             fx += [dict(type="dust", actor=a["id"]) for a in actors]
         elif e == "shake":
-            scene["shake"] = [dict(t=dur * .5, dur=.5, amp=12)]
+            scene["shake"] = [dict(t=(dc[0]["t0"] + 1.3) if dc else dur * .5, dur=.6, amp=14)]
+        elif e == "bubbles":
+            fx.append(dict(type="bubbles", t0=0, t1=dur))
+        elif e == "sonar":
+            fx.append(dict(type="sonar", t0=0, t1=dur))
     scene["fx"] = fx
     if v.get("title"):
         scene["text"] = [dict(t=.35, end=min(dur - .2, 3.6), text=v["title"], y=.085,
