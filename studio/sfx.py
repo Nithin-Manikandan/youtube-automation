@@ -214,7 +214,7 @@ def ping(seed=0):
     t = _t(1.6)
     y = np.sin(2 * np.pi * 1180 * t) * np.exp(-t * 3.2) * np.minimum(1, t * 400)
     y += 0.35 * np.sin(2 * np.pi * 1770 * t) * np.exp(-t * 4.5)
-    return norm(reverb(y, 0.3), 0.45)
+    return norm(reverb(st(y), 0.3), 0.45)
 
 
 def roar(seed=0, dur=3.2):
