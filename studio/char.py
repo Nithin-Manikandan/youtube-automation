@@ -144,7 +144,7 @@ def draw_v2(a, img, t, gy, scene, ctx):
     _tcap(d, hip, add(hip, m1), S * 0.036, S * 0.027, _shade(pants, far)); _tcap(d, add(hip, m1), add(hip, m2), S * 0.027, S * 0.021, _shade(pants, far))
     d.line([add(hip, m2), (add(hip, m2)[0] + f * S * 0.07, add(hip, m2)[1])], fill=_shade(shoe, far), width=int(S * 0.045))
     _tcap(d, sh, b1, S * 0.026, S * 0.021, _shade(shirt, far)); _tcap(d, b1, b2, S * 0.021, S * 0.017, _shade(shirt, far))
-    d.ellipse([b2[0] - S * 0.026, b2[1] - S * 0.026, b2[0] + S * 0.026, b2[1] + S * 0.026], fill=_shade(skin, far))
+    _hand(d, b2, wide[2] + wide[3], f, S, _shade(skin, far))
     # near leg
     _tcap(d, hip, add(hip, l1), S * 0.038, S * 0.028, pants); _tcap(d, add(hip, l1), add(hip, l2), S * 0.028, S * 0.022, pants)
     foot = add(hip, l2)
@@ -160,7 +160,7 @@ def draw_v2(a, img, t, gy, scene, ctx):
     _tcap(d, sh, add(neck_base, (hup[0] * S * 0.02, hup[1] * S * 0.02)), S * 0.026, S * 0.024, _shade(skin, 0.92))
     # near arm over the torso
     _tcap(d, sh, a1, S * 0.028, S * 0.022, shirt); _tcap(d, a1, a2, S * 0.022, S * 0.018, shirt)
-    d.ellipse([a2[0] - S * 0.028, a2[1] - S * 0.028, a2[0] + S * 0.028, a2[1] + S * 0.028], fill=skin)
+    _hand(d, a2, wide[0] + wide[1], f, S, skin)
     # head
     d.ellipse([head[0] - rad, head[1] - rad, head[0] + rad, head[1] + rad], fill=skin)
     lw = max(4, S * 0.042)
@@ -265,6 +265,17 @@ def _blit(img, Lp, ox, oy):
     if x1 <= x0 or y1 <= y0:
         return
     img.alpha_composite(Lp.crop((x0 - ox, y0 - oy, x1 - ox, y1 - oy)), (x0, y0))
+
+
+def _hand(d, p, ang, f, S, col):
+    """A rounded mitten with a thumb on the upper side."""
+    a = math.radians(ang)
+    dx, dy = math.sin(a) * f, math.cos(a)
+    nx, ny = -dy, dx
+    sgn = -1.0 if ny > 0 else 1.0
+    d.ellipse([p[0] - S * 0.029, p[1] - S * 0.029, p[0] + S * 0.029, p[1] + S * 0.029], fill=col)
+    tx, ty = p[0] + dx * S * 0.016 + nx * sgn * S * 0.026, p[1] + dy * S * 0.016 + ny * sgn * S * 0.026
+    d.ellipse([tx - S * 0.013, ty - S * 0.013, tx + S * 0.013, ty + S * 0.013], fill=col)
 
 
 def _cast_shadow(A, light, S, gl, bh, bw):
