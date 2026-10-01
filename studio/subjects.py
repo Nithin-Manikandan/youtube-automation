@@ -66,6 +66,8 @@ GEO_WORDS = re.compile(r"\b(march\w*|invad\w*|invasion|route|sail\w*|voyage|spre
 
 
 def domain_for(topic_text):
+    if re.search(r"\b(hindenburg|zeppelins?|airships?|dirigibles?)\b", topic_text.lower()):
+        return "airship"
     return "space" if re.search(r"\b(apollo|nasa|astronauts?|spacecraft|spaceflight|space shuttle|challenger|saturn v|moon landing|lunar|orbit\w*|cosmonaut|sputnik|gemini|mercury seven|voyager|hubble)\b", topic_text.lower()) else None
 
 
@@ -179,6 +181,12 @@ def enrich(visual, narration, modern, anchor=None, story_has_sub=True, domain=No
         objs[objs.index("ship")] = "warship" if naval else "liner"
     if modern and "warship" in objs and not naval and re.search(r"\b(liner|steamship|steamer|passenger|cargo|vessel|ship)\b", text) and not re.search(r"\b(navy|naval|warships?|destroyers?)\b", text):
         objs[objs.index("warship")] = "liner"                     # a civilian ship is not a gunboat
+    if domain == "airship":
+        objs = ["airship" if o in ("liner", "ship", "warship") else o for o in objs if o not in ("wave", "building")]
+        if "airship" not in objs and re.search(r"\b(ships?|vessel|craft|hull|envelope|giant|titan|passengers?|helium|hydrogen|gas|cells?|tail|nose|mooring|descent|landing|flight|flew|flying|sky|skies)\b", text):
+            objs.insert(0, "airship")
+        if bg in ("sea", "harbor", "underwater", "city_modern", None):
+            bg = "countryside"
     if "airship" in objs:
         objs = [o for o in objs if o not in ("liner", "ship", "warship")]
         if re.search(r"\b(fire|flames?|burn\w*|inferno|blaze|ignit\w*|spark|explo\w+|crash\w*|collaps\w*|tilt\w*)\b", text):
@@ -291,6 +299,11 @@ def era_fix_thumb(tr, modern, domain=None, anchor=None):
     if anchor in ("reactor", "volcano", "pyramid", "burning_town") and not domain:
         tr["backdrop"] = anchor                                      # the story's landmark is the subject of every thumbnail
         tr["objects"] = []
+    if domain == "airship":
+        tr["backdrop"] = "airship"
+        tr["objects"] = []
+        tr["scene"] = "countryside"
+        return tr
     if domain == "space":
         tr["role"] = "astronaut"
         tr["enemy_role"] = "scientist"

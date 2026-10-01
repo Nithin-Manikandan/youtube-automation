@@ -170,7 +170,7 @@ def _text_layer(lines, font, hi, flip, size, x_left, y_top, tilt=-2.2):
 
 SUBJECT_BG = {"submarine": "underwater", "torpedo": "underwater", "depth_charge": "underwater", "warship": "sea", "ship": "sea", "wave": "sea", "plane": "sea",
               "volcano": "volcanic", "ash_cloud": "ashen", "explosion": "night", "fire": "night", "missile": "sea", "pyramid": "desert", "castle": "battlefield",
-              "building": "city_modern", "house": "countryside", "tower": "battlefield", "column": "palace", "spacecraft": "space", "planet": "space"}
+              "building": "city_modern", "house": "countryside", "tower": "battlefield", "column": "palace", "spacecraft": "space", "planet": "space", "airship": "countryside"}
 
 
 def _subject_scene(recipe, flip, variant=0):
@@ -191,6 +191,8 @@ def _subject_scene(recipe, flip, variant=0):
             o["scale"] = 1.2 if obj in ("submarine", "warship", "ship") else 1.15
             o["t0"] = 0.3
             o["dur"] = 6.0
+            if obj == "airship":
+                o["burning"] = True
         elif o["type"] != "seascape":
             o["x"] = 0.18 if not flip else 0.82
     sc["shots"] = []
