@@ -185,6 +185,14 @@ def build_stage(v, dur, rnd, seed=0):
         actors.append(dict(id=f"a{i}", crown_fall=crown_fall, color=col, tunic=col if a["role"] not in ("scholar", "priest") else (238, 234, 224),
                            props=props, scale=a["scale"] * (0.98 if a["role"] in ("soldier", "knight") else 1.0),
                            hair=(random.Random(i + seed).choice([(70, 48, 30), (40, 30, 24), (150, 110, 60), (200, 200, 196)])), keys=keys))
+    seen = set()
+    for a_ in actors:                                                   # two characters never share the same shirt colour
+        if a_["tunic"] in seen:
+            for alt in (RED, BLUE, GREY, PURPLE, (70, 130, 80), (214, 120, 40)):
+                if alt not in seen:
+                    a_["tunic"] = alt
+                    break
+        seen.add(a_["tunic"])
     scene["actors"] = actors
     xs = [.12, .88, .3, .7]
     objs = []
