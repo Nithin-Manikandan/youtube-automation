@@ -65,7 +65,7 @@ def build(proj, log=print):
     cfg = {"voice": {"name": st.get("voice", "en-US-AndrewNeural"), "rate": st.get("rate", "+0%"),
                      "pitch": st.get("pitch", "+0Hz")},
            "captions": {"font": None, "size": 118 if vertical else 76, "words_per_chunk": 3 if vertical else 4,
-                        "color": "#FFFFFF", "highlight": "#FFD23F", "y_position": 0.66 if vertical else 0.84}}
+                        "color": "#FFFFFF", "highlight": "#FFD23F", "y_position": 0.66 if vertical else 0.92}}
 
     log("voiceover")
     voices, words, starts, durs, cursor = [], [], [], [], 0.0

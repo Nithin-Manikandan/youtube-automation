@@ -492,8 +492,8 @@ def _rot(pts, cx, cy, a):
 
 def spacecraft(d, o, x, S, gy, t, WS):
     """Apollo-style stack: cone command module, cylindrical service module with engine bell, slow tumble, venting gas when damaged."""
-    sc = o.get("scale", 1) * 1.9
-    cx, cy = x + math.sin(t * .25) * S * .02, S * .42 + math.sin(t * .4) * S * .012
+    sc = o.get("scale", 1) * 1.7
+    cx, cy = x + math.sin(t * .25) * S * .02, S * .47 + math.sin(t * .4) * S * .012
     a = math.sin(t * .3) * .12 + o.get("tilt", -.12)
     L, R = S * .30 * sc, S * .075 * sc
     def poly(pts, fill, outline=INK):
@@ -553,9 +553,11 @@ def planet(d, o, x, S, gy, t, WS):
         px, py = cx + math.cos(a_ + t * .05) * rr, cy + math.sin(a_) * rr * .8
         d.ellipse([px - r * .22, py - r * .12, px + r * .22, py + r * .12], fill=(72, 140, 84, 230))
     rng2 = random.Random(12)
-    for i in range(16):                                                                               # soft cloud puffs
-        a_ = rng2.random() * 6.28; rr = rng2.random() * r * .85
-        _circle(d, cx + math.cos(a_ + t * .03) * rr, cy + math.sin(a_) * rr, r * (.05 + .07 * rng2.random()), (244, 248, 255, 120))
+    for i in range(10):                                                                               # flat cloud banks kept inside the disc
+        a_ = rng2.random() * 6.28; rr = rng2.random() * r * .55
+        px, py = cx + math.cos(a_ + t * .03) * rr, cy + math.sin(a_) * rr * .8
+        w_ = r * (.12 + .1 * rng2.random())
+        d.ellipse([px - w_, py - w_ * .3, px + w_, py + w_ * .3], fill=(244, 248, 255, 150))
 
 
 def capsule_interior(d, o, x, S, gy, t, WS):

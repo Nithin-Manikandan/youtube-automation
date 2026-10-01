@@ -323,14 +323,14 @@ def _face(d, a, K, head, rad, f, face, ex, S, t, skin, props):
         d.ellipse([px_ - pr * 0.42 - pr * 0.1, py_ - pr * 0.62, px_ + pr * 0.12 - pr * 0.1, py_ - pr * 0.1], fill=(255, 255, 255))   # specular
         if lid > 0.02:                                                  # eyelid: skin-coloured cap that closes down over the eye
             ly = ey_ - ery + 2 * ery * lid
-            slope = {"angry": 0.35, "worried": -0.3, "sad": -0.35}.get(face, 0.0)
+            slope = {"angry": 0.15, "worried": -0.15, "sad": -0.2}.get(face, 0.0)
             d.polygon([(ex_ - erx * 1.12, ey_ - ery * 1.15), (ex_ + erx * 1.12, ey_ - ery * 1.15),
                        (ex_ + erx * 1.12, ly + slope * ery * f * (1 if i_ == 0 else -1) * 0.8), (ex_ - erx * 1.12, ly - slope * ery * f * (1 if i_ == 0 else -1) * 0.8)], fill=skin)
             d.line([(ex_ - erx * 1.05, ly), (ex_ + erx * 1.05, ly)], fill=INK, width=max(2, int(S * 0.006)))
     # brows
     bw = max(4, int(S * 0.021))
     by = head[1] - rad * 0.66 - talk_brow * rad * 0.14
-    tilt = {"angry": (-1, 0.30), "worried": (1, 0.30), "sad": (1, 0.28), "shock": (0, 0.0), "smile": (0, 0.0)}.get(face, (0, 0))
+    tilt = {"angry": (-1, 0.17), "worried": (1, 0.22), "sad": (1, 0.22), "shock": (0, 0.0), "smile": (0, 0.0)}.get(face, (0, 0))
     lift = rad * (0.22 if face == "shock" else 0.10 if face == "smile" else 0.0)
     for k_, (ex_, ey_) in enumerate(eyes):
         sgn = 1 if k_ == 0 else -1
