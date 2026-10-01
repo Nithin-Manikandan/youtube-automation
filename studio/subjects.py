@@ -24,7 +24,7 @@ RULES = [
     (r"\b(explo\w+|blast\w*|detonat\w+|bomb\w*|shell\w*)\b", ["explosion"], ["shake", "flash"], None, {}),
     (r"\b(earthquakes?|tremors?|quakes?|shaking)\b", [], ["shake"], None, {}),
     (r"\b(storms?|thunder|lightning|hurricane|typhoon)\b", [], ["rain", "flash"], "storm", {}),
-    (r"\b(armies|army|legions?|troops|hordes?|charg(?:e|ed|es|ing)|marched|marching|invad\w+|advanced on|stormed)\b", ["crowd"], ["dust"], None, {}),
+    (r"\b(armies|army|legions?|troops|hordes?|marched|marching|invad\w+|advanced on|stormed)\b|(?<!depth )(?<!depth-)\bcharg(?:ed|ing) (?:at|into|across|forward|toward|towards|the|down|up|through|over)\b|\bthe charge\b(?! of)", ["crowd"], ["dust"], None, {}),
     (r"\b(castle|fortress|citadel|siege|ramparts?)\b", ["castle"], [], None, {}),
     (r"\b(pyramids?|pharaoh|nile)\b", ["pyramid"], [], "desert", {}),
     (r"\b(towns?|villages?|settlements?|houses?|homes)\b", ["house"], [], None, {}),
@@ -71,7 +71,9 @@ def enrich(visual, narration, modern):
     inside = re.search(r"\b(inside|aboard|hull|control room|crew|compartment|cramped|bunk)\b", text)
     if any(o in UNDERWATER_OBJECTS for o in objs):
         hinted_bg = "submarine_interior" if inside and not re.search(r"depth[- ]?charge|torpedo|sonar", text) else "underwater"
-    if hinted_bg and bg in (None, "city_day", "countryside", "palace", "desert", "forest", "snow", "city_modern", "sea", "underwater", "submarine_interior", "storm", "night", "ashen", "volcanic"):
+    if hinted_bg in ("underwater", "submarine_interior"):
+        bg = hinted_bg                                          # a submarine scene is never on a battlefield
+    elif hinted_bg and bg in (None, "city_day", "countryside", "palace", "desert", "forest", "snow", "city_modern", "sea", "underwater", "submarine_interior", "storm", "night", "ashen", "volcanic"):
         # take the narration's setting unless the AI already chose something equally specific
         if bg != hinted_bg and not (bg in ("underwater", "submarine_interior") and hinted_bg == "sea"):
             bg = hinted_bg
@@ -92,8 +94,8 @@ def enrich(visual, narration, modern):
     named = [o for o in objs if any(o in r[1] for r in RULES if re.search(r[0], text))]
     rest = [o for o in objs if o not in named]
     objs = named + rest
-    if bg == "underwater":                       # no surface ships or people on the seabed
-        objs = [o for o in objs if o not in ("warship", "ship")]
+    if bg in ("underwater", "submarine_interior"):            # no surface ships, armies or people on the seabed
+        objs = [o for o in objs if o not in ("warship", "ship", "crowd")]
         v["actors"] = []
     v["objects"] = objs[:3]
     v["effects"] = fx[:3]
