@@ -707,6 +707,24 @@ def render_frame(scene, t, W, H):
     cx = lerp(fx0[0], (fx1 or fx0)[0], u)
     cy = fx0[1]
     sx = sy = 0.0
+    punch = 0.0
+    shots = scene.get("shots")
+    if shots:
+        sh = shots[0]
+        for cand in shots:
+            if cand["t0"] <= t:
+                sh = cand
+        us = (t - sh["t0"]) / max(sh["t1"] - sh["t0"], 1e-6)
+        z = lerp(sh["z0"], sh["z1"], us)
+        cx = lerp(sh["x0"], sh["x1"], us)
+        cy = lerp(sh["y0"], sh["y1"], us)
+        age = t - sh["t0"]
+        if sh["t0"] > 0 and age < 0.22:                # hard cut lands with a small zoom-settle
+            z *= 1 + 0.07 * (1 - age / 0.22) ** 2
+        for e in scene.get("hits", []):                # impacts punch the camera in
+            if e <= t < e + 0.35:
+                punch = (1 - (t - e) / 0.35)
+                z *= 1 + 0.09 * punch
     for sh_ in scene.get("shake", []):
         if sh_["t"] <= t <= sh_["t"] + sh_.get("dur", 0.4):
             k = 1 - (t - sh_["t"]) / sh_.get("dur", 0.4)
@@ -718,8 +736,21 @@ def render_frame(scene, t, W, H):
     out = cv2.warpAffine(np.asarray(img), M, (W, H), flags=cv2.INTER_AREA if z / SS < 1 else cv2.INTER_LINEAR,
                          borderMode=cv2.BORDER_REPLICATE)
     out = _grade(out, W, H, t)
+    if punch > 0.05:                                   # chromatic aberration on impact
+        k = max(1, int(6 * punch))
+        out = out.copy()
+        out[..., 0] = np.roll(out[..., 0], k, axis=1)
+        out[..., 2] = np.roll(out[..., 2], -k, axis=1)
     pil = Image.fromarray(out)
     dd = ImageDraw.Draw(pil, "RGBA")
+    if scene.get("speed") and scene.get("kind") != "map":
+        rng = np.random.default_rng(int(t * 24) % 7)   # flickering radial speed lines at the frame edge
+        for i in range(26):
+            a_ = rng.random() * 6.283
+            r0 = (0.62 + rng.random() * 0.12) * W / 2
+            r1 = r0 + (0.18 + rng.random() * 0.25) * W / 2
+            c_, s_ = math.cos(a_), math.sin(a_)
+            dd.line([(W / 2 + c_ * r0, H / 2 + s_ * r0 * 0.9), (W / 2 + c_ * r1, H / 2 + s_ * r1 * 0.9)], fill=(255, 255, 255, 70), width=3)
     for tx in scene.get("text", []):
         if tx["t"] <= t < tx.get("end", scene["duration"]):
             age = t - tx["t"]
@@ -760,3 +791,61 @@ def _grade(arr, W, H, t):
 def prepare(scene, W, H):
     scene["_actors"] = [Actor(a, W, H) for a in scene.get("actors", [])]
     return scene
+
+
+def _kx(keys, t):
+    if t <= keys[0]["t"]:
+        return keys[0]["x"]
+    for a, b in zip(keys, keys[1:]):
+        if a["t"] <= t <= b["t"]:
+            return lerp(a["x"], b["x"], (t - a["t"]) / max(b["t"] - a["t"], 1e-6))
+    return keys[-1]["x"]
+
+
+def make_shots(scene, rnd):
+    """Cut long scenes into shots: wide -> medium on a character -> close-up/insert -> wide, each with its own drift."""
+    dur = scene["duration"]
+    acts = scene.get("actors", [])
+    objs = [o for o in scene.get("objects", []) if o["type"] not in ("cloud", "torch")]
+    n = 1 if dur < 4.2 else 2 if dur < 8 else 3 if dur < 13 else 4
+    if n == 1:
+        scene["hits"] = []
+    else:
+        bounds = [dur * i / n for i in range(n + 1)]
+        style = ["wide", "medium", "close", "wide"]
+        first = rnd.choice(["wide", "medium"])
+        shots = []
+        for i in range(n):
+            st = first if i == 0 else style[i] if rnd.random() < 0.8 else "medium"
+            tm = (bounds[i] + bounds[i + 1]) / 2
+            if len(acts) >= 2 and st == "medium":          # two-shot keeps both characters in frame
+                fx = sum(_kx(a["keys"], tm) for a in acts[:2]) / 2
+                fy, z0, z1 = 0.52, 1.25, 1.4
+            elif acts and st != "wide":
+                a = acts[(i + rnd.randrange(len(acts))) % len(acts)]
+                fx = _kx(a["keys"], tm)
+                fy = 0.50 if st == "medium" else 0.40
+                z0, z1 = (1.45, 1.6) if st == "medium" else (1.9, 2.15)
+            elif objs and st != "wide":
+                o = rnd.choice(objs)
+                fx, fy, z0, z1 = o.get("x", 0.5), 0.5, 1.35, 1.5
+            else:
+                fx, fy, z0, z1 = 0.5, 0.55, 1.0, 1.1
+            if rnd.random() < 0.5:
+                z0, z1 = z1, z0 if st == "wide" else z1
+            shots.append(dict(t0=bounds[i], t1=bounds[i + 1], z0=z0, z1=z1, x0=fx, x1=fx + rnd.choice([-.02, .02]), y0=fy, y1=fy))
+        scene["shots"] = shots
+        scene["hits"] = []
+    for sh_ in scene.get("shake", []):
+        scene["hits"].append(sh_["t"])
+    for fx in scene.get("fx", []):
+        if fx["type"] in ("sparks", "flash"):
+            scene["hits"].append(fx["t"])
+    for o in scene.get("objects", []):
+        if o["type"] in ("explosion",):
+            scene["hits"].append(o.get("t0", 0.4))
+        if o["type"] == "depth_charge":
+            scene["hits"].append(o.get("t0", 1.0) + 1.3)
+    if not scene.get("shots") and scene["hits"]:   # single-shot scenes still need a camera for punches
+        scene["shots"] = [dict(t0=0, t1=dur, z0=1.0, z1=1.12, x0=.5, x1=.5, y0=.55, y1=.55)]
+    scene["speed"] = bool(scene.get("blur"))

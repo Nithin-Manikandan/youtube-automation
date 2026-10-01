@@ -130,7 +130,16 @@ def actor_keys(a, dur, idx, n):
         end = x + (.2 if facing > 0 else -.2)
         return [K(0, x, act), K(dur, end, act)]
     if act == "fight":
-        return [K(0, x, "sword_up"), K(min(1.2, dur * .3), x, "fight_swing")]
+        meet = .5 + (-.065 if x < center else .065)            # both fighters charge in and trade blows at the middle
+        t1 = min(1.0 + .15 * idx, dur * .3)
+        ks = [K(0, x, "sword_up"), K(t1, meet, "run"), K(t1 + .25, meet, "fight_swing")]
+        t, j = t1 + .25, 0
+        while t < dur + 1:
+            t += 1.0
+            j += 1
+            back = meet + (-.03 if x < center else .03) * (1 if j % 2 else 0)
+            ks.append(K(t, back, "sword_up" if j % 2 else "fight_swing"))
+        return ks
     pose = act if act not in ("stand",) else "stand"
     return [K(0, x, pose), K(dur, x, pose)]
 
@@ -191,16 +200,24 @@ def build_stage(v, dur, rnd, seed=0):
             fx.append(dict(type="bubbles", t0=0, t1=dur))
         elif e == "sonar":
             fx.append(dict(type="sonar", t0=0, t1=dur))
+    if sum(a["action"] == "fight" for a in v["actors"]) >= 2:      # a spark burst on every exchange of blows
+        tt = min(1.0, dur * .3) + .5
+        while tt < dur - .3:
+            fx.append(dict(type="sparks", t=tt, x=.5, y=.40))
+            tt += 1.0
     scene["fx"] = fx
     if v.get("title"):
         scene["text"] = [dict(t=.35, end=min(dur - .2, 3.6), text=v["title"], y=.085,
                               color=(255, 255, 255) if v["background"] in ("storm", "night", "battlefield", "underwater", "submarine_interior", "city_modern", "volcanic", "ashen") else (27, 27, 32))]
     z, pan = CAMERAS[v["camera"]]
     scene["zoom"] = z
+    _late_shots = True
     scene["focus"] = (.5 + (pan[0] if pan else 0), .6)
     if pan:
         scene["focus_to"] = (.5 + pan[1], .6)
     scene["blur"] = "fight" in [a["action"] for a in v["actors"]] or "run" in " ".join(a["action"] for a in v["actors"])
+    from . import stick
+    stick.make_shots(scene, rnd)
     return scene
 
 
