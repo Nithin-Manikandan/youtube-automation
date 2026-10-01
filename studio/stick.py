@@ -790,46 +790,8 @@ def render_card(scene, t, W, H):
     return _grade(np.asarray(pil), W, H, t)
 
 
-def render_frame(scene, t, W, H):
-    if scene.get("kind") == "card":
-        return render_card(scene, t, W, H)
-    gyr = scene.get("ground", 0.80)
-    gy = gyr * H * SS
-    fx0, fx1 = scene.get("focus", (0.5, 0.55)), scene.get("focus_to", None)
-    u = smooth(t / max(scene["duration"], 1e-6))
-    fxc = lerp(fx0[0], (fx1 or fx0)[0], u)
-    off = (fxc - 0.5) * W * SS
-    if scene.get("kind") == "map":
-        img = Image.new("RGB", (W * SS, H * SS), (214, 190, 142))
-        d = ImageDraw.Draw(img, "RGBA")
-        draw_map(d, scene, W, H, t)
-    else:
-        top, bot = scene.get("sky", ((196, 214, 226), (246, 236, 214)))
-        img = _sky_sun(W, H, top, bot, scene.get("sun")).copy()
-        d = ImageDraw.Draw(img, "RGBA")
-        for layer in scene.get("hills", []):
-            _hills(d, W, H, gy, layer, off)
-        gcol = scene.get("ground_color", (176, 158, 120))
-        img.paste(_ground(W, H, gy, gcol), (0, int(gy)))
-        d.line([(0, gy), (W * SS, gy)], fill=INK, width=5)
-        for o in scene.get("objects", []):
-            draw_object(d, o, W, H, gy, t)
-        if V2:
-            from . import char
-            lt, rim = char.light_for(scene)
-            ctx = {"light": lt, "rim": rim}
-            for a in sorted(scene["_actors"], key=lambda a: a.s.get("z", 0)):
-                char.draw_v2(a, img, t, gy, scene, ctx)
-        else:
-            for a in sorted(scene["_actors"], key=lambda a: a.s.get("z", 0)):
-                a.draw(d, t, gy)
-        draw_fx(d, scene, t, W, H, gy, scene["_actors"])
-        if scene.get("dim"):
-            d.rectangle([0, 0, W * SS, H * SS], fill=(20, 24, 50, int(scene["dim"] * 255)))
-        for fx in scene.get("fx", []):
-            if fx["type"] == "flash" and fx["t"] <= t <= fx["t"] + 0.5:
-                d.rectangle([0, 0, W * SS, H * SS], fill=(255, 255, 255, int(200 * (1 - (t - fx["t"]) / 0.5))))
-    # camera: push-in, pan and impact shake
+def _camera(scene, t, u, fx0, fx1):
+    """Camera state at time t: zoom, centre, shake offset, impact punch."""
     z0, z1 = scene.get("zoom", [1.0, 1.06])
     z = lerp(z0, z1, u)
     cx = lerp(fx0[0], (fx1 or fx0)[0], u)
@@ -861,11 +823,79 @@ def render_frame(scene, t, W, H):
     if scene.get("kind") != "map":                       # faint handheld drift: the camera is never perfectly still
         sx += (math.sin(t * 1.3) * 2.2 + math.sin(t * 3.1 + 1) * 0.8) * SS
         sy += (math.cos(t * 1.1) * 1.6 + math.sin(t * 2.7) * 0.6) * SS
+    return z, cx, cy, sx, sy, punch
+
+
+PARALLAX = 0.55          # how much of the camera move the distant layer (sky and hills) follows; the rest is depth
+
+
+def _warp(arr, W, H, z, cx, cy, sx, sy):
     M = cv2.getRotationMatrix2D((cx * W * SS, cy * H * SS), 0, z / SS)
     M[0, 2] += W / 2 - cx * W * SS + sx / SS
     M[1, 2] += H / 2 - cy * H * SS + sy / SS
-    out = cv2.warpAffine(np.asarray(img), M, (W, H), flags=cv2.INTER_AREA if z / SS < 1 else cv2.INTER_LINEAR,
-                         borderMode=cv2.BORDER_REPLICATE)
+    return cv2.warpAffine(arr, M, (W, H), flags=cv2.INTER_AREA if z / SS < 1 else cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
+
+
+def render_frame(scene, t, W, H):
+    if scene.get("kind") == "card":
+        return render_card(scene, t, W, H)
+    gyr = scene.get("ground", 0.80)
+    gy = gyr * H * SS
+    fx0, fx1 = scene.get("focus", (0.5, 0.55)), scene.get("focus_to", None)
+    u = smooth(t / max(scene["duration"], 1e-6))
+    fxc = lerp(fx0[0], (fx1 or fx0)[0], u)
+    off = (fxc - 0.5) * W * SS
+    z, cx, cy, sx, sy, punch = _camera(scene, t, u, fx0, fx1)
+    far = mask = None
+    if scene.get("kind") == "map":
+        img = Image.new("RGB", (W * SS, H * SS), (214, 190, 142))
+        d = ImageDraw.Draw(img, "RGBA")
+        draw_map(d, scene, W, H, t)
+    else:
+        top, bot = scene.get("sky", ((196, 214, 226), (246, 236, 214)))
+        img = _sky_sun(W, H, top, bot, scene.get("sun")).copy()
+        d = ImageDraw.Draw(img, "RGBA")
+        hills = scene.get("hills", [])
+        for layer in hills:
+            _hills(d, W, H, gy, layer, off)
+        if hills:                                           # below the horizon the distant layer continues in the nearest hill colour, so its slower camera never shows a gap
+            d.rectangle([0, gy, W * SS, H * SS], fill=hills[-1]["color"])
+        far = np.asarray(img).copy()
+        gcol = scene.get("ground_color", (176, 158, 120))
+        img.paste(_ground(W, H, gy, gcol), (0, int(gy)))
+        d.line([(0, gy), (W * SS, gy)], fill=INK, width=5)
+        for o in scene.get("objects", []):
+            draw_object(d, o, W, H, gy, t)
+        if V2:
+            from . import char
+            lt, rim = char.light_for(scene)
+            ctx = {"light": lt, "rim": rim}
+            for a in sorted(scene["_actors"], key=lambda a: a.s.get("z", 0)):
+                char.draw_v2(a, img, t, gy, scene, ctx)
+        else:
+            for a in sorted(scene["_actors"], key=lambda a: a.s.get("z", 0)):
+                a.draw(d, t, gy)
+        draw_fx(d, scene, t, W, H, gy, scene["_actors"])
+        near = np.asarray(img)
+        mask = np.any(near != far, axis=2).astype(np.uint8) * 255
+    if far is not None:
+        kf = PARALLAX
+        zf = 1 + (z - 1) * kf
+        cxf, cyf = 0.5 + (cx - 0.5) * kf, 0.5 + (cy - 0.5) * kf
+        near_pm = cv2.bitwise_and(near, near, mask=mask)       # premultiplied by coverage so edges composite cleanly over the moving background
+        n_w = _warp(near_pm, W, H, z, cx, cy, sx, sy).astype(np.float32)
+        m_w = _warp(mask, W, H, z, cx, cy, sx, sy).astype(np.float32)[..., None] / 255.0
+        f_w = _warp(far, W, H, zf, cxf, cyf, sx * 0.8, sy * 0.8).astype(np.float32)
+        out = np.clip(n_w + f_w * (1.0 - m_w), 0, 255).astype(np.uint8)
+        if scene.get("dim"):
+            a_ = float(scene["dim"])
+            out = (out.astype(np.float32) * (1 - a_) + np.array((20, 24, 50), np.float32) * a_).astype(np.uint8)
+        for fx in scene.get("fx", []):
+            if fx["type"] == "flash" and fx["t"] <= t <= fx["t"] + 0.5:
+                a_ = 0.78 * (1 - (t - fx["t"]) / 0.5)
+                out = (out.astype(np.float32) * (1 - a_) + 255.0 * a_).astype(np.uint8)
+    else:
+        out = _warp(np.asarray(img), W, H, z, cx, cy, sx, sy)
     out = _grade(out, W, H, t)
     if punch > 0.05:                                   # chromatic aberration on impact
         k = max(1, int(6 * punch))
@@ -913,6 +943,11 @@ def _grade(arr, W, H, t):
         _GRADE[key] = (mult, bank)
     mult, bank = _GRADE[key]
     f = arr.astype(np.float32)
+    small = cv2.resize(arr, (W // 4, H // 4), interpolation=cv2.INTER_AREA).astype(np.float32)          # bloom: bright areas bleed light into their surroundings
+    bright = np.clip((small - 196.0) / 59.0, 0, 1) * 255.0
+    if bright.max() > 8:
+        glow = cv2.resize(cv2.GaussianBlur(bright, (0, 0), 5), (W, H), interpolation=cv2.INTER_LINEAR)
+        f += glow * 0.30
     f *= mult
     f += bank[int(t * 30) % 12]
     np.clip(f, 0, 255, out=f)

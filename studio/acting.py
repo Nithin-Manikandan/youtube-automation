@@ -18,6 +18,13 @@ ACTION_CLIP = {"think": ("think", True), "point": ("point", True), "shrug": ("sh
                "fall": ("fall", False), "get_up": ("get_up", False), "cry": ("cry", True), "flinch": ("surprised", False), "sit": ("sit_down", False)}
 
 
+LEGACY = {"think": "think", "look_around": "stand"}       # these two captures are crouches; the hand-posed versions read better
+
+
+def _pn(clip):
+    return LEGACY.get(clip) or "mc:" + clip
+
+
 def available():
     return bool(mocap._load())
 
@@ -34,7 +41,7 @@ def _walk_rate(clip, dxr, dt, scale):
 
 
 def _talk_clip(em, rnd, last=None):
-    pool = {"angry": ["quarrel_a", "threat_a", "talk_3", "talk_5"], "worried": ["talk_2", "talk_4", "look_around"], "shock": ["talk_6", "talk_1", "talk_4"],
+    pool = {"angry": ["quarrel_a", "threat_a", "talk_3", "talk_5"], "worried": ["talk_2", "talk_4", "talk_5"], "shock": ["talk_6", "talk_1", "talk_4"],
             "sad": ["talk_4", "sad", "talk_2"]}.get(em, TALK)
     pool = [c for c in pool if mocap.has(c) and c != last] or [c for c in TALK if mocap.has(c)]
     return rnd.choice(pool)
@@ -47,7 +54,7 @@ def _base_keys(a, dur, idx, n, pos_x, facing, other=None):
     em, act = a["emotion"], a["action"]
     sc = a.get("scale", 1.0)
     rnd = random.Random(idx * 97 + int(pos_x * 1000))
-    K = lambda t, x, clip, **kw: {**dict(t=t, x=x, pose="mc:" + clip, face=em, facing=facing), **kw}
+    K = lambda t, x, clip, **kw: {**dict(t=t, x=x, pose=_pn(clip), face=em, facing=facing), **kw}
     center = 0.5
     face_other = (1 if pos_x < center else -1) if n > 1 else facing
 
@@ -67,7 +74,7 @@ def _base_keys(a, dur, idx, n, pos_x, facing, other=None):
             if speaking:
                 clip = _talk_clip(em, rnd, last)
             else:
-                clip = rnd.choice([c for c in ("think", "look_around", "shrug") if mocap.has(c)] or ["think"])
+                clip = rnd.choice(["think", "look_around", "shrug", "think"])
             last = clip
             ks.append(K(t, pos_x, clip, facing=face_other, speak=speaking, xf=0.35, co=rnd.uniform(0, 1.5)))
             t += seg
@@ -171,7 +178,7 @@ def keys_for(a, dur, idx, n, pos_x, facing, other=None, beats=None):
             ln = max(0.8, min(3.0, dist / (0.21 if run else 0.1)))
             fx = 1 if tx > cur_x else -1
             r = _walk_rate(clip, tx - cur_x, ln, sc)
-            evs.append((ts, ts + ln, dict(x=cur_x, pose="mc:" + clip, face=emo, facing=fx, rate=r, lin=True, xf=0.3, ct0=ts), tx, fx))
+            evs.append((ts, ts + ln, dict(x=cur_x, pose=_pn(clip), face=emo, facing=fx, rate=r, lin=True, xf=0.3, ct0=ts), tx, fx))
             cur_x, last_end = tx, ts + ln
             continue
         if act == "talk_angry":
@@ -179,7 +186,7 @@ def keys_for(a, dur, idx, n, pos_x, facing, other=None, beats=None):
             if clip is None:
                 continue
             ln = BEAT_LEN["talk_angry"]
-            evs.append((ts, ts + ln, dict(x=cur_x, pose="mc:" + clip, face="angry", facing=face_other, speak=True, xf=0.3, ct0=ts, loop=True, co=rnd.uniform(0, 2)), cur_x, face_other))
+            evs.append((ts, ts + ln, dict(x=cur_x, pose=_pn(clip), face="angry", facing=face_other, speak=True, xf=0.3, ct0=ts, loop=True, co=rnd.uniform(0, 2)), cur_x, face_other))
             last_end = ts + ln
             continue
         if act == "idle":
@@ -192,7 +199,7 @@ def keys_for(a, dur, idx, n, pos_x, facing, other=None, beats=None):
         ln = BEAT_LEN.get(act, 2.2)
         if act == "fall":
             ln = max(1.0, dur - ts + 1.0)                                   # a body that has fallen stays down for the rest of the scene
-        evs.append((ts, ts + ln, dict(x=cur_x, pose="mc:" + clip, face=emo, facing=face_other, speak=False, xf=0.25, ct0=ts - 0.05, loop=False if act in ("flinch", "fall", "stumble", "duck", "wave", "shrug", "pick_up", "sit") else True), cur_x, face_other))
+        evs.append((ts, ts + ln, dict(x=cur_x, pose=_pn(clip), face=emo, facing=face_other, speak=False, xf=0.25, ct0=ts - 0.05, loop=False if act in ("flinch", "fall", "stumble", "duck", "wave", "shrug", "pick_up", "sit") else True), cur_x, face_other))
         last_end = ts + ln
     if not evs:
         return base

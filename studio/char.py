@@ -241,7 +241,7 @@ def _cast_shadow(A, light, S, gl, bh, bw):
     """Flatten the silhouette onto the ground away from the light and blur it."""
     h, w = A.shape
     lx = light[0]
-    k = 0.20                                                           # ground squash
+    k = 0.085                                                          # ground squash
     sh = -lx * 0.55                                                    # lean away from the light
     M = np.float32([[1, sh * 0.5, -sh * 0.5 * gl], [0, k, gl * (1 - k)]])
     sm = cv2.warpAffine(A, M, (w, h), flags=cv2.INTER_LINEAR, borderValue=0)
