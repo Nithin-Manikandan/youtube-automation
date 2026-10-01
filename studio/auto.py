@@ -519,6 +519,8 @@ def plan(job, pdir, settings, hint=None):
     modern = subjects.era_modern(full_text)
     anchor = subjects.anchor_for(topic + " " + hook)
     domain = subjects.domain_for(topic + " " + hook)
+    if domain == "airship":
+        anchor = None
     story_has_sub = len(re.findall(r"submarine|u-boat|torpedo|sonar", full_text.lower())) >= 3
     visuals = [subjects.enrich(vis, s["narration"], modern, anchor, story_has_sub, domain) for vis, (_, s) in zip(visuals, scripts)]
     visuals = subjects.variety_pass(visuals, modern, domain)
