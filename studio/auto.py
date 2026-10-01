@@ -450,6 +450,7 @@ def plan(job, pdir, settings, hint=None):
     visuals = [recipes.clean_visual(s.get("visual"), rnd) for _, s in scripts]
     modern = subjects.era_modern(full_text)
     visuals = [subjects.enrich(vis, s["narration"], modern) for vis, (_, s) in zip(visuals, scripts)]
+    visuals = subjects.variety_pass(visuals)
     scene_moods = []
     cur = "calm"
     for vis, (_, s) in zip(visuals, scripts):

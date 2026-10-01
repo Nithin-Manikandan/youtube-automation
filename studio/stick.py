@@ -175,7 +175,11 @@ class Actor:
             d.ellipse([hnd[0] - lw * .75, hnd[1] - lw * .75, hnd[0] + lw * .75, hnd[1] + lw * .75], fill=skin, outline=INK, width=2)
         d.ellipse([head[0] - rad, head[1] - rad, head[0] + rad, head[1] + rad], fill=skin, outline=INK, width=int(lw * .85))
         if "beard" in self.s.get("props", []):
-            d.pieslice([head[0] - rad * .95, head[1] - rad * .5, head[0] + rad * .95, head[1] + rad * 1.35], 10, 170, fill=(236, 232, 224), outline=INK, width=int(lw * .5))
+            hr = self.s.get("hair", (70, 48, 30))
+            bcol = hr if sum(hr) < 420 else (150, 150, 146)           # dark beard, or a grey one for old characters, never a white bib
+            d.pieslice([head[0] - rad * .98, head[1] - rad * .4, head[0] + rad * .98, head[1] + rad * 1.35], 5, 175, fill=bcol, outline=INK, width=int(lw * .5))
+            d.ellipse([head[0] - rad * .72, head[1] - rad * .55, head[0] + rad * .72, head[1] + rad * .66], fill=skin)   # face shows through; beard remains as a jaw band
+            d.rectangle([head[0] - rad * .5, head[1] + rad * .2, head[0] + rad * .5, head[1] + rad * .3], fill=bcol)       # moustache
         if "hair" in self.s.get("props", []):
             d.pieslice([head[0] - rad * 1.05, head[1] - rad * 1.10, head[0] + rad * 1.05, head[1] + rad * .25], 180, 360, fill=self.s.get("hair", (70, 48, 30)), outline=INK, width=int(lw * .5))
         # face: eyes with pupils, expressive brows and mouth

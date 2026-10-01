@@ -287,4 +287,45 @@ def ambient(d, bg, t, S, gy, WS):
             d.line([(wx, wy), (wx + S * .03, wy)], fill=(235, 246, 255, int(60 + 80 * abs(math.sin(t * 2 + i)))), width=3)
 
 
-DRAW = {"crowd": crowd, "wave": wave, "explosion": explosion, "submarine": submarine, "warship": warship, "plane": plane, "seascape": seascape}
+def interior(d, o, x, S, gy, t, WS):
+    """Inside a submarine: riveted wall, bunks, a blinking control panel, valve wheels, sagging cables and swaying lamp light."""
+    for i in range(1, 9):                                              # wall seams and rivets
+        sx = WS * i / 9
+        d.line([(sx, S * .06), (sx, gy)], fill=(20, 26, 28, 120), width=4)
+        for k in range(8):
+            _circle(d, sx + 10, S * .12 + k * (gy - S * .12) / 8, 4, (90, 100, 100, 150))
+    for i, lx in enumerate((.2, .5, .8)):                              # swinging lamp cones
+        sway = math.sin(t * .9 + i * 1.7) * S * .03
+        d.polygon([(WS * lx - 8, S * .055), (WS * lx + 8, S * .055), (WS * lx + S * .2 + sway, gy), (WS * lx - S * .2 + sway, gy)], fill=(255, 226, 150, 20))
+        _circle(d, WS * lx, S * .06, S * .012, (255, 236, 180, 255))
+    for i, (cx0, cx1) in enumerate(((.12, .34), (.46, .7), (.62, .9))):    # cables sagging along the ceiling
+        pts = [(WS * (cx0 + (cx1 - cx0) * k / 12), S * (.19 + .035 * math.sin(math.pi * k / 12) + .004 * math.sin(t * 1.4 + k + i))) for k in range(13)]
+        d.line(pts, fill=(30, 32, 34, 220), width=int(S * .008))
+    for bx, bw in ((0.0, .13),):                                       # bunks on the left edge
+        for lvl in range(2):
+            y0 = gy - S * (.2 + .2 * lvl)
+            d.rectangle([WS * bx, y0, WS * (bx + bw), y0 + S * .045], fill=(96, 84, 66), outline=INK, width=3)
+            d.rectangle([WS * bx, y0 - S * .035, WS * (bx + bw) * .9, y0], fill=(120, 134, 150), outline=INK, width=3)
+        d.line([(WS * (bx + bw), gy), (WS * (bx + bw), gy - S * .42)], fill=INK, width=6)
+    px0 = WS * .87                                                     # control panel on the right
+    d.rectangle([px0, gy - S * .5, WS, gy], fill=(52, 62, 66), outline=INK, width=4)
+    for r in range(4):
+        for c in range(3):
+            on = (math.sin(t * (1.5 + (r * 3 + c) % 4) + r + c) > 0.1)
+            col = [(110, 230, 120), (255, 190, 60), (255, 80, 70)][(r + c) % 3] + ((255,) if on else (60,))
+            _circle(d, px0 + S * (.03 + .035 * c), gy - S * (.44 - .045 * r), S * .011, col)
+    for k in range(2):
+        cx, cy = px0 + S * (.045 + .055 * k), gy - S * .22
+        _circle(d, cx, cy, S * .03, (230, 232, 226), INK, 3)
+        a = -2.2 + 1.6 * (0.5 + 0.5 * math.sin(t * .8 + k * 2))
+        d.line([(cx, cy), (cx + math.cos(a) * S * .024, cy + math.sin(a) * S * .024)], fill=(200, 40, 34), width=4)
+    for k, vx in enumerate((.3, .7)):                                  # valve wheels
+        cx, cy = WS * vx, gy - S * .42
+        _circle(d, cx, cy, S * .045, None, (110, 118, 120), 8)
+        for a in range(3):
+            ang = a * 1.047 + (0.2 if k else 0)
+            d.line([(cx - math.cos(ang) * S * .045, cy - math.sin(ang) * S * .045), (cx + math.cos(ang) * S * .045, cy + math.sin(ang) * S * .045)], fill=(110, 118, 120), width=6)
+        d.rectangle([cx - 7, cy + S * .04, cx + 7, gy], fill=(80, 88, 90))
+
+
+DRAW = {"interior": interior, "crowd": crowd, "wave": wave, "explosion": explosion, "submarine": submarine, "warship": warship, "plane": plane, "seascape": seascape}
