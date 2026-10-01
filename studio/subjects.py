@@ -98,6 +98,7 @@ def enrich(visual, narration, modern):
         objs = [o for o in objs if o not in ("warship", "ship", "crowd", "plane", "building", "house", "wave", "castle", "pyramid", "volcano")]
     if str(v.get("title", "")).strip().lower().replace(" ", "_") in {"submarine_interior", "underwater", "city_day", "battlefield", "palace", "sea"}:
         v["title"] = ""                                       # a place name is not a headline
+    if bg == "underwater":                                    # nobody is standing on the seabed
         v["actors"] = []
     v["objects"] = objs[:3]
     v["effects"] = fx[:3]
