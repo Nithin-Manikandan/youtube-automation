@@ -141,8 +141,13 @@ def _hero(role, color, pose, emo, x, scale, facing, gy_frac=1.0, boss=False):
     emo = emo if emo in recipes.EMOTIONS else "shock"
     spec = dict(id="thumb", color=col, tunic=None if boss else col, props=props, scale=scale, keys=[dict(t=0, x=x, pose=pose, face=emo, facing=facing)])
     layer = Image.new("RGBA", (W * SS, H * SS), (0, 0, 0, 0))
-    d = ImageDraw.Draw(layer, "RGBA")
-    stick.Actor(spec, W, H).draw(d, 0.4, H * SS * gy_frac)
+    actor = stick.Actor(spec, W, H)
+    if stick.V2:
+        from . import char
+        char.draw_v2(actor, layer, 0.4, H * SS * gy_frac, {}, {"light": (-0.72, -0.62), "rim": (255, 220, 170), "shadow": False})
+    else:
+        d = ImageDraw.Draw(layer, "RGBA")
+        actor.draw(d, 0.4, H * SS * gy_frac)
     return layer.resize((W, H), Image.LANCZOS)
 
 

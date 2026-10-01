@@ -246,9 +246,25 @@ def draw_v2(a, img, t, gy, scene, ctx):
     # ---- cast shadow on the ground, then composite ------------------------------------------------
     A = arr[..., 3]
     shadow = _cast_shadow(A, light, S, gl, bh, bw)
+    if img.mode == "RGBA":                                             # a transparent layer (thumbnails): composite properly with clipping
+        if shadow is not None and ctx.get("shadow", True):
+            sh_im = Image.new("RGBA", Lp.size, (10, 10, 24, 0))
+            sh_im.putalpha(shadow)
+            _blit(img, sh_im, ox, oy)
+        _blit(img, Lp, ox, oy)
+        return
     if shadow is not None:
         img.paste((10, 10, 24), (int(ox), int(oy)), shadow)
     img.paste(Lp.convert("RGB"), (int(ox), int(oy)), Lp.split()[3])
+
+
+def _blit(img, Lp, ox, oy):
+    ox, oy = int(ox), int(oy)
+    x0, y0 = max(ox, 0), max(oy, 0)
+    x1, y1 = min(ox + Lp.width, img.width), min(oy + Lp.height, img.height)
+    if x1 <= x0 or y1 <= y0:
+        return
+    img.alpha_composite(Lp.crop((x0 - ox, y0 - oy, x1 - ox, y1 - oy)), (x0, y0))
 
 
 def _cast_shadow(A, light, S, gl, bh, bw):
