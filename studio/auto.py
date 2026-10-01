@@ -134,7 +134,7 @@ Chapter target_words must sum to about 2000 (between 1800 and 2200)."""
 
 REWIND = "The opening hook has already shown the dramatic moment and ends by promising to go back. Open with the first concrete fact of the backstory. Do NOT say \"to understand\" or announce that you are going back (the hook's last line already did), and do NOT repeat the events of the hook."
 LEAK_HOOK = re.compile(r"\b(refus\w+|said no|says no|saved|prevent\w*|stopped the|averted|survived|spared|talked (?:him|them) out|decides? (?:not|to say no))\b", re.I)
-BANNED_HOOK = re.compile(r"\b(imagine|picture this|welcome|in this video|today we|armageddon|precipice|brink of|chess match|tapestry|little did|unimaginable|"
+BANNED_HOOK = re.compile(r"\b(imagine|picture this|welcome|in this video|today we|to understand how|armageddon|precipice|brink of|chess match|tapestry|little did|unimaginable|"
                          r"terrifying|single-handedly|forever change[sd]?|the world (?:would|will) never|what if i told|but here'?s the thing|you won'?t believe|"
                          r"dark chapter|unfolded|the stage was set|against all odds|a story of|history'?s? (?:most|greatest))\b|[\u2014\u2013]|!|\?\?", re.I)
 
@@ -144,7 +144,7 @@ How these openings work:
 2. Two or three more short lines move the moment forward, each adding one new concrete detail. Mix very short lines (3-6 words) with longer ones (10-16 words).
 3. THE TURN: one plain-spoken fact that raises the stakes or flips what the viewer assumed. Stated calmly, no adjectives doing the work.
 4. THE LOOP: ask the one specific question the rest of the video answers (who, why, what it cost). NEVER state the outcome or the decision in the hook; if a line reveals how it ends, cut it.
-5. THE BRIDGE: one line that rewinds ("To understand how they got here, we have to go back to ...") so the story can start properly.
+5. THE BRIDGE: one line that rewinds, in your own words each time (for example "But it did not begin that night." or "Three weeks earlier, none of this seemed possible."). Never use the phrase "to understand how".
 Total 70-95 words. Facts only from the supplied list; never invent quotes, numbers, names or dates.
 Write like a person talking, never like marketing copy. No abstract drama words (terrifying, unimaginable, Armageddon, precipice, brink, chess match, tapestry),
 no 'Imagine', no greeting, no 'in this video', no rhetorical 'what if', no 'little did they know', no exclamation marks, no dashes.
@@ -463,6 +463,7 @@ def plan(job, pdir, settings, hint=None):
     story_has_sub = len(re.findall(r"submarine|u-boat|torpedo|sonar", full_text.lower())) >= 3
     visuals = [subjects.enrich(vis, s["narration"], modern, anchor, story_has_sub) for vis, (_, s) in zip(visuals, scripts)]
     visuals = subjects.variety_pass(visuals)
+    visuals = subjects.company_pass(visuals, modern)
     scene_moods = []
     cur = "calm"
     for vis, (_, s) in zip(visuals, scripts):

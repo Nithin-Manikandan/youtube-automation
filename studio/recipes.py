@@ -56,7 +56,7 @@ BACKGROUNDS = {
 }
 OBJECTS = {"castle", "column", "pedestal", "cloud", "tree", "tent", "pyramid", "tower", "torch", "ship",
            "submarine", "warship", "missile", "plane", "building", "hatch", "pipes", "gauge",
-           "volcano", "ash_cloud", "wave", "fire", "smoke", "house", "explosion", "depth_charge", "torpedo", "crowd", "liner", "iceberg"}
+           "volcano", "ash_cloud", "wave", "fire", "smoke", "house", "explosion", "depth_charge", "torpedo", "crowd", "liner", "iceberg", "burning_town"}
 EFFECTS = {"rain", "flash", "sparks", "dust", "shake", "ashfall", "embers", "bubbles", "sonar"}
 CAMERAS = {"push_in": ([1.0, 1.10], None), "pull_out": ([1.12, 1.0], None), "pan_right": ([1.06, 1.06], (-.04, .04)), "pan_left": ([1.06, 1.06], (.04, -.04)), "static": ([1.0, 1.0], None)}
 
