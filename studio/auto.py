@@ -144,7 +144,7 @@ How these openings work:
 2. Two or three more short lines move the moment forward, each adding one new concrete detail. Mix very short lines (3-6 words) with longer ones (10-16 words).
 3. THE TURN: one plain-spoken fact that raises the stakes or flips what the viewer assumed. Stated calmly, no adjectives doing the work.
 4. THE LOOP: ask the one specific question the rest of the video answers (who, why, what it cost). NEVER state the outcome or the decision in the hook; if a line reveals how it ends, cut it.
-5. THE BRIDGE: one line that rewinds, in your own words each time (for example "But it did not begin that night." or "Three weeks earlier, none of this seemed possible."). Never use the phrase "to understand how".
+5. THE BRIDGE: one short line that rewinds in time, phrased freshly for THIS story and naming how far back we go (never reuse a stock line, never use the phrase "to understand how").
 Total 70-95 words. Facts only from the supplied list; never invent quotes, numbers, names or dates.
 Write like a person talking, never like marketing copy. No abstract drama words (terrifying, unimaginable, Armageddon, precipice, brink, chess match, tapestry),
 no 'Imagine', no greeting, no 'in this video', no rhetorical 'what if', no 'little did they know', no exclamation marks, no dashes.
@@ -278,6 +278,43 @@ Be specific and honest; if a claim is fine do not list it. Return JSON: {{"flags
 NARRATION:
 {text}"""
     return [f for f in _unwrap(_llm(prompt, 0.2), "flags")["flags"] if isinstance(f, dict)]
+
+
+def fix_flags(topic, scripts, flags, job):
+    """Rewrite the scenes behind high-severity fact-check flags so a wrong date or number never reaches the voiceover."""
+    if FAKE() or not flags:
+        return scripts, flags
+    remaining = []
+    for f in flags:
+        if str(f.get("severity", "")).lower() != "high":
+            remaining.append(f)
+            continue
+        claim = re.sub(r"\s+", " ", str(f.get("claim", ""))).strip().lower()
+        key = claim[:50]
+        hit = [i for i, (_, sc) in enumerate(scripts) if key and key in re.sub(r"\s+", " ", sc["narration"]).lower()]
+        if not hit:
+            hit = [i for i, (_, sc) in enumerate(scripts) if claim and any(len(w) > 4 and w in claim for w in re.sub(r"\s+", " ", sc["narration"]).lower().split()[:3])][:1]
+        if not hit:
+            remaining.append(f)
+            continue
+        i = hit[0]
+        old = scripts[i][1]["narration"]
+        try:
+            prompt = f"""Fix a factual error in one line of a history voiceover about: {topic}.
+LINE: {old}
+PROBLEM: {f.get('issue', '')}
+SAFER WORDING SUGGESTION: {f.get('fix', '')}
+Rewrite the line so every date, number and name is correct and well documented; if unsure, make the claim vaguer instead of specific. Keep the same length, tone and spoken style.
+Return JSON: {{"line": "the corrected line"}}"""
+            new = str(_llm(prompt, 0.2).get("line", "")).strip()
+        except Exception:
+            new = ""
+        if new and new != old:
+            scripts[i][1]["narration"] = new
+            _log(job, f"  fixed: {old[:70]} -> {new[:70]}")
+        else:
+            remaining.append(f)
+    return scripts, remaining
 
 
 def make_metadata(topic, outline, chapters, text):
@@ -453,6 +490,8 @@ def plan(job, pdir, settings, hint=None):
 
     _stage(job, 2)
     flags = factcheck(topic, full_text)
+    scripts, flags = fix_flags(topic, scripts, flags, job)
+    full_text = "\n".join(s["narration"] for _, s in scripts)
     _log(job, f"  {len(flags)} statements flagged for your review")
 
     _stage(job, 3)
