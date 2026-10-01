@@ -24,6 +24,7 @@ RULES = [
     (r"\b(explo\w+|blast\w*|detonat\w+|bomb\w*|shell\w*)\b", ["explosion"], ["shake", "flash"], None, {}),
     (r"\b(earthquakes?|tremors?|quakes?|shaking)\b", [], ["shake"], None, {}),
     (r"\b(storms?|thunder|lightning|hurricane|typhoon)\b", [], ["rain", "flash"], "storm", {}),
+    (r"\b(armies|army|legions?|troops|hordes?|charg(?:e|ed|es|ing)|marched|marching|invad\w+|advanced on|stormed)\b", ["crowd"], ["dust"], None, {}),
     (r"\b(castle|fortress|citadel|siege|ramparts?)\b", ["castle"], [], None, {}),
     (r"\b(pyramids?|pharaoh|nile)\b", ["pyramid"], [], "desert", {}),
     (r"\b(towns?|villages?|settlements?|houses?|homes)\b", ["house"], [], None, {}),
@@ -64,7 +65,7 @@ def enrich(visual, narration, modern):
             hinted_bg = hinted_bg or bghint
             flags.update(extra)
     # objects that depict an event or vehicle are only drawn when the narration is literally about them
-    bound = {"missile", "torpedo", "depth_charge", "explosion", "volcano", "wave", "fire", "plane", "warship", "submarine", "pyramid", "castle", "ash_cloud"}
+    bound = {"missile", "torpedo", "depth_charge", "explosion", "volcano", "wave", "fire", "plane", "warship", "submarine", "pyramid", "castle", "ash_cloud", "crowd"}
     said = {o for pat, add_o, _, _, _ in RULES if re.search(pat, text) for o in add_o}
     objs = [o for o in objs if o not in bound or o in said]
     inside = re.search(r"\b(inside|aboard|hull|control room|crew|compartment|cramped|bunk)\b", text)
@@ -97,6 +98,7 @@ def enrich(visual, narration, modern):
     v["objects"] = objs[:3]
     v["effects"] = fx[:3]
     v["background"] = bg or v.get("background")
+    flags["modern"] = bool(modern)
     v["flags"] = flags
     # a sunk-in-thought lone character is boring: if the subject is a vehicle/disaster, let it dominate
     if any(o in v["objects"] for o in ("submarine", "volcano", "wave", "missile", "warship", "plane", "explosion")) and len(v.get("actors", [])) > 1:
