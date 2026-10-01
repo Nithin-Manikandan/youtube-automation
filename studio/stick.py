@@ -378,7 +378,8 @@ def draw_object(d, o, W, H, gy, t):
             d.rectangle([0, yy * S, W * SS, yy * S + S * .035], fill=(112, 122, 124), outline=INK, width=3)
             for i in range(0, W * SS, int(S * .22)):
                 d.rectangle([i, yy * S - 4, i + 10, yy * S + S * .035 + 4], fill=(70, 78, 80))
-        d.rectangle([x - S * .02, 0, x + S * .02, gy], fill=(104, 114, 116), outline=INK, width=3)
+        for px_ in (W * SS * .035, W * SS * .965):               # stanchions at the edges, never a pole through the middle of the shot
+            d.rectangle([px_ - S * .018, 0, px_ + S * .018, gy], fill=(104, 114, 116), outline=INK, width=3)
     elif k == "gauge":
         yy = o.get("y", 0.4) * S
         r = S * 0.05

@@ -208,7 +208,7 @@ def build_stage(v, dur, rnd, seed=0):
                 for k in a["keys"]:
                     k["x"] = side
     if not objs and v["background"] == "submarine_interior":
-        objs = [dict(type="pipes", x=.5), dict(type="gauge", x=.14, y=.34), dict(type="gauge", x=.86, y=.4), dict(type="hatch", x=.5)]
+        objs = [dict(type="pipes", x=.5), dict(type="gauge", x=.14, y=.34), dict(type="gauge", x=.86, y=.4), dict(type="hatch", x=.9 if rnd.random() < .5 else .1)]
     if not objs and v["background"] == "city_modern":
         objs = [dict(type="building", x=.12), dict(type="building", x=.88, scale=1.15)]
     if not objs and v["background"] in ("city_day", "palace"):

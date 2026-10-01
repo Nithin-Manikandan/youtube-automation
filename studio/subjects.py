@@ -68,17 +68,19 @@ def enrich(visual, narration, modern):
     bound = {"missile", "torpedo", "depth_charge", "explosion", "volcano", "wave", "fire", "plane", "warship", "submarine", "pyramid", "castle", "ash_cloud", "crowd"}
     said = {o for pat, add_o, _, _, _ in RULES if re.search(pat, text) for o in add_o}
     objs = [o for o in objs if o not in bound or o in said]
-    inside = re.search(r"\b(inside|aboard|hull|control room|crew|compartment|cramped|bunk)\b", text)
+    inside = re.search(r"\b(inside|aboard|hull|control room|crew|compartment|cramped|bunk|captain|commander|officers?|shouted|declared|declaration|consent|vot(?:e|ed|es)|refus\w+|argued|orders?|ordered|authoriz\w+|veto|beside him|protocol|sailors|men)\b", text)
     if any(o in UNDERWATER_OBJECTS for o in objs):
-        hinted_bg = "submarine_interior" if inside and not re.search(r"depth[- ]?charge|torpedo|sonar", text) else "underwater"
+        hinted_bg = "submarine_interior" if inside and not re.search(r"depth[- ]?charge|sonar|hunted|surfaced|dove|dived|diving|surface ships|destroyers? (?:closed|dropped|hunted)", text) else "underwater"
     if hinted_bg in ("underwater", "submarine_interior"):
         bg = hinted_bg                                          # a submarine scene is never on a battlefield
     elif hinted_bg and bg in (None, "city_day", "countryside", "palace", "desert", "forest", "snow", "city_modern", "sea", "underwater", "submarine_interior", "storm", "night", "ashen", "volcanic"):
         # take the narration's setting unless the AI already chose something equally specific
         if bg != hinted_bg and not (bg in ("underwater", "submarine_interior") and hinted_bg == "sea"):
             bg = hinted_bg
+    if bg == "underwater" and inside and not re.search(r"depth[- ]?charge|sonar|torpedo|hunted|surfaced|dove|dived|diving|destroyers?|warships?", text):
+        bg = "submarine_interior"                                    # people talking inside the boat, not the boat from outside
     if bg == "submarine_interior":
-        objs = [o for o in objs if o not in UNDERWATER_OBJECTS]       # inside the boat you don't see the boat
+        objs = [o for o in objs if o not in UNDERWATER_OBJECTS and o not in ("explosion", "fire", "smoke")]       # inside the boat you don't see the boat
         fx = [f for f in fx if f != "bubbles"]
     if modern:
         objs = [o for o in objs if o not in ANCIENT_OBJECTS or v.get("background") in ("palace",)]
@@ -94,6 +96,11 @@ def enrich(visual, narration, modern):
     named = [o for o in objs if any(o in r[1] for r in RULES if re.search(r[0], text))]
     rest = [o for o in objs if o not in named]
     objs = named + rest
+    if bg == "underwater":
+        objs = ["depth_charge" if o == "explosion" else o for o in objs]          # a blast under water is a blue-white burst, not a fireball
+        objs = [o for o in objs if o != "fire"]
+        if "submarine" not in objs:
+            objs.insert(0, "submarine")                                          # never an empty seabed
     if bg != "submarine_interior":                            # interior fittings only make sense inside the boat
         objs = [o for o in objs if o not in ("pipes", "gauge", "hatch")]
     if bg in ("underwater", "submarine_interior"):            # nothing from the surface world belongs down here
@@ -103,6 +110,9 @@ def enrich(visual, narration, modern):
     if bg == "underwater":                                    # nobody is standing on the seabed
         v["actors"] = []
     v["objects"] = objs[:3]
+    if bg == "submarine_interior" and not v.get("actors"):                      # an interior scene is about the people in it
+        v["actors"] = [dict(role="captain", color="", pos="left", action="talk", emotion="angry", facing="", scale=1.0),
+                       dict(role="officer", color="", pos="right", action="talk", emotion="worried", facing="", scale=1.0)]
     v["effects"] = fx[:3]
     v["background"] = bg or v.get("background")
     flags["modern"] = bool(modern)
