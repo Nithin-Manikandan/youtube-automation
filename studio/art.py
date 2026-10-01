@@ -278,8 +278,11 @@ def ambient(d, bg, t, S, gy, WS):
             d.rectangle([fx - h * .09, fy - h * .85, fx + h * .09, fy - h * .42], fill=col + (210,))
             _circle(d, fx, fy - h * .95, h * .1, (232, 205, 175, 230))
     if bg in ("night", "storm", "ashen", "volcanic", "city_modern", "space", "moon"):
-        for i in range(36):                                            # twinkling stars / lights
+        drift = bg in ("space", "moon")
+        for i in range(36):                                            # twinkling stars / lights (they drift slowly in space, in three depth layers)
             sx, sy = rng.random() * WS, rng.random() * gy * .55
+            if drift:
+                sx = (sx - t * S * (.006 + .012 * (i % 3))) % WS
             a = 90 + 120 * (0.5 + 0.5 * math.sin(t * (1.5 + rng.random() * 2) + i))
             _circle(d, sx, sy, 2 + rng.random() * 2, (255, 248, 220, int(a)))
     if bg == "city_modern":
@@ -496,8 +499,17 @@ def spacecraft(d, o, x, S, gy, t, WS):
     def poly(pts, fill, outline=INK):
         d.polygon(_rot([(cx + px * L, cy + py * R) for px, py in pts], cx, cy, a), fill=fill, outline=outline)
     poly([(-.5, -.8), (.15, -.8), (.15, .8), (-.5, .8)], (226, 218, 196))                          # service module
-    for k in range(4):
-        poly([(-.46 + k * .1, -.8), (-.40 + k * .1, -.8), (-.40 + k * .1, .8), (-.46 + k * .1, .8)], (196, 188, 168), None)
+    roll = t * 0.55 + o.get("roll0", 0.0)                                                        # the stack rolls slowly on its axis: panel stripes wrap round the cylinder
+    for k in range(9):
+        ph = roll + k * math.pi / 4.5
+        c_ = math.cos(ph)
+        if c_ <= 0.08:
+            continue
+        yy = .8 * math.sin(ph)
+        hh = .075 * c_ + .012
+        poly([(-.5, yy - hh), (.15, yy - hh), (.15, yy + hh), (-.5, yy + hh)], (176 + int(28 * c_), 168 + int(28 * c_), 148 + int(26 * c_)), None)
+    for k in range(3):
+        poly([(-.26 + k * .22, -.8), (-.24 + k * .22, -.8), (-.24 + k * .22, .8), (-.26 + k * .22, .8)], (206, 198, 176), None)
     poly([(.15, -.8), (.50, -.38), (.50, .38), (.15, .8)], (188, 192, 200))                        # command module
     poly([(.15, -.8), (.18, -.8), (.18, .8), (.15, .8)], (60, 52, 50), None)                        # heat shield
     poly([(-.5, -.3), (-.66, -.46), (-.66, .46), (-.5, .3)], (92, 94, 100))                         # engine bell
