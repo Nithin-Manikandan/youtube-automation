@@ -277,7 +277,7 @@ def ambient(d, bg, t, S, gy, WS):
             d.line([(fx, fy - h * .45), (fx - math.sin(ph) * h * .12, fy)], fill=(40, 40, 46, 200), width=3)
             d.rectangle([fx - h * .09, fy - h * .85, fx + h * .09, fy - h * .42], fill=col + (210,))
             _circle(d, fx, fy - h * .95, h * .1, (232, 205, 175, 230))
-    if bg in ("night", "storm", "ashen", "volcanic", "city_modern"):
+    if bg in ("night", "storm", "ashen", "volcanic", "city_modern", "space"):
         for i in range(36):                                            # twinkling stars / lights
             sx, sy = rng.random() * WS, rng.random() * gy * .55
             a = 90 + 120 * (0.5 + 0.5 * math.sin(t * (1.5 + rng.random() * 2) + i))
@@ -443,4 +443,107 @@ def ship(d, o, x, S, gy, t, WS):
         _circle(d, x + w * .55 + age * S * .02, yb - h * .1, S * (.006 + .01 * age), (240, 248, 255, int(210 * (1 - age))))
 
 
-DRAW = {"ship": ship, "burning_town": burning_town, "liner": liner, "iceberg": iceberg, "interior": interior, "crowd": crowd, "wave": wave, "explosion": explosion, "submarine": submarine, "warship": warship, "plane": plane, "seascape": seascape}
+def _rot(pts, cx, cy, a):
+    c, s_ = math.cos(a), math.sin(a)
+    return [(cx + (px - cx) * c - (py - cy) * s_, cy + (px - cx) * s_ + (py - cy) * c) for px, py in pts]
+
+
+def spacecraft(d, o, x, S, gy, t, WS):
+    """Apollo-style stack: cone command module, cylindrical service module with engine bell, slow tumble, venting gas when damaged."""
+    sc = o.get("scale", 1) * 1.9
+    cx, cy = x + math.sin(t * .25) * S * .02, S * .42 + math.sin(t * .4) * S * .012
+    a = math.sin(t * .3) * .16 - .12
+    L, R = S * .30 * sc, S * .075 * sc
+    def poly(pts, fill, outline=INK):
+        d.polygon(_rot([(cx + px * L, cy + py * R) for px, py in pts], cx, cy, a), fill=fill, outline=outline)
+    poly([(-.5, -.8), (.15, -.8), (.15, .8), (-.5, .8)], (226, 218, 196))                          # service module
+    for k in range(4):
+        poly([(-.46 + k * .1, -.8), (-.40 + k * .1, -.8), (-.40 + k * .1, .8), (-.46 + k * .1, .8)], (196, 188, 168), None)
+    poly([(.15, -.8), (.50, -.38), (.50, .38), (.15, .8)], (188, 192, 200))                        # command module
+    poly([(.15, -.8), (.18, -.8), (.18, .8), (.15, .8)], (60, 52, 50), None)                        # heat shield
+    poly([(-.5, -.3), (-.66, -.46), (-.66, .46), (-.5, .3)], (92, 94, 100))                         # engine bell
+    for dy in (-.95, .95):
+        poly([(-.2, dy), (-.12, dy), (-.12, dy * .82), (-.2, dy * .82)], (150, 150, 156))           # RCS quads
+    wy = o.get("venting") or (int(t * 1.2) % 5 == 0)
+    if o.get("venting"):                                                                              # oxygen streaming out of the side
+        for k in range(26):
+            age = (t * .8 + k / 26) % 1.0
+            vx0, vy0 = cx - L * .1, cy + R * .8
+            _circle(d, vx0 + math.sin(a) * 0 + age * L * .6 * (1 + .3 * math.sin(k)), vy0 + age * R * 5 * (.5 + (k % 5) * .2), S * (.006 + .025 * age), (235, 244, 255, int(210 * (1 - age))))
+    for k in range(6):                                                                                # faint exhaust shimmer from the bell
+        age = (t * 2 + k / 6) % 1.0
+        d.line([_rot([(cx - L * .66 - age * L * .25, cy)], cx, cy, a)[0], _rot([(cx - L * .7 - age * L * .3, cy)], cx, cy, a)[0]], fill=(255, 210, 120, int(120 * (1 - age))), width=4)
+
+
+def planet(d, o, x, S, gy, t, WS):
+    kind = o.get("kind", "earth")
+    cx, cy, r = WS * .84, S * .22, S * .30 * o.get("scale", 1)
+    if kind == "moon":
+        _circle(d, cx, cy, r, (176, 176, 182), (110, 110, 118), 4)
+        rng = random.Random(8)
+        for i in range(14):
+            a_ = rng.random() * 6.28; rr = rng.random() * r * .8
+            _circle(d, cx + math.cos(a_) * rr, cy + math.sin(a_) * rr, r * (.04 + .08 * rng.random()), (138, 138, 146), (118, 118, 126), 2)
+        return
+    for k in range(4):
+        _circle(d, cx, cy, r * (1.12 - .03 * k), (110, 170, 255, 22))                                 # atmosphere glow
+    _circle(d, cx, cy, r, (36, 94, 178), (120, 190, 255), 4)
+    rng = random.Random(5)
+    for i in range(7):                                                                                # continents
+        a_ = rng.random() * 6.28; rr = rng.random() * r * .6
+        px, py = cx + math.cos(a_ + t * .05) * rr, cy + math.sin(a_) * rr * .8
+        d.ellipse([px - r * .22, py - r * .12, px + r * .22, py + r * .12], fill=(72, 140, 84, 230))
+    rng2 = random.Random(12)
+    for i in range(16):                                                                               # soft cloud puffs
+        a_ = rng2.random() * 6.28; rr = rng2.random() * r * .85
+        _circle(d, cx + math.cos(a_ + t * .03) * rr, cy + math.sin(a_) * rr, r * (.05 + .07 * rng2.random()), (244, 248, 255, 120))
+
+
+def capsule_interior(d, o, x, S, gy, t, WS):
+    """Cramped command module: padded wall, two round windows onto stars and Earth, a dense blinking panel, warning light."""
+    d.rectangle([0, 0, WS, gy], fill=(58, 64, 66))
+    for i in range(1, 10):
+        d.line([(WS * i / 10, S * .04), (WS * i / 10, gy)], fill=(34, 40, 42, 150), width=4)
+    for wx in (.22, .78):
+        _circle(d, WS * wx, S * .30, S * .13, (8, 10, 26), (150, 154, 158), 12)
+        rng = random.Random(int(wx * 100))
+        for k in range(26):
+            _circle(d, WS * wx + (rng.random() - .5) * S * .22, S * .30 + (rng.random() - .5) * S * .22, 2 + 2 * rng.random() * (0.6 + .4 * math.sin(t * 2 + k)), (255, 250, 230, 220))
+    _circle(d, WS * .78 + S * .06, S * .36, S * .06, (44, 110, 200), None)                        # Earth sliver in a window
+    d.rectangle([0, gy - S * .22, WS, gy], fill=(44, 48, 50), outline=INK, width=4)                 # control panel band
+    rng = random.Random(7)
+    for r_ in range(3):
+        for c in range(34):
+            on = math.sin(t * (1 + rng.random() * 3) + c + r_) > (-0.1 if r_ < 2 else .5)
+            col = ((120, 230, 130), (255, 190, 60), (255, 80, 70))[(c + r_) % 3] + ((255,) if on else (46,))
+            _circle(d, WS * (.02 + c * .029), gy - S * (.17 - .05 * r_), S * .008, col)
+    for k, dx in enumerate((.3, .5, .7)):                                                          # dials
+        _circle(d, WS * dx, gy - S * .06, S * .026, (220, 224, 218), INK, 3)
+        a_ = -2.2 + 1.7 * (.5 + .5 * math.sin(t * .7 + k))
+        d.line([(WS * dx, gy - S * .06), (WS * dx + math.cos(a_) * S * .022, gy - S * .06 + math.sin(a_) * S * .022)], fill=(200, 40, 34), width=4)
+    al = .5 + .5 * math.sin(t * 4)
+    _circle(d, WS * .5, S * .08, S * .02, (255, 60, 40, int(70 + 185 * al)))                       # master alarm
+    _circle(d, WS * .5, S * .08, S * .06, (255, 60, 40, int(40 * al)))
+
+
+def mission_control(d, o, x, S, gy, t, WS):
+    """Houston: a wall-size screen with live traces, rows of consoles with glowing monitors."""
+    d.rectangle([0, 0, WS, gy], fill=(20, 26, 40))
+    sx0, sx1, sy0, sy1 = WS * .12, WS * .88, S * .07, S * .42
+    d.rectangle([sx0, sy0, sx1, sy1], fill=(8, 18, 34), outline=(90, 130, 180), width=6)
+    for g in range(1, 5):
+        d.line([(sx0, sy0 + (sy1 - sy0) * g / 5), (sx1, sy0 + (sy1 - sy0) * g / 5)], fill=(40, 70, 110, 140), width=2)
+    for tr, col in enumerate(((90, 255, 150), (255, 200, 80), (120, 190, 255))):
+        pts = [(sx0 + (sx1 - sx0) * k / 60, sy0 + (sy1 - sy0) * (.3 + .2 * tr) + math.sin(k * .5 + t * 2 + tr * 2) * S * .03 * (1 + .5 * math.sin(t * .3 + tr))) for k in range(61)]
+        d.line(pts, fill=col + (230,), width=4)
+    for row in range(3):                                                                              # console rows
+        yy = gy - S * (.06 + .11 * row)
+        for c in range(7 - row):
+            cx = WS * (.08 + (c + .5 * (row % 2)) * (.86 / (7 - row)))
+            w = S * (.17 - .02 * row)
+            d.rectangle([cx - w / 2, yy - S * .045, cx + w / 2, yy + S * .015], fill=(36, 44, 58), outline=(12, 16, 24), width=3)
+            on = .6 + .4 * math.sin(t * 2 + c + row)
+            d.rectangle([cx - w * .35, yy - S * .035, cx + w * .35, yy - S * .008], fill=(60, int(150 + 80 * on), 200, 255))
+
+
+DRAW = {"spacecraft": spacecraft, "planet": planet, "capsule_interior": capsule_interior, "mission_control": mission_control, "ship": ship, "burning_town": burning_town, "liner": liner, "iceberg": iceberg, "interior": interior, "crowd": crowd, "wave": wave, "explosion": explosion, "submarine": submarine, "warship": warship, "plane": plane, "seascape": seascape}

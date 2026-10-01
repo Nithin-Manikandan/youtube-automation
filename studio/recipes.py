@@ -18,7 +18,7 @@ ROLES = {  # role -> (props, default tunic colour name)
     # modern (1800s onward): no swords, spears or shields
     "sailor": (["navycap"], "white"), "captain": (["navycap", "beard"], "blue"), "officer": (["navycap", "tie"], "grey"),
     "scientist": (["glasses", "hair"], "white"), "president": (["hair", "tie"], "black"), "worker": (["hat"], "orange"),
-    "pilot": (["helmet"], "green"), "modern_soldier": (["helmet", "rifle"], "green"), "spy": (["hat", "tie"], "black"), "reporter": (["hat", "tie"], "brown"),
+    "astronaut": (["helmet", "glasses"], "white"), "pilot": (["helmet"], "green"), "modern_soldier": (["helmet", "rifle"], "green"), "spy": (["hat", "tie"], "black"), "reporter": (["hat", "tie"], "brown"),
 }
 ACTIONS = {"think", "salute", "armscross", "facepalm", "demand", "stand", "talk", "cheer", "scared", "slump", "point", "proud", "shrug", "sword_up", "crouch", "fight",
            "enter_walk", "enter_run", "exit_run", "walk", "run"}
@@ -42,6 +42,9 @@ BACKGROUNDS = {
                 hills=[dict(color=(110, 154, 196), base=.62, amp=.012, freq=6.0, seed=1, par=.05)]),
     "snow": dict(sky=((186, 204, 226), (240, 244, 250)), ground_color=(236, 240, 246),
                  hills=[dict(color=(214, 222, 236), base=.66, amp=.07, freq=2.8, seed=6, par=.10), dict(color=(228, 234, 244), base=.73, amp=.05, freq=3.6, seed=3, par=.22)]),
+    "space": dict(sky=((1, 3, 12), (12, 16, 40)), ground_color=(6, 8, 18), hills=[]),
+    "capsule": dict(sky=((40, 46, 48), (60, 66, 68)), ground_color=(40, 44, 46), hills=[]),
+    "mission_control": dict(sky=((18, 24, 38), (30, 38, 56)), ground_color=(24, 30, 44), hills=[]),
     "harbor": dict(sky=((150, 196, 226), (236, 232, 214)), sun=(0.78, 0.2, (252, 214, 120)), ground_color=(190, 170, 126),
                    hills=[dict(color=(104, 150, 190), base=.64, amp=.004, freq=1.0, seed=3, par=.02), dict(color=(80, 128, 172), base=.70, amp=.004, freq=1.2, seed=5, par=.04)]),
     "underwater": dict(sky=((8, 52, 104), (40, 150, 176)), ground_color=(158, 146, 106),
@@ -58,7 +61,7 @@ BACKGROUNDS = {
 }
 OBJECTS = {"castle", "column", "pedestal", "cloud", "tree", "tent", "pyramid", "tower", "torch", "ship",
            "submarine", "warship", "missile", "plane", "building", "hatch", "pipes", "gauge",
-           "volcano", "ash_cloud", "wave", "fire", "smoke", "house", "explosion", "depth_charge", "torpedo", "crowd", "liner", "iceberg", "burning_town"}
+           "volcano", "ash_cloud", "wave", "fire", "smoke", "house", "explosion", "depth_charge", "torpedo", "crowd", "liner", "iceberg", "burning_town", "spacecraft", "planet", "capsule_interior", "mission_control"}
 EFFECTS = {"rain", "flash", "sparks", "dust", "shake", "ashfall", "embers", "bubbles", "sonar"}
 CAMERAS = {"push_in": ([1.0, 1.10], None), "pull_out": ([1.12, 1.0], None), "pan_right": ([1.06, 1.06], (-.04, .04)), "pan_left": ([1.06, 1.06], (.04, -.04)), "static": ([1.0, 1.0], None)}
 
@@ -198,13 +201,13 @@ def build_stage(v, dur, rnd, seed=0):
     scene["actors"] = actors
     xs = [.12, .88, .3, .7]
     objs = []
-    BIG = {"liner": .5, "iceberg": .76, "submarine": .56, "warship": .56, "plane": .3, "missile": .86, "pyramid": .5, "ship": .6, "volcano": .62, "wave": .6, "ash_cloud": .05, "explosion": .5, "fire": .5}
+    BIG = {"spacecraft": .5, "planet": .84, "liner": .5, "iceberg": .76, "submarine": .56, "warship": .56, "plane": .3, "missile": .86, "pyramid": .5, "ship": .6, "volcano": .62, "wave": .6, "ash_cloud": .05, "explosion": .5, "fire": .5}
     flags = v.get("flags") or {}
     for j, o in enumerate(v["objects"]):
         objs.append(dict(type=o, x=BIG.get(o, [.16, .84, .5, .3][j % 4]) if o not in ("torch",) else xs[j % 4], y=.18 + .05 * j, r=.05, scale=1.0,
-                         harbor=v["background"] == "harbor", dur=dur, modern=bool(flags.get("modern")), afloat=v["background"] == "underwater", launch=bool(flags.get("launch")),
+                         harbor=v["background"] == "harbor", dur=dur, modern=bool(flags.get("modern")), afloat=v["background"] == "underwater", launch=bool(flags.get("launch")), venting=bool(flags.get("venting")), kind=flags.get("kind", "earth"),
                          t0=dur * (.3 + .12 * j) if o in ("depth_charge", "explosion", "torpedo") else .4,
-                         color=(255, 255, 255, 160) if v["background"] not in ("storm", "night", "battlefield", "volcanic", "ashen") else (92, 94, 104)))
+                         color=(255, 255, 255, 160) if v["background"] not in ("storm", "night", "battlefield", "volcanic", "ashen", "space") else (92, 94, 104)))
     dc = [o for o in objs if o["type"] == "depth_charge"]
     if v.get("anchor") and v["background"] not in ("submarine_interior", "underwater"):          # the story's landmark looms far behind every outdoor scene
         ax = .84 if not actors or actors[0]["keys"][0]["x"] < .6 else .16
@@ -213,6 +216,9 @@ def build_stage(v, dur, rnd, seed=0):
         objs.insert(0, dict(type="seascape", x=.5, dur=dur))
     if v["background"] == "submarine_interior":
         objs.insert(0, dict(type="interior", x=.5, dur=dur))
+    for bgname, otype in (("capsule", "capsule_interior"), ("mission_control", "mission_control")):
+        if v["background"] == bgname:
+            objs.insert(0, dict(type=otype, x=.5, dur=dur))
     for o in objs:
         if o["type"] == "explosion":
             o["x"] = .78 if not actors or actors[0]["keys"][0]["x"] < .6 else .22     # blast beside the people, not on top of them
@@ -257,7 +263,7 @@ def build_stage(v, dur, rnd, seed=0):
     scene["fx"] = fx
     if v.get("title"):
         scene["text"] = [dict(t=.35, end=min(dur - .2, 3.6), text=v["title"], y=.085,
-                              color=(255, 255, 255) if v["background"] in ("storm", "night", "battlefield", "underwater", "submarine_interior", "city_modern", "volcanic", "ashen") else (27, 27, 32))]
+                              color=(255, 255, 255) if v["background"] in ("storm", "night", "battlefield", "underwater", "submarine_interior", "city_modern", "volcanic", "ashen", "space", "capsule", "mission_control") else (27, 27, 32))]
     z, pan = CAMERAS[v["camera"]]
     scene["zoom"] = z
     _late_shots = True

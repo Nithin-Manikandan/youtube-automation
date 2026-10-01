@@ -499,8 +499,9 @@ def plan(job, pdir, settings, hint=None):
     visuals = [recipes.clean_visual(s.get("visual"), rnd) for _, s in scripts]
     modern = subjects.era_modern(full_text)
     anchor = subjects.anchor_for(topic + " " + hook)
+    domain = subjects.domain_for(topic + " " + hook)
     story_has_sub = len(re.findall(r"submarine|u-boat|torpedo|sonar", full_text.lower())) >= 3
-    visuals = [subjects.enrich(vis, s["narration"], modern, anchor, story_has_sub) for vis, (_, s) in zip(visuals, scripts)]
+    visuals = [subjects.enrich(vis, s["narration"], modern, anchor, story_has_sub, domain) for vis, (_, s) in zip(visuals, scripts)]
     visuals = subjects.variety_pass(visuals)
     visuals = subjects.company_pass(visuals, modern)
     scene_moods = []
@@ -586,8 +587,8 @@ def plan(job, pdir, settings, hint=None):
     thumbs = []
     for k, tr in enumerate((meta.get("thumbs") or [])[:3]):
         pth = pdir / "out" / f"thumb{k + 1}.jpg"
-        tr = subjects.era_fix_thumb(tr, modern)
-        first_back = ((subjects.era_fix_thumb((meta.get("thumbs") or [{}])[0], modern)).get("backdrop") or "").lower()
+        tr = subjects.era_fix_thumb(tr, modern, domain)
+        first_back = ((subjects.era_fix_thumb((meta.get("thumbs") or [{}])[0], modern, domain)).get("backdrop") or "").lower()
         back = str(tr.get("backdrop") or "").lower()
         back = back if back in recipes.OBJECTS else (first_back if first_back in recipes.OBJECTS else "")
         if back:                                                  # all three thumbnails show the story's real subject, framed three different ways

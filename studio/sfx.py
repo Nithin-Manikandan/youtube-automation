@@ -356,7 +356,7 @@ def _pan(x):
 
 
 AMBIENT = {"storm": "wind", "desert": "wind", "battlefield": "wind", "night": "crickets", "city_day": "birds", "countryside": "birds",
-           "forest": "birds", "palace": None, "sea": "waves", "snow": "wind"}
+           "forest": "birds", "palace": None, "sea": "waves", "snow": "wind", "space": None, "capsule": "rumble", "mission_control": None}
 
 
 def scene_events(sc, t0, prev=None):
