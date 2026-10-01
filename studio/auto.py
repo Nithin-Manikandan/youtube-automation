@@ -97,7 +97,7 @@ Pick a topic that MANY people would click and watch to the end:
 - broad appeal (not niche academic); curiosity gap in the title; evergreen
 - facts must be solid and widely documented, so the script can be accurate. Do not choose topics needing obscure or disputed claims.
 - do NOT reuse any of these already-made topics: {used_topics()[-60:]}
-{f'Viewer hint to honour if it fits: {hint}' if hint else ''}
+{f'THE VIEWER REQUESTED THIS TOPIC. Every candidate you brainstorm MUST be about it (different angles of the same subject): {hint}' if hint else ''}
 
 Brainstorm 8 candidates, score each 1-10 for: broad_appeal, story_drama, factual_solidity. Return JSON:
 {{"candidates": [{{"topic": "working title as a sentence", "hook": "the one-line hook", "broad_appeal": 0, "story_drama": 0, "factual_solidity": 0}}]}}"""
@@ -456,7 +456,8 @@ def plan(job, pdir, settings, hint=None):
     visuals = [recipes.clean_visual(s.get("visual"), rnd) for _, s in scripts]
     modern = subjects.era_modern(full_text)
     anchor = subjects.anchor_for(topic + " " + hook)
-    visuals = [subjects.enrich(vis, s["narration"], modern, anchor) for vis, (_, s) in zip(visuals, scripts)]
+    story_has_sub = len(re.findall(r"submarine|u-boat|torpedo|sonar", full_text.lower())) >= 3
+    visuals = [subjects.enrich(vis, s["narration"], modern, anchor, story_has_sub) for vis, (_, s) in zip(visuals, scripts)]
     visuals = subjects.variety_pass(visuals)
     scene_moods = []
     cur = "calm"

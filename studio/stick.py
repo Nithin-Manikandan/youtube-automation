@@ -872,7 +872,7 @@ def make_shots(scene, rnd):
     dur = scene["duration"]
     acts = scene.get("actors", [])
     objs = [o for o in scene.get("objects", []) if o["type"] not in ("cloud", "torch", "seascape")]
-    bigs = [o for o in objs if o["type"] in ("submarine", "warship", "ship", "volcano", "wave", "pyramid", "plane", "missile", "explosion", "castle")]
+    bigs = [o for o in objs if o["type"] in ("submarine", "warship", "ship", "liner", "iceberg", "volcano", "wave", "pyramid", "plane", "missile", "explosion", "castle")]
     n = 1 if dur < 4.2 else 2 if dur < 8 else 3 if dur < 13 else 4
     if n == 1:
         scene["hits"] = []
