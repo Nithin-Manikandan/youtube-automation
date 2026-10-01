@@ -33,6 +33,8 @@ RULES = [
     (r"\b(cities|city|skyscraper|metropolis)\b", ["building"], [], None, {}),
 ]
 UNDERWATER_OBJECTS = {"submarine", "depth_charge", "torpedo"}
+MODERN_TO_ANCIENT = {"sailor": "citizen", "captain": "knight", "officer": "soldier", "scientist": "scholar", "president": "king", "worker": "citizen", "pilot": "citizen",
+                     "modern_soldier": "soldier", "spy": "citizen", "reporter": "scholar"}
 ANCIENT_OBJECTS = {"castle", "pyramid", "column", "tent", "torch", "pedestal"}
 ANCIENT_ROLE_SWAP = {"soldier": "modern_soldier", "warrior": "modern_soldier", "knight": "officer", "general": "officer", "king": "president",
                      "queen": "president", "emperor": "president", "pharaoh": "president", "priest": "scientist", "rebel": "worker", "pirate": "sailor"}
@@ -121,6 +123,15 @@ def enrich(visual, narration, modern, anchor=None, story_has_sub=True):
     named = [o for o in objs if any(o in r[1] for r in RULES if re.search(r[0], text))]
     rest = [o for o in objs if o not in named]
     objs = named + rest
+    if not modern:
+        if bg == "city_modern":
+            bg = "city_day"                                            # no modern skyline before 1800
+        for a_ in v.get("actors", []):
+            a_["role"] = MODERN_TO_ANCIENT.get(a_.get("role"), a_.get("role"))
+        mapped = {"warship": "ship", "liner": "ship", "submarine": "ship", "plane": "cloud", "missile": "tower", "depth_charge": "ship", "torpedo": "ship", "building": "house"}
+        objs = [mapped.get(o, o) for o in objs]
+        objs = [o for o in objs if o != "cloud"]
+        objs = list(dict.fromkeys(objs))
     if not modern:
         objs = ["house" if o == "building" else o for o in objs]                 # no skyscrapers in the ancient world
         objs = list(dict.fromkeys(objs))

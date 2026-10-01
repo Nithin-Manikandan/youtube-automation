@@ -417,4 +417,30 @@ def burning_town(d, o, x, S, gy, t, WS):
         _circle(d, WS * (k * .0251 % 1) + math.sin(t + k) * S * .02, gy - age * S * .5, 2 + 2 * (k % 3), (255, int(160 + 80 * (1 - age)), 50, int(230 * (1 - age))))
 
 
-DRAW = {"burning_town": burning_town, "liner": liner, "iceberg": iceberg, "interior": interior, "crowd": crowd, "wave": wave, "explosion": explosion, "submarine": submarine, "warship": warship, "plane": plane, "seascape": seascape}
+def ship(d, o, x, S, gy, t, WS):
+    """A wooden sailing ship (carrack): curved hull, two masts with billowing sails, banner, oars dipping, bow wave."""
+    sc = o.get("scale", 1)
+    w, h = S * 0.5 * sc, S * 0.07 * sc
+    yb = gy - S * 0.006 + math.sin(t * 1.0) * S * 0.006
+    x += (t - o.get("dur", 6) / 2) * S * 0.014
+    d.polygon([(x - w * .5, yb - h * 1.6), (x - w * .32, yb - h * 1.25), (x + w * .38, yb - h * 1.25), (x + w * .55, yb - h * 1.7), (x + w * .44, yb - h * .35), (x + w * .1, yb), (x - w * .36, yb)], fill=(104, 70, 44), outline=INK)
+    d.line([(x - w * .4, yb - h * .95), (x + w * .45, yb - h * .95)], fill=(176, 130, 70), width=5)
+    for q in range(6):
+        _circle(d, x - w * .3 + q * w * .12, yb - h * .62, S * .006, (30, 24, 20))
+    bil = math.sin(t * 1.4) * S * .006
+    for mx, mh, sw in ((x - w * .12, h * 6.2, w * .3), (x + w * .22, h * 5.2, w * .25)):
+        d.line([(mx, yb - h * 1.25), (mx, yb - h * 1.25 - mh)], fill=(70, 50, 34), width=7)
+        top = yb - h * 1.25 - mh
+        d.polygon([(mx - sw / 2, top + mh * .08), (mx + sw / 2, top + mh * .08), (mx + sw / 2 + bil, top + mh * .55), (mx, top + mh * .62 + bil), (mx - sw / 2 + bil, top + mh * .55)], fill=(240, 232, 214), outline=INK)
+        d.line([(mx - sw / 2, top + mh * .08), (mx + sw / 2, top + mh * .08)], fill=(70, 50, 34), width=5)
+        d.polygon([(mx, top), (mx + w * .1, top + h * .25 + bil), (mx, top + h * .5)], fill=(176, 56, 48))
+    for q in range(5):                                                   # oars rowing
+        ang = math.sin(t * 2.2 + q) * .3
+        ox = x - w * .3 + q * w * .16
+        d.line([(ox, yb - h * .6), (ox + math.sin(ang) * h * 1.2 - h * .5, yb + h * 1.0)], fill=(80, 56, 38), width=4)
+    for k in range(8):
+        age = (t * .7 + k / 8) % 1.0
+        _circle(d, x + w * .55 + age * S * .02, yb - h * .1, S * (.006 + .01 * age), (240, 248, 255, int(210 * (1 - age))))
+
+
+DRAW = {"ship": ship, "burning_town": burning_town, "liner": liner, "iceberg": iceberg, "interior": interior, "crowd": crowd, "wave": wave, "explosion": explosion, "submarine": submarine, "warship": warship, "plane": plane, "seascape": seascape}
