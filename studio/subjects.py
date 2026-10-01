@@ -12,7 +12,7 @@ ANCIENT_PROPS_ROLES = {"soldier", "warrior", "knight", "general", "king", "queen
 RULES = [
     (r"\b(zeppelins?|airships?|dirigibles?|hindenburg|blimps?|graf zeppelin)\b", ["airship"], [], "countryside", {}),
     (r"depth[- ]?charge", ["submarine", "depth_charge"], ["bubbles", "shake"], "underwater", {}),
-    (r"\b(submarine|u-boat|periscope|b-59|submerged|submariners?)\b", ["submarine"], ["bubbles"], "underwater", {}),
+    (r"\b(submarine(?! (?:caldera|volcano|volcanic|eruption|landslide|earthquake|canyon|crater|vent|shock|blast|collapse))|u-boat|periscope|b-59|submerged (?:in|beneath) the (?:boat|sub)|submariners?)\b", ["submarine"], ["bubbles"], "underwater", {}),
     (r"\btorpedo", ["submarine", "torpedo"], ["bubbles"], "underwater", {}),
     (r"\b(sonar|pings?)\b", ["submarine"], ["sonar", "bubbles"], "underwater", {}),
     (r"\b(titanic|liner|steamships?|steamer|ocean liner|passenger ship|rms|lusitania|carpathia|californian)\b", ["liner"], [], "sea", {}),
