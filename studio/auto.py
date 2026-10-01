@@ -276,7 +276,7 @@ def make_metadata(topic, outline, chapters, text):
                 "description_intro": "The real story of how the Western Roman Empire ended.",
                 "tags": ["rome", "history", "fall of rome", "roman empire", "476 ad"], "hashtags": ["#history", "#rome", "#ancienthistory"],
                 "pinned_comment": "What surprised you most? Tell me below.",
-                "thumbs": [{"text": "ROME FELL", "mood": "fire", "role": "emperor", "color": "purple", "action": "scared", "emotion": "shock", "badge": "476 AD", "concept": "looming", "enemy_role": "warrior"},
+                "thumbs": [{"text": "ROME FELL", "mood": "fire", "role": "emperor", "color": "purple", "action": "scared", "emotion": "shock", "badge": "476 AD", "concept": "subject", "backdrop": "castle", "enemy_role": "warrior"},
                            {"text": "WHY IT COLLAPSED", "mood": "blood", "role": "king", "color": "purple", "action": "shrug", "emotion": "worried", "badge": "476", "concept": "ruin", "objects": ["castle", "tower", "column"]},
                            {"text": "NO ONE NOTICED", "mood": "ice", "role": "soldier", "color": "blue", "action": "sword_up", "emotion": "angry", "concept": "versus", "enemy_role": "warrior", "enemy_color": "red"}]}
     prompt = f"""Create the YouTube click package for a history video. It must earn the click, honestly.
@@ -291,7 +291,7 @@ emotional word. No ALL CAPS, no lies, nothing the video does not deliver. Write 
 
 THUMBNAIL RULES: 2-3 words maximum, huge and readable on a phone; the text must ADD to the title, not repeat it (tease the twist or stakes);
 one clear focal character with a strong emotion; scale contrast (a small hero against something huge) is proven to work; high contrast; an optional
-date badge (like "476 AD"). Make 3 different concepts, one per layout: "looming" (hero vs a giant menacing silhouette and an army), "ruin" (a burning
+date badge (like "476 AD"). Make 3 different concepts, one per layout. The FIRST thumbnail MUST be "subject": the story's actual subject drawn big and lit (the submarine, the volcano, the wave, the pyramid, the ship, the missile) with a close shocked reaction face beside it; put the object name in "backdrop" (and optionally a second object in "objects"). The other two: "looming" (hero vs a giant menacing silhouette and an army), "ruin" (a burning
 skyline of the story's setting), "versus" (two sides clashing, ONLY if the story really has two opposing sides such as a war, duel or rivalry; for disasters, mysteries and discoveries use "looming" or "ruin" instead). Different text, mood, character and emotion in each.
 
 Return JSON:
@@ -301,7 +301,7 @@ Return JSON:
  "tags": ["12-15 search tags, most important first, mix of broad and specific"],
  "hashtags": ["#three", "#relevant", "#hashtags"],
  "pinned_comment": "a question that sparks comments",
- "thumbs": [{{"text": "2-3 WORDS", "mood": "fire|ice|gold|storm|blood|night", "role": "one of {sorted(recipes.ROLES)}", "color": "one of {sorted(recipes.COLORS)}", "action": "scared|point|sword_up|proud|shrug|cheer|slump", "emotion": "shock|angry|worried|sad|smile", "concept": "looming|ruin|versus", "backdrop": "for looming: the giant silhouette behind the hero, one of {sorted(recipes.OBJECTS - {'cloud', 'torch'})} that matches the story, or figure", "army": "true only for ancient or medieval stories, false for modern ones", "enemy_role": "role of the opposing side", "enemy_color": "colour name", "badge": "optional short date like 476 AD or empty", "objects": ["1-2 of {sorted(recipes.OBJECTS - {'cloud', 'torch'})} matching the story setting"]}}]}}"""
+ "thumbs": [{{"text": "2-3 WORDS", "mood": "fire|ice|gold|storm|blood|night", "role": "one of {sorted(recipes.ROLES)}", "color": "one of {sorted(recipes.COLORS)}", "action": "scared|point|sword_up|proud|shrug|cheer|slump", "emotion": "shock|angry|worried|sad|smile", "concept": "subject|looming|ruin|versus", "backdrop": "for subject: the main object of the story; for looming: the giant silhouette behind the hero, one of {sorted(recipes.OBJECTS - {'cloud', 'torch'})} that matches the story, or figure", "army": "true only for ancient or medieval stories, false for modern ones", "enemy_role": "role of the opposing side", "enemy_color": "colour name", "badge": "optional short date like 476 AD or empty", "objects": ["1-2 of {sorted(recipes.OBJECTS - {'cloud', 'torch'})} matching the story setting"]}}]}}"""
     m = _llm(prompt, 0.7)
     if isinstance(m, list):
         m = next((x for x in m if isinstance(x, dict)), {})

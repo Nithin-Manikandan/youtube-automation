@@ -7,6 +7,7 @@
 Concepts: "looming" (hero vs giant), "ruin" (burning skyline), "versus" (two sides clash).
 """
 import math
+import random
 
 import numpy as np
 from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
@@ -167,9 +168,57 @@ def _text_layer(lines, font, hi, flip, size, x_left, y_top, tilt=-2.2):
     return out.rotate(tilt, resample=Image.BICUBIC, center=(x_left + maxw / 2, y_top + size))
 
 
+SUBJECT_BG = {"submarine": "underwater", "torpedo": "underwater", "depth_charge": "underwater", "warship": "sea", "ship": "sea", "wave": "sea", "plane": "sea",
+              "volcano": "volcanic", "ash_cloud": "ashen", "explosion": "night", "fire": "night", "missile": "sea", "pyramid": "desert", "castle": "battlefield",
+              "building": "city_modern", "house": "countryside", "tower": "battlefield", "column": "palace"}
+
+
+def _subject_scene(recipe, flip):
+    """The story's actual subject drawn big and lit by the real scene engine, graded and darkened on the text side."""
+    obj = str(recipe.get("backdrop") or (recipe.get("objects") or ["castle"])[0]).lower()
+    obj = obj if obj in recipes.OBJECTS else "castle"
+    bg = str(recipe.get("scene") or SUBJECT_BG.get(obj, "battlefield")).lower()
+    bg = bg if bg in recipes.BACKGROUNDS else "battlefield"
+    rnd = random.Random(5)
+    extra = [o for o in (recipe.get("objects") or []) if o in recipes.OBJECTS and o != obj][:1]
+    vis = recipes.clean_visual({"type": "stage", "background": bg, "actors": [], "objects": [obj] + extra,
+                                "effects": ["bubbles"] if bg == "underwater" else ["embers"] if bg in ("volcanic", "night") else []}, rnd)
+    vis["objects"] = [obj] + extra
+    sc = recipes.build_stage(vis, 6.0, rnd)
+    for o in sc["objects"]:
+        if o["type"] == obj:
+            o["x"] = 0.62 if not flip else 0.38
+            o["scale"] = 1.2 if obj in ("submarine", "warship", "ship") else 1.15
+            o["t0"] = 0.3
+            o["dur"] = 6.0
+        elif o["type"] != "seascape":
+            o["x"] = 0.18 if not flip else 0.82
+    sc["shots"] = []
+    sc["hits"] = []
+    sc["speed"] = False
+    sc["blur"] = False
+    sc["shake"] = []
+    sc["text"] = []
+    sc["zoom"] = [1.05, 1.05]
+    sc["focus"] = (0.5, 0.58)
+    sc.pop("focus_to", None)
+    sc["fx"] = [f for f in sc.get("fx", []) if f["type"] != "sparks"]
+    stick.prepare(sc, W, H)
+    t_show = {"wave": 3.1, "explosion": 1.0, "torpedo": 1.6, "missile": 1.6}.get(obj, 1.9)
+    frame = Image.fromarray(stick.render_frame(sc, t_show, W, H)[..., :3]).convert("RGBA")
+    shade = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    sd = ImageDraw.Draw(shade)
+    for x in range(W):                                    # darken the headline side so the text pops
+        k = (1 - x / (W * 0.46)) if not flip else (1 - (W - x) / (W * 0.46))
+        if k > 0:
+            sd.line([(x, 0), (x, H)], fill=(0, 0, 0, int(165 * k ** 1.4)))
+    frame.alpha_composite(shade)
+    return frame
+
+
 def render(text, recipe, out_path, variant=0):
     concept = recipe.get("concept") or ("looming", "ruin", "versus")[variant % 3]
-    concept = concept if concept in ("looming", "ruin", "versus") else "looming"
+    concept = concept if concept in ("looming", "ruin", "versus", "subject") else "looming"
     flip = bool(recipe.get("flip", variant % 3 == 1))
     mood = recipe.get("mood", "fire")
     if mood not in MOODS:
@@ -177,10 +226,15 @@ def render(text, recipe, out_path, variant=0):
     _, _, glow, hi = MOODS[mood]
     rng = np.random.default_rng(variant * 7 + 3)
     hx = 0.73 if not flip else 0.27
+    if concept == "subject":
+        hx = 0.88 if not flip else 0.12
     base = _bg(mood, hx, 0.62)
     horizon = 0.80
 
-    if concept == "ruin":
+    if concept == "subject":
+        base = _subject_scene(recipe, flip)
+        _embers(base, rng, 22, (255, 220, 150))
+    elif concept == "ruin":
         xs = _skyline(base, recipe.get("objects") or ["castle", "tower", "column"], flip, H * horizon, 1.9)
         _flames(base, [x + rng.uniform(-20, 20) for x in xs for _ in range(1)] + [W * (0.5 if not flip else 0.5)], H * 0.62, 34, rng, glow)
         _embers(base, rng, 70, (255, 190, 70))
@@ -214,12 +268,13 @@ def render(text, recipe, out_path, variant=0):
                 base.alpha_composite(eyes.filter(ImageFilter.GaussianBlur(9)).point(lambda v: min(255, int(v * 2.2))))
                 base.alpha_composite(eyes)
         _embers(base, rng, 30, (255, 190, 70))
-    _fog(base, H * (horizon - 0.02))
-    ground = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    gd = ImageDraw.Draw(ground)
-    for i in range(int(H * (1 - horizon)) + 2):
-        gd.line([(0, H * horizon + i), (W, H * horizon + i)], fill=(8, 6, 10, min(255, 120 + i * 3)))
-    base.alpha_composite(ground)
+    if concept != "subject":
+        _fog(base, H * (horizon - 0.02))
+        ground = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        gd = ImageDraw.Draw(ground)
+        for i in range(int(H * (1 - horizon)) + 2):
+            gd.line([(0, H * horizon + i), (W, H * horizon + i)], fill=(8, 6, 10, min(255, 120 + i * 3)))
+        base.alpha_composite(ground)
 
     role = recipe.get("role", "emperor")
     facing = -1 if not flip else 1
@@ -240,7 +295,10 @@ def render(text, recipe, out_path, variant=0):
         base.alpha_composite(spark.filter(ImageFilter.GaussianBlur(10)).point(lambda v: min(255, int(v * 2))))
         base.alpha_composite(spark)
     else:
-        hero = _hero(role, recipe.get("color"), recipe.get("action", "scared"), recipe.get("emotion", "shock"), hx, 1.7 if concept == "looming" else 1.75, facing, 1.0)
+        if concept == "subject":        # a big close reaction shot beside the story's subject: face and shoulders only
+            hero = _hero(role, recipe.get("color"), recipe.get("action", "scared"), recipe.get("emotion", "shock"), hx, 2.1, facing, 1.3)
+        else:
+            hero = _hero(role, recipe.get("color"), recipe.get("action", "scared"), recipe.get("emotion", "shock"), hx, 1.7 if concept == "looming" else 1.75, facing, 1.0)
     rim = hero.filter(ImageFilter.GaussianBlur(14))
     rim_c = Image.new("RGBA", (W, H), glow + (0,))
     rim_c.putalpha(rim.split()[3].point(lambda v: min(255, int(v * 2.6))))
@@ -256,7 +314,7 @@ def render(text, recipe, out_path, variant=0):
         else:
             lines.append(w)
     tmp = ImageDraw.Draw(Image.new("RGB", (10, 10)))
-    zone_w = W * 0.54
+    zone_w = W * (0.44 if concept == "subject" else 0.54)
     hero_mask = np.asarray(hero.split()[3]) > 40
     size = 290
     while size > 70:
