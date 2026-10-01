@@ -399,6 +399,7 @@ def _fake_chapter(idx, title):
 # ---------------------------------------------------------------- rendering ---------------------------------------
 def render_segment(args):
     sc, t0, words, path, first, last = args
+    sc["_wins"] = [(w[0], w[1] - t0, w[2] - t0) for w in words if t0 - 0.2 <= w[1] <= t0 + sc["duration"]]      # when each word is spoken, for lip-sync
     stick.prepare(sc, W, H)
     caps = DocCaptions(words, W, H)
     cmd = [ffmpeg.exe(), "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "pipe:0",
@@ -555,7 +556,7 @@ def plan(job, pdir, settings, hint=None):
         if vis["type"] == "map":
             dur = max(dur, 4.5)
         if vis["type"] == "stage":
-            sc = recipes.build_stage(vis, dur, rnd, seed=i)
+            sc = recipes.build_stage(vis, dur, rnd, seed=i, wins=[(x[0], LEAD + x[1], LEAD + x[2]) for x in w])
         elif vis["type"] == "map":
             sc = recipes.build_map(vis, dur)
         else:

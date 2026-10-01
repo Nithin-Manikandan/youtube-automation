@@ -3,6 +3,7 @@
 A scene is plain data (actors with keyframes, objects, on-screen text), so an LLM can write it.
 """
 import math
+import zlib
 from . import art
 
 import cv2
@@ -14,6 +15,8 @@ from pipeline.render import _find_font
 PAPER, INK = (244, 238, 224), (27, 27, 32)
 GOLD, RED, BLUE, PURPLE, GREY = (226, 176, 40), (196, 57, 43), (47, 99, 176), (122, 59, 140), (150, 146, 138)
 SS = 2  # supersampling for smooth lines
+import os
+V2 = os.environ.get("STICK_V1") != "1"       # character renderer v2 (shaded, outlined, expressive); STICK_V1=1 keeps the old flat one
 
 
 def smooth(x):
@@ -104,6 +107,18 @@ class Actor:
         self.W, self.H = W, H
         self.unit = H * 0.52 * spec.get("scale", 1.0) * SS
         self.seed = hash(spec["id"]) % 7
+        self._look_dx = 0.40
+
+    def _pose_of(self, k, tt):
+        """Pose for key k at scene time tt: a retargeted mocap clip ('mc:<clip>') or one of the procedural poses."""
+        nm = k["pose"]
+        if nm.startswith("mc:"):
+            from . import mocap
+            ct0 = k.get("ct0", k["t"] - k.get("xf", 0.3))
+            p = mocap.sample(nm[3:], (tt - ct0) * k.get("rate", 1.0) + k.get("co", 0.0), k.get("loop"), k.get("boost"))
+            p["hip"] = 0
+            return p
+        return pose_at(nm, tt, self.seed)
 
     def key_state(self, t):
         ks = self.s["keys"]
@@ -117,12 +132,46 @@ class Actor:
                 k1 = k0
             else:
                 k0 = k1
-        u = smooth((t - k0["t"]) / max(k1["t"] - k0["t"], 1e-6)) if k1 is not k0 else 0
-        pose = blend(pose_at(k0["pose"], t, self.seed), pose_at(k1["pose"], t, self.seed), u)
+        mc = k0["pose"].startswith("mc:") or k1["pose"].startswith("mc:")
+        if k1 is k0:
+            u = ub = 0.0
+        elif mc:
+            xf = k0.get("xf", 0.3)                                      # hold the current clip, cross-fade into the next one just before the cut
+            ub = smooth((t - (k1["t"] - xf)) / xf)
+            u = (t - k0["t"]) / max(k1["t"] - k0["t"], 1e-6) if k0.get("lin") else smooth((t - k0["t"]) / max(k1["t"] - k0["t"], 1e-6))
+        else:
+            u = ub = smooth((t - k0["t"]) / max(k1["t"] - k0["t"], 1e-6))
+        pose = blend(self._pose_of(k0, t), self._pose_of(k1, t), ub) if ub > 0 else self._pose_of(k0, t)
         x = lerp(k0["x"], k1["x"], u)
-        facing = k0.get("facing", 1) if u < 0.5 else k1.get("facing", k0.get("facing", 1))
-        face = k0.get("face", "neutral") if u < 0.5 else k1.get("face", "neutral")
+        hu = ub if mc else u
+        facing = k0.get("facing", 1) if hu < 0.5 else k1.get("facing", k0.get("facing", 1))
+        face = k0.get("face", "neutral") if hu < 0.5 else k1.get("face", "neutral")
+        self._cur = k0 if hu < 0.5 else k1
         return pose, x, facing, face
+
+    def extras(self, t, scene=None):
+        """Life that is not in the skeleton: blinking, eye movement, brow bumps and a mouth that follows the spoken words."""
+        sd = self.seed
+        ex = {}
+        per = 3.1 + sd * 0.17
+        ph = (t + sd * 0.9) % per
+        ex["blink"] = (1 - abs(2 * ((ph - (per - 0.17)) / 0.17) - 1)) if ph > per - 0.17 else 0.0
+        ex["look"] = (self._look_dx + 0.22 * math.sin(t * 0.8 + sd) + 0.12 * math.sin(t * 2.3 + sd * 2), 0.14 * math.sin(t * 1.1 + sd * 3))
+        cur = getattr(self, "_cur", None) or {}
+        speaking = cur["speak"] if "speak" in cur else bool(self.s.get("talks"))
+        wins = (scene or {}).get("_wins")
+        mouth = 0.0
+        if speaking and wins:
+            for w, a_, b_ in wins:
+                if a_ - 0.03 <= t <= b_ + 0.06:
+                    amp = 0.5 + 0.4 * ((zlib.crc32(w.encode()) % 5) / 4)
+                    env = min(1.0, (t - a_ + 0.03) / 0.05) * min(1.0, (b_ + 0.06 - t) / 0.08)
+                    mouth = max(0.0, env) * amp * (0.55 + 0.45 * abs(math.sin((t - a_) * 2 * math.pi * 3.4)))
+                    if (zlib.crc32(w.encode()) % 4) == 0 and t - a_ < 0.25:
+                        ex["brow"] = 1.0 - (t - a_) / 0.25
+                    break
+        ex["mouth"] = mouth
+        return ex
 
     def draw(self, d, t, gy):
         S, W = self.unit, self.W * SS
@@ -765,8 +814,15 @@ def render_frame(scene, t, W, H):
         d.line([(0, gy), (W * SS, gy)], fill=INK, width=5)
         for o in scene.get("objects", []):
             draw_object(d, o, W, H, gy, t)
-        for a in sorted(scene["_actors"], key=lambda a: a.s.get("z", 0)):
-            a.draw(d, t, gy)
+        if V2:
+            from . import char
+            lt, rim = char.light_for(scene)
+            ctx = {"light": lt, "rim": rim}
+            for a in sorted(scene["_actors"], key=lambda a: a.s.get("z", 0)):
+                char.draw_v2(a, img, t, gy, scene, ctx)
+        else:
+            for a in sorted(scene["_actors"], key=lambda a: a.s.get("z", 0)):
+                a.draw(d, t, gy)
         draw_fx(d, scene, t, W, H, gy, scene["_actors"])
         if scene.get("dim"):
             d.rectangle([0, 0, W * SS, H * SS], fill=(20, 24, 50, int(scene["dim"] * 255)))
@@ -888,6 +944,13 @@ def make_shots(scene, rnd):
         scene["hits"] = []
     else:
         bounds = [dur * i / n for i in range(n + 1)]
+        wins_ = scene.get("_wins") or []
+        if len(wins_) > 3:                                           # cut where the narrator pauses, not at arbitrary times
+            gaps = [((a_[2] + b_[1]) / 2, b_[1] - a_[2]) for a_, b_ in zip(wins_, wins_[1:]) if b_[1] - a_[2] > 0.1]
+            for k_ in range(1, n):
+                near = [g for g in gaps if abs(g[0] - bounds[k_]) < 1.1 and g[0] > bounds[k_ - 1] + 1.5 and g[0] < dur - 1.5]
+                if near:
+                    bounds[k_] = max(near, key=lambda g: g[1] - 0.15 * abs(g[0] - bounds[k_]))[0]
         style = ["wide", "medium", "close", "wide"]
         first = rnd.choice(["wide", "medium"])
         shots = []

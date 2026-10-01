@@ -2,12 +2,16 @@
 
 The LLM never writes keyframes; it picks from small vocabularies, so output is reliable.
 """
+import os
 import random
 
 from .stick import BLUE, GOLD, GREY, PURPLE, RED
 
 COLORS = {"red": RED, "blue": BLUE, "purple": PURPLE, "gold": GOLD, "green": (70, 130, 80), "grey": GREY,
           "white": (238, 234, 224), "brown": (140, 104, 72), "black": (52, 50, 56), "orange": (214, 120, 40)}
+from . import acting, beats
+
+USE_MC = os.environ.get("STICK_MOCAP") != "0"          # retargeted motion-capture acting; STICK_MOCAP=0 keeps the old two-pose gestures
 POS = {"far_left": .12, "left": .24, "center_left": .38, "center": .5, "center_right": .62, "right": .76, "far_right": .88}
 ROLES = {  # role -> (props, default tunic colour name)
     "emperor": (["crown", "cape", "beard"], "purple"), "king": (["crown", "cape"], "red"), "queen": (["crown", "hair"], "purple"),
@@ -21,7 +25,8 @@ ROLES = {  # role -> (props, default tunic colour name)
     "astronaut": (["spacehelmet"], "white"), "pilot": (["helmet"], "green"), "modern_soldier": (["helmet", "rifle"], "green"), "spy": (["hat", "tie"], "black"), "reporter": (["hat", "tie"], "brown"),
 }
 ACTIONS = {"think", "salute", "armscross", "facepalm", "demand", "stand", "talk", "cheer", "scared", "slump", "point", "proud", "shrug", "sword_up", "crouch", "fight",
-           "enter_walk", "enter_run", "exit_run", "walk", "run"}
+           "enter_walk", "enter_run", "exit_run", "walk", "run",
+           "look_around", "duck", "dodge", "wave", "punch", "kick", "push", "pull", "pick_up", "stumble", "fall", "get_up", "cry", "flinch", "sit"}
 EMOTIONS = {"neutral", "smile", "sad", "angry", "shock", "worried"}
 BACKGROUNDS = {
     "city_day": dict(sky=((150, 190, 222), (250, 228, 190)), sun=(0.80, 0.22, (252, 214, 120)), ground_color=(176, 158, 120),
@@ -109,7 +114,7 @@ def clean_visual(v, rnd):
     return out
 
 
-def actor_keys(a, dur, idx, n):
+def actor_keys(a, dur, idx, n, others=None, beat_list=None):
     x = POS[a["pos"]]
     center = .5
     facing = 1 if (a["facing"] == "right" or (not a["facing"] and x < center - .05)) else -1
@@ -117,6 +122,10 @@ def actor_keys(a, dur, idx, n):
         facing = 1
     em = a["emotion"]
     act = a["action"]
+    if USE_MC:
+        mk = acting.keys_for(a, dur, idx, n, x, facing, others[0] if others else None, beat_list)
+        if mk:
+            return mk
     K = lambda t, xx, pose, **kw: dict(t=t, x=xx, pose=pose, face=em, facing=facing, **kw)
     if act == "talk":
         rng = random.Random(idx * 31 + int(x * 100))
@@ -170,7 +179,9 @@ def actor_keys(a, dur, idx, n):
     return [K(0, x, pose), K(dur, x, pose)]
 
 
-def build_stage(v, dur, rnd, seed=0):
+def build_stage(v, dur, rnd, seed=0, wins=None):
+    """wins: [(word, t0, t1)] of the narration relative to the scene start; it lets the acting follow what is being said."""
+    bt = beats.extract(wins, len(v["actors"])) if (wins and USE_MC) else None
     bg = BACKGROUNDS[v["background"]]
     scene = {k: bg[k] for k in ("sky", "ground_color", "hills") if k in bg}
     if "sun" in bg:
@@ -179,15 +190,17 @@ def build_stage(v, dur, rnd, seed=0):
     scene["duration"] = dur
     scene["bg_name"] = v["background"]
     actors = []
+    for a_ in v["actors"]:
+        a_["x"] = POS[a_["pos"]]
     for i, a in enumerate(v["actors"]):
         props, tun = ROLES[a["role"]]
         col = COLORS.get(a["color"] or tun, COLORS[tun])
-        keys = actor_keys(a, dur, i, len(v["actors"]))
+        keys = actor_keys(a, dur, i, len(v["actors"]), [b for k_, b in enumerate(v["actors"]) if k_ != i], bt["acts"] if bt else None)
         for k in keys:
             if k["pose"] == "fight_swing":
                 k["pose"] = "swing"
         crown_fall = dur * 0.3 if ("crown" in props and a["action"] in ("slump", "scared")) else None
-        actors.append(dict(id=f"a{i}", crown_fall=crown_fall, color=col, tunic=col if a["role"] not in ("scholar", "priest") else (238, 234, 224),
+        actors.append(dict(id=f"a{i}", talks=a["action"] == "talk", crown_fall=crown_fall, color=col, tunic=col if a["role"] not in ("scholar", "priest") else (238, 234, 224),
                            props=props, scale=a["scale"] * (0.98 if a["role"] in ("soldier", "knight") else 1.0),
                            hair=(random.Random(i + seed).choice([(70, 48, 30), (40, 30, 24), (150, 110, 60), (200, 200, 196)])), keys=keys))
     seen = set()
@@ -245,6 +258,12 @@ def build_stage(v, dur, rnd, seed=0):
         elif o_["type"] == "planet":
             o_["side"] = rnd.choice([-1, 1])
             o_["scale"] = rnd.uniform(.8, 1.5)
+    if wins:                                                             # an explosion happens when the narrator says "exploded", not at a fixed time
+        for o_ in objs:
+            if o_["type"] in ("explosion", "torpedo", "depth_charge", "fire"):
+                tw = beats.event_time(wins, {"boom", "hit", "flash"})
+                if tw is not None:
+                    o_["t0"] = tw
     scene["objects"] = objs
     fx = []
     for e in v["effects"]:
@@ -280,7 +299,20 @@ def build_stage(v, dur, rnd, seed=0):
         scene["focus_to"] = (.5 + pan[1], .6)
     scene["blur"] = "fight" in [a["action"] for a in v["actors"]] or "run" in " ".join(a["action"] for a in v["actors"])
     from . import stick
+    scene["_wins"] = wins or []
     stick.make_shots(scene, rnd)
+    if bt:
+        for t_, kind in bt["events"]:
+            if kind == "boom":
+                scene.setdefault("shake", []).append(dict(t=t_, dur=.7, amp=16)); scene["hits"].append(t_); scene["fx"].append(dict(type="flash", t=t_))
+            elif kind == "hit":
+                scene.setdefault("shake", []).append(dict(t=t_, dur=.35, amp=8)); scene["hits"].append(t_)
+            elif kind == "shake":
+                scene.setdefault("shake", []).append(dict(t=t_, dur=1.1, amp=7))
+            elif kind == "flash":
+                scene["fx"].append(dict(type="flash", t=t_))
+        if scene["hits"] and not scene.get("shots"):
+            scene["shots"] = [dict(t0=0, t1=dur, z0=1.0, z1=1.12, x0=.5, x1=.5, y0=.55, y1=.55)]
     ms = [o for o in objs if o["type"] == "missile" and o.get("launch")]
     if ms:                                                                # the camera tilts up with the rocket
         m = ms[0]

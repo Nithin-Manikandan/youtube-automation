@@ -5,3 +5,4 @@ __pycache__/
 .env
 studio/settings.json
 studio/projects/
+.cache_bvh/

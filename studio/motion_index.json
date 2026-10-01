@@ -1,0 +1,416 @@
+{
+ "walk": {
+  "desc": "normal walk",
+  "kind": "cycle",
+  "loops": true,
+  "speed": 1.695,
+  "frames": 33,
+  "fps": 30,
+  "src": "CMU 07_01"
+ },
+ "walk_slow": {
+  "desc": "slow walk",
+  "kind": "cycle",
+  "loops": true,
+  "speed": 1.153,
+  "frames": 43,
+  "fps": 30,
+  "src": "CMU 07_04"
+ },
+ "walk_brisk": {
+  "desc": "brisk walk",
+  "kind": "cycle",
+  "loops": true,
+  "speed": 2.364,
+  "frames": 28,
+  "fps": 30,
+  "src": "CMU 07_12"
+ },
+ "run": {
+  "desc": "run",
+  "kind": "cycle",
+  "loops": true,
+  "speed": 4.215,
+  "frames": 22,
+  "fps": 30,
+  "src": "CMU 09_01"
+ },
+ "walk_sad": {
+  "desc": "sad walk",
+  "kind": "cycle",
+  "loops": true,
+  "speed": 1.0,
+  "frames": 28,
+  "fps": 30,
+  "src": "CMU 105_13"
+ },
+ "walk_scared": {
+  "desc": "scared walk",
+  "kind": "cycle",
+  "loops": true,
+  "speed": 1.0,
+  "frames": 28,
+  "fps": 30,
+  "src": "CMU 105_32"
+ },
+ "walk_careful": {
+  "desc": "careful walk looking around",
+  "kind": "cycle",
+  "loops": true,
+  "speed": 1.0,
+  "frames": 28,
+  "fps": 30,
+  "src": "CMU 105_18"
+ },
+ "walk_happy": {
+  "desc": "happy go lucky walk",
+  "kind": "cycle",
+  "loops": true,
+  "speed": 1.715,
+  "frames": 34,
+  "fps": 30,
+  "src": "CMU 104_11"
+ },
+ "sneak": {
+  "desc": "sneaking",
+  "kind": "cycle",
+  "loops": true,
+  "speed": 1.0,
+  "frames": 28,
+  "fps": 30,
+  "src": "CMU 139_29"
+ },
+ "walk_wounded": {
+  "desc": "walk with a wounded leg",
+  "kind": "cycle",
+  "loops": true,
+  "speed": 0.575,
+  "frames": 47,
+  "fps": 30,
+  "src": "CMU 139_19"
+ },
+ "talk_1": {
+  "desc": "story telling",
+  "kind": "loop",
+  "loops": true,
+  "speed": 0.0,
+  "frames": 110,
+  "fps": 30,
+  "src": "CMU 138_11"
+ },
+ "talk_2": {
+  "desc": "story telling",
+  "kind": "loop",
+  "loops": true,
+  "speed": 0.0,
+  "frames": 107,
+  "fps": 30,
+  "src": "CMU 138_13"
+ },
+ "talk_3": {
+  "desc": "story telling",
+  "kind": "loop",
+  "loops": true,
+  "speed": 0.0,
+  "frames": 103,
+  "fps": 30,
+  "src": "CMU 138_15"
+ },
+ "talk_4": {
+  "desc": "story telling",
+  "kind": "loop",
+  "loops": true,
+  "speed": 0.0,
+  "frames": 109,
+  "fps": 30,
+  "src": "CMU 138_17"
+ },
+ "talk_5": {
+  "desc": "story telling",
+  "kind": "loop",
+  "loops": true,
+  "speed": 0.0,
+  "frames": 112,
+  "fps": 30,
+  "src": "CMU 138_20"
+ },
+ "talk_6": {
+  "desc": "story telling",
+  "kind": "loop",
+  "loops": true,
+  "speed": 0.0,
+  "frames": 125,
+  "fps": 30,
+  "src": "CMU 138_24"
+ },
+ "explain_a": {
+  "desc": "conversation, explain with hand gestures (A)",
+  "kind": "loop",
+  "loops": true,
+  "speed": 0.0,
+  "frames": 179,
+  "fps": 30,
+  "src": "CMU 18_08"
+ },
+ "explain_b": {
+  "desc": "conversation, explain with hand gestures (B)",
+  "kind": "loop",
+  "loops": true,
+  "speed": 0.0,
+  "frames": 179,
+  "fps": 30,
+  "src": "CMU 19_08"
+ },
+ "quarrel_a": {
+  "desc": "quarrel, angry hand gestures (A)",
+  "kind": "loop",
+  "loops": true,
+  "speed": 0.0,
+  "frames": 179,
+  "fps": 30,
+  "src": "CMU 18_10"
+ },
+ "quarrel_b": {
+  "desc": "quarrel, angry hand gestures (B)",
+  "kind": "loop",
+  "loops": true,
+  "speed": 0.0,
+  "frames": 179,
+  "fps": 30,
+  "src": "CMU 19_10"
+ },
+ "threat_a": {
+  "desc": "conversation, pounds stool and points (A)",
+  "kind": "loop",
+  "loops": true,
+  "speed": 0.0,
+  "frames": 97,
+  "fps": 30,
+  "src": "CMU 22_21"
+ },
+ "threat_b": {
+  "desc": "conversation, pounds stool and points (B)",
+  "kind": "loop",
+  "loops": true,
+  "speed": 0.0,
+  "frames": 97,
+  "fps": 30,
+  "src": "CMU 23_21"
+ },
+ "scared": {
+  "desc": "scared",
+  "kind": "once",
+  "loops": false,
+  "speed": 0.0,
+  "frames": 108,
+  "fps": 30,
+  "src": "CMU 142_16"
+ },
+ "surprised": {
+  "desc": "surprised",
+  "kind": "once",
+  "loops": false,
+  "speed": 0.0,
+  "frames": 108,
+  "fps": 30,
+  "src": "CMU 120_15"
+ },
+ "sad": {
+  "desc": "sad",
+  "kind": "loop",
+  "loops": true,
+  "speed": 0.0,
+  "frames": 179,
+  "fps": 30,
+  "src": "CMU 142_15"
+ },
+ "cry": {
+  "desc": "crying",
+  "kind": "loop",
+  "loops": true,
+  "speed": 0.0,
+  "frames": 179,
+  "fps": 30,
+  "src": "CMU 80_45"
+ },
+ "happy": {
+  "desc": "happy",
+  "kind": "loop",
+  "loops": true,
+  "speed": 0.0,
+  "frames": 179,
+  "fps": 30,
+  "src": "CMU 142_08"
+ },
+ "shrug": {
+  "desc": "shrug",
+  "kind": "once",
+  "loops": false,
+  "speed": 0.0,
+  "frames": 68,
+  "fps": 30,
+  "src": "CMU 141_21"
+ },
+ "wave": {
+  "desc": "wave hello",
+  "kind": "once",
+  "loops": false,
+  "speed": 0.0,
+  "frames": 75,
+  "fps": 30,
+  "src": "CMU 141_16"
+ },
+ "point": {
+  "desc": "direct traffic, wave, point",
+  "kind": "loop",
+  "loops": true,
+  "speed": 0.0,
+  "frames": 179,
+  "fps": 30,
+  "src": "CMU 13_27"
+ },
+ "think": {
+  "desc": "thinker",
+  "kind": "loop",
+  "loops": true,
+  "speed": 0.0,
+  "frames": 75,
+  "fps": 30,
+  "src": "CMU 74_12"
+ },
+ "look_around": {
+  "desc": "looking around",
+  "kind": "loop",
+  "loops": true,
+  "speed": 0.0,
+  "frames": 179,
+  "fps": 30,
+  "src": "CMU 139_01"
+ },
+ "duck": {
+  "desc": "duck to avoid a flying object",
+  "kind": "once",
+  "loops": false,
+  "speed": 0.0,
+  "frames": 108,
+  "fps": 30,
+  "src": "CMU 77_09"
+ },
+ "dodge": {
+  "desc": "avoid attacker",
+  "kind": "once",
+  "loops": false,
+  "speed": 0.0,
+  "frames": 108,
+  "fps": 30,
+  "src": "CMU 76_03"
+ },
+ "punch": {
+  "desc": "punching",
+  "kind": "loop",
+  "loops": true,
+  "speed": 0.0,
+  "frames": 179,
+  "fps": 30,
+  "src": "CMU 143_23"
+ },
+ "kick": {
+  "desc": "kicking",
+  "kind": "loop",
+  "loops": true,
+  "speed": 0.0,
+  "frames": 179,
+  "fps": 30,
+  "src": "CMU 143_24"
+ },
+ "sword_1": {
+  "desc": "swordplay",
+  "kind": "loop",
+  "loops": true,
+  "speed": 0.0,
+  "frames": 179,
+  "fps": 30,
+  "src": "CMU 02_07"
+ },
+ "sword_2": {
+  "desc": "swordplay",
+  "kind": "loop",
+  "loops": true,
+  "speed": 0.0,
+  "frames": 179,
+  "fps": 30,
+  "src": "CMU 02_08"
+ },
+ "boxing": {
+  "desc": "boxing",
+  "kind": "loop",
+  "loops": true,
+  "speed": 0.0,
+  "frames": 179,
+  "fps": 30,
+  "src": "CMU 14_01"
+ },
+ "push": {
+  "desc": "push heavy object",
+  "kind": "loop",
+  "loops": true,
+  "speed": 0.0,
+  "frames": 179,
+  "fps": 30,
+  "src": "CMU 81_05"
+ },
+ "pull": {
+  "desc": "pull heavy object",
+  "kind": "loop",
+  "loops": true,
+  "speed": 0.0,
+  "frames": 179,
+  "fps": 30,
+  "src": "CMU 81_07"
+ },
+ "pick_up": {
+  "desc": "pick up a box",
+  "kind": "once",
+  "loops": false,
+  "speed": 0.0,
+  "frames": 108,
+  "fps": 30,
+  "src": "CMU 115_01"
+ },
+ "stumble": {
+  "desc": "small stumble",
+  "kind": "once",
+  "loops": false,
+  "speed": 0.0,
+  "frames": 78,
+  "fps": 30,
+  "src": "CMU 105_59"
+ },
+ "fall": {
+  "desc": "fall on face",
+  "kind": "once",
+  "loops": false,
+  "speed": 0.0,
+  "frames": 108,
+  "fps": 30,
+  "src": "CMU 90_16"
+ },
+ "get_up": {
+  "desc": "get up from the ground",
+  "kind": "once",
+  "loops": false,
+  "speed": 0.0,
+  "frames": 108,
+  "fps": 30,
+  "src": "CMU 139_16"
+ },
+ "sit_down": {
+  "desc": "sit on a stool and stand up",
+  "kind": "once",
+  "loops": false,
+  "speed": 0.0,
+  "frames": 108,
+  "fps": 30,
+  "src": "CMU 13_01"
+ }
+}
