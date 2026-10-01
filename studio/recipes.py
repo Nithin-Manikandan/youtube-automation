@@ -197,6 +197,8 @@ def build_stage(v, dur, rnd, seed=0):
     dc = [o for o in objs if o["type"] == "depth_charge"]
     if v["background"] == "underwater":
         objs.insert(0, dict(type="seascape", x=.5, dur=dur))
+    if v["background"] == "submarine_interior":
+        objs.insert(0, dict(type="interior", x=.5, dur=dur))
     for o in objs:
         if o["type"] == "explosion":
             o["x"] = .78 if not actors or actors[0]["keys"][0]["x"] < .6 else .22     # blast beside the people, not on top of them
@@ -207,8 +209,8 @@ def build_stage(v, dur, rnd, seed=0):
             if abs(a["keys"][0]["x"] - big[0]["x"]) < .3:
                 for k in a["keys"]:
                     k["x"] = side
-    if not objs and v["background"] == "submarine_interior":
-        objs = [dict(type="pipes", x=.5), dict(type="gauge", x=.14, y=.34), dict(type="gauge", x=.86, y=.4), dict(type="hatch", x=.9 if rnd.random() < .5 else .1)]
+    if v["background"] == "submarine_interior" and not any(o["type"] == "pipes" for o in objs):
+        objs.append(dict(type="pipes", x=.5))
     if not objs and v["background"] == "city_modern":
         objs = [dict(type="building", x=.12), dict(type="building", x=.88, scale=1.15)]
     if not objs and v["background"] in ("city_day", "palace"):

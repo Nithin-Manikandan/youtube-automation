@@ -110,9 +110,12 @@ def enrich(visual, narration, modern):
     if bg == "underwater":                                    # nobody is standing on the seabed
         v["actors"] = []
     v["objects"] = objs[:3]
-    if bg == "submarine_interior" and not v.get("actors"):                      # an interior scene is about the people in it
-        v["actors"] = [dict(role="captain", color="", pos="left", action="talk", emotion="angry", facing="", scale=1.0),
-                       dict(role="officer", color="", pos="right", action="talk", emotion="worried", facing="", scale=1.0)]
+    if bg == "submarine_interior" and len(v.get("actors") or []) < 2:           # an interior scene is about the people in it
+        keep = list(v.get("actors") or [])[:1]
+        v["actors"] = keep + [dict(role="captain", color="red", pos="left", action="talk", emotion="angry", facing="", scale=1.0),
+                       dict(role="officer", color="grey", pos="right", action="talk", emotion="worried", facing="", scale=1.0)][:2 - len(keep)]
+        for a_, p_ in zip(v["actors"], ("center_left", "center_right")):
+            a_["pos"] = p_
     v["effects"] = fx[:3]
     v["background"] = bg or v.get("background")
     flags["modern"] = bool(modern)
@@ -121,3 +124,26 @@ def enrich(visual, narration, modern):
     if any(o in v["objects"] for o in ("submarine", "volcano", "wave", "missile", "warship", "plane", "explosion")) and len(v.get("actors", [])) > 1:
         v["actors"] = v["actors"][:1]
     return v
+
+
+FAMILY = {"city_day": ["palace", "countryside"], "palace": ["city_day", "desert"], "countryside": ["forest", "city_day"], "desert": ["palace", "countryside"],
+          "battlefield": ["storm", "desert"], "storm": ["battlefield", "night"], "night": ["storm", "city_modern"], "city_modern": ["night", "sea"],
+          "sea": ["storm", "city_modern"], "forest": ["countryside", "snow"], "snow": ["forest", "night"]}
+
+
+def variety_pass(visuals):
+    """Never three scenes in a row with the same setting: cut away to a related one (outside the boat, another location, a close two-shot)."""
+    out = list(visuals)
+    for i in range(2, len(out)):
+        a, b, c = out[i - 2], out[i - 1], out[i]
+        if not (a.get("type") == b.get("type") == c.get("type") == "stage"):
+            continue
+        if not (a.get("background") == b.get("background") == c.get("background")):
+            continue
+        c = dict(c)
+        if c["background"] == "submarine_interior":                       # cutaway to the boat seen from outside
+            c.update(background="underwater", actors=[], objects=["submarine"], effects=["bubbles"], title=c.get("title", ""))
+        elif c["background"] in FAMILY:
+            c["background"] = FAMILY[c["background"]][i % 2]
+        out[i] = c
+    return out
