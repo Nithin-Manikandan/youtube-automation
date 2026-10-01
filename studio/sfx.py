@@ -391,20 +391,24 @@ def scene_events(sc, t0, prev=None):
     if "wave" in objs:
         ev.append((t0, "AMB_waves", 1.0, 0.0, dur + 0.4))
         ev.append((t0 + 1.2, "thunder", 0.6, 0.0, 0))
-    fighters = [a for a in sc.get("actors", []) if any(k["pose"] == "swing" for k in a["keys"])]
+    isrun = lambda p: p == "run" or p.startswith("mc:run")
+    iswalk = lambda p: p == "walk" or p.startswith("mc:walk") or p == "mc:sneak"
+    isfight = lambda p: p == "swing" or p.startswith("mc:sword") or p in ("mc:punch", "mc:kick", "mc:boxing")
+    fighters = [a for a in sc.get("actors", []) if any(isfight(k["pose"]) for k in a["keys"])]
     for a in sc.get("actors", []):
         ks = a["keys"]
         sc_gain = 0.55 * float(a.get("scale", 1))
         for k0, k1 in zip(ks, ks[1:]):
-            if abs(k1["x"] - k0["x"]) > 0.02 and "run" in (k0["pose"], k1["pose"]) or (abs(k1["x"] - k0["x"]) > 0.02 and "walk" in (k0["pose"], k1["pose"])):
-                run = "run" in (k0["pose"], k1["pose"])
-                rate = 5.2 if run else 3.2
+            moving = abs(k1["x"] - k0["x"]) > 0.02
+            run = isrun(k0["pose"]) or isrun(k1["pose"])
+            if moving and (run or iswalk(k0["pose"]) or iswalk(k1["pose"])):
+                rate = (5.2 if run else 3.2) * (k0.get("rate", 1.0) if k0["pose"].startswith("mc:") else 1.0)
                 n = int((k1["t"] - k0["t"]) * rate)
                 for i in range(n):
                     tt = k0["t"] + i / rate + rng.uniform(-0.03, 0.03)
                     ev.append((t0 + tt, "foot_run" if run else "foot", sc_gain * rng.uniform(.75, 1.0) * (1.0 if i % 2 else .86), _pan(_x_at(ks, tt)), int(rng.integers(0, 6))))
         for k in ks:
-            if k["pose"] == "swing":
+            if isfight(k["pose"]):
                 n = int((dur - k["t"]) * 1.4)
                 for i in range(n):
                     tt = k["t"] + i / 1.4
@@ -412,7 +416,7 @@ def scene_events(sc, t0, prev=None):
                     ev.append((t0 + tt, "whoosh_s", 0.55, _pan(x), int(rng.integers(0, 4))))
                     if len(fighters) >= 2 and i % 1 == 0 and tt + 0.3 < dur:
                         ev.append((t0 + tt + 0.3, "clash", 0.55 + 0.25 * (i % 2), 0.0, int(rng.integers(0, 4))))
-        if any(k["pose"] == "cheer" for k in ks):
+        if any(k["pose"] in ("cheer", "mc:happy") for k in ks):
             ev.append((t0 + 0.3, "applause", 0.6, 0.0, 0))
         if a.get("crown_fall") is not None:
             ev.append((t0 + a["crown_fall"] + 0.5, "clink", 0.7, _pan(_x_at(ks, a["crown_fall"])), int(rng.integers(0, 4))))
