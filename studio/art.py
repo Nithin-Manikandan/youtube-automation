@@ -554,4 +554,28 @@ def mission_control(d, o, x, S, gy, t, WS):
             d.rectangle([cx - w * .35, yy - S * .035, cx + w * .35, yy - S * .008], fill=(60, int(150 + 80 * on), 200, 255))
 
 
-DRAW = {"spacecraft": spacecraft, "planet": planet, "capsule_interior": capsule_interior, "mission_control": mission_control, "ship": ship, "burning_town": burning_town, "liner": liner, "iceberg": iceberg, "interior": interior, "crowd": crowd, "wave": wave, "explosion": explosion, "submarine": submarine, "warship": warship, "plane": plane, "seascape": seascape}
+def reactor(d, o, x, S, gy, t, WS):
+    """Soviet-style nuclear plant: blocky turbine hall, the striped ventilation stack, a cooling tower, a faint green glow and a drifting plume."""
+    sc = o.get("scale", 1)
+    hw, hh = S * .42 * sc, S * .16 * sc
+    d.rectangle([x - hw / 2, gy - hh, x + hw / 2, gy], fill=(142, 146, 150), outline=INK, width=4)                 # turbine hall
+    for k in range(7):
+        _rect(d, x - hw / 2 + hw * .06 + k * hw * .13, gy - hh * .7, x - hw / 2 + hw * .06 + k * hw * .13 + hw * .06, gy - hh * .35, fill=(70, 96, 120))
+    rx, rh = x + hw * .3, S * .30 * sc
+    d.rectangle([rx - hw * .18, gy - hh - rh * .5, rx + hw * .18, gy - hh], fill=(168, 170, 172), outline=INK, width=4)    # reactor block
+    sx = x - hw * .72                                                                                              # red and white ventilation stack
+    sh, sw = S * .72 * sc, S * .035 * sc
+    d.polygon([(sx - sw * 1.1, gy), (sx + sw * 1.1, gy), (sx + sw * .6, gy - sh), (sx - sw * .6, gy - sh)], fill=(238, 238, 234), outline=INK)
+    for k in range(4):
+        y0 = gy - sh * (.18 + .22 * k)
+        d.polygon([(sx - sw * (1.05 - .45 * (.18 + .22 * k)), y0), (sx + sw * (1.05 - .45 * (.18 + .22 * k)), y0), (sx + sw * (1.05 - .45 * (.18 + .22 * k + .1)), y0 - sh * .1), (sx - sw * (1.05 - .45 * (.18 + .22 * k + .1)), y0 - sh * .1)], fill=(196, 52, 44))
+    tx, tw, th = x + hw * .95, S * .2 * sc, S * .42 * sc                                                          # cooling tower
+    d.polygon([(tx - tw * .55, gy), (tx + tw * .55, gy), (tx + tw * .32, gy - th * .55), (tx + tw * .42, gy - th), (tx - tw * .42, gy - th), (tx - tw * .32, gy - th * .55)], fill=(184, 186, 188), outline=INK)
+    for k in range(10):                                                                                           # plume
+        age = (t * .22 + k / 10) % 1.0
+        _circle(d, tx + math.sin(age * 4 + k) * tw * .3 + age * S * .1, gy - th - age * S * .5, S * (.03 + .06 * age), (210, 212, 214, int(170 * (1 - age))))
+    for k in range(5):                                                                                            # eerie green glow over the reactor
+        _circle(d, rx, gy - hh - rh * .2, S * (.1 + .04 * k) * sc, (120, 255, 140, 14 + int(8 * math.sin(t * 2))))
+
+
+DRAW = {"reactor": reactor, "spacecraft": spacecraft, "planet": planet, "capsule_interior": capsule_interior, "mission_control": mission_control, "ship": ship, "burning_town": burning_town, "liner": liner, "iceberg": iceberg, "interior": interior, "crowd": crowd, "wave": wave, "explosion": explosion, "submarine": submarine, "warship": warship, "plane": plane, "seascape": seascape}

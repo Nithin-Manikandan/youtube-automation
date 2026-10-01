@@ -50,7 +50,8 @@ def checks(d, pkg):
     add("at least 8 tags", len(pkg.get("tags", [])) >= 8, f"{len(pkg.get('tags', []))}")
     lines = [l for l in str(pkg.get("script", "")).split("\n") if l.strip()]
     first = lines[0] if lines else ""
-    add("hook: concrete first line", re.search(r"\d", first) or sum(w[:1].isupper() for w in first.split()[1:]) >= 1, first[:80])
+    from studio.auto import hook_is_concrete
+    add("hook: concrete first line", hook_is_concrete(first), first[:80])
     add("hook: asks a question", any(l.strip().endswith("?") for l in lines[:12]))
     add("three thumbnails", all((d / "out" / f"thumb{k}.jpg").exists() for k in (1, 2, 3)))
     high = [f for f in pkg.get("flags", []) if isinstance(f, dict) and str(f.get("severity", "")).lower() == "high"]
