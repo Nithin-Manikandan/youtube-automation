@@ -586,7 +586,8 @@ def plan(job, pdir, settings, hint=None):
     thumbs = []
     for k, tr in enumerate((meta.get("thumbs") or [])[:3]):
         pth = pdir / "out" / f"thumb{k + 1}.jpg"
-        first_back = ((meta.get("thumbs") or [{}])[0].get("backdrop") or "").lower()
+        tr = subjects.era_fix_thumb(tr, modern)
+        first_back = ((subjects.era_fix_thumb((meta.get("thumbs") or [{}])[0], modern)).get("backdrop") or "").lower()
         back = str(tr.get("backdrop") or "").lower()
         back = back if back in recipes.OBJECTS else (first_back if first_back in recipes.OBJECTS else "")
         if back:                                                  # all three thumbnails show the story's real subject, framed three different ways

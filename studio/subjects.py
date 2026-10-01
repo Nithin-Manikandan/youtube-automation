@@ -99,6 +99,8 @@ def enrich(visual, narration, modern, anchor=None, story_has_sub=True):
         # take the narration's setting unless the AI already chose something equally specific
         if bg != hinted_bg and not (bg in ("underwater", "submarine_interior") and hinted_bg == "sea"):
             bg = hinted_bg
+    if bg == "sea" and v.get("actors"):
+        bg = "harbor"                                                # people need a shore to stand on
     if bg == "underwater" and not story_has_sub and not any(o in objs for o in ("submarine", "depth_charge", "torpedo")):
         bg = "sea"                                                   # no submarine in this story: stay on the surface
     if bg == "underwater" and inside and not re.search(r"depth[- ]?charge|sonar|torpedo|hunted|surfaced|dove|dived|diving|destroyers?|warships?", text):
@@ -215,3 +217,17 @@ def company_pass(visuals, modern=False):
         else:
             lone = 0
     return out
+
+
+def era_fix_thumb(tr, modern):
+    """Thumbnails use the same era rules as the scenes: no modern roles or vessels in an old story."""
+    tr = dict(tr)
+    if not modern:
+        for k in ("role", "enemy_role"):
+            if tr.get(k) in MODERN_TO_ANCIENT:
+                tr[k] = MODERN_TO_ANCIENT[tr[k]]
+        mapped = {"warship": "ship", "liner": "ship", "submarine": "ship", "plane": "tower", "missile": "tower", "building": "house", "depth_charge": "ship", "torpedo": "ship"}
+        if tr.get("backdrop") in mapped:
+            tr["backdrop"] = mapped[tr["backdrop"]]
+        tr["objects"] = [mapped.get(o, o) for o in (tr.get("objects") or [])]
+    return tr
