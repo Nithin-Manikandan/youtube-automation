@@ -1,0 +1,53 @@
+name: Publish video
+
+# Checks a finished "Auto video" run and (optionally) uploads it to YouTube.
+# Needs secrets YT_CLIENT_ID, YT_CLIENT_SECRET, YT_REFRESH_TOKEN for the upload.
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Run ID of the finished Auto video run (the number at the end of its URL)"
+        required: true
+      thumb:
+        description: "Which thumbnail to use (1, 2 or 3)"
+        default: "1"
+      privacy:
+        description: "private, unlisted or public"
+        default: "private"
+      upload:
+        description: "true = upload after the checks pass; false = checks only"
+        default: "false"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          name: auto-video
+          run-id: ${{ github.event.inputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: output/auto
+      - name: Quality checks, then upload
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          THUMB: ${{ github.event.inputs.thumb }}
+          PRIVACY: ${{ github.event.inputs.privacy }}
+          DO_UPLOAD: ${{ github.event.inputs.upload }}
+        run: |
+          FLAG=""
+          if [ "$DO_UPLOAD" = "true" ]; then FLAG="--upload"; fi
+          python -m studio.publish_cli output/auto --thumb "$THUMB" --privacy "$PRIVACY" $FLAG
