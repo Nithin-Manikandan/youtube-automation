@@ -42,6 +42,8 @@ BACKGROUNDS = {
                 hills=[dict(color=(110, 154, 196), base=.62, amp=.012, freq=6.0, seed=1, par=.05)]),
     "snow": dict(sky=((186, 204, 226), (240, 244, 250)), ground_color=(236, 240, 246),
                  hills=[dict(color=(214, 222, 236), base=.66, amp=.07, freq=2.8, seed=6, par=.10), dict(color=(228, 234, 244), base=.73, amp=.05, freq=3.6, seed=3, par=.22)]),
+    "harbor": dict(sky=((150, 196, 226), (236, 232, 214)), sun=(0.78, 0.2, (252, 214, 120)), ground_color=(190, 170, 126),
+                   hills=[dict(color=(104, 150, 190), base=.64, amp=.004, freq=1.0, seed=3, par=.02), dict(color=(80, 128, 172), base=.70, amp=.004, freq=1.2, seed=5, par=.04)]),
     "underwater": dict(sky=((8, 52, 104), (40, 150, 176)), ground_color=(158, 146, 106),
                        hills=[dict(color=(22, 92, 132), base=.70, amp=.03, freq=3.4, seed=4, par=.10)]),
     "submarine_interior": dict(sky=((26, 36, 40), (60, 74, 76)), ground_color=(72, 80, 82), hills=[]),
@@ -151,7 +153,7 @@ def actor_keys(a, dur, idx, n):
         end = x + (.2 if facing > 0 else -.2)
         return [K(0, x, act), K(dur, end, act)]
     if act == "fight":
-        meet = .5 + (-.065 if x < center else .065)            # both fighters charge in and trade blows at the middle
+        meet = .5 + (-.09 if x < center else .09)            # both fighters charge in and trade blows at the middle
         t1 = min(1.0 + .15 * idx, dur * .3)
         ks = [K(0, x, "sword_up"), K(t1, meet, "run"), K(t1 + .25, meet, "fight_swing")]
         t, j = t1 + .25, 0
@@ -200,7 +202,7 @@ def build_stage(v, dur, rnd, seed=0):
     flags = v.get("flags") or {}
     for j, o in enumerate(v["objects"]):
         objs.append(dict(type=o, x=BIG.get(o, [.16, .84, .5, .3][j % 4]) if o not in ("torch",) else xs[j % 4], y=.18 + .05 * j, r=.05, scale=1.0,
-                         dur=dur, modern=bool(flags.get("modern")), afloat=v["background"] == "underwater", launch=bool(flags.get("launch")),
+                         harbor=v["background"] == "harbor", dur=dur, modern=bool(flags.get("modern")), afloat=v["background"] == "underwater", launch=bool(flags.get("launch")),
                          t0=dur * (.3 + .12 * j) if o in ("depth_charge", "explosion", "torpedo") else .4,
                          color=(255, 255, 255, 160) if v["background"] not in ("storm", "night", "battlefield", "volcanic", "ashen") else (92, 94, 104)))
     dc = [o for o in objs if o["type"] == "depth_charge"]

@@ -285,6 +285,8 @@ def draw_object(d, o, W, H, gy, t):
     S = H * SS
     k = o["type"]
     if k in art.DRAW:
+        if o.get("harbor") and k in ("ship", "warship", "liner", "iceberg", "wave"):
+            gy = gy - S * 0.075                                  # vessels float out on the water band, people stand on the shore
         art.DRAW[k](d, o, x, S, gy, t, W * SS)
         return
     if k == "castle":

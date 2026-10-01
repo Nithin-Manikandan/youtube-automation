@@ -296,7 +296,7 @@ def ambient(d, bg, t, S, gy, WS):
         for i in range(10):
             age = (t * .45 + i / 10) % 1.0
             _circle(d, WS * (.08 + .84 * ((i * 7) % 10) / 10) + math.sin(age * 6 + i) * 10, gy - S * .5 * age, S * (.012 + .02 * age), (220, 226, 230, int(70 * (1 - age))))
-    if bg in ("sea", "storm"):
+    if bg in ("sea", "storm", "harbor"):
         for i in range(14):                                            # sparkles / whitecaps on the water
             wx = (rng.random() * WS + t * S * .02 * (1 + i % 3)) % WS
             wy = gy + S * .01 + rng.random() * (S - gy) * .8
@@ -428,7 +428,7 @@ def ship(d, o, x, S, gy, t, WS):
     for q in range(6):
         _circle(d, x - w * .3 + q * w * .12, yb - h * .62, S * .006, (30, 24, 20))
     bil = math.sin(t * 1.4) * S * .006
-    for mx, mh, sw in ((x - w * .12, h * 6.2, w * .3), (x + w * .22, h * 5.2, w * .25)):
+    for mx, mh, sw in ((x - w * .12, h * 4.8, w * .3), (x + w * .22, h * 4.0, w * .25)):
         d.line([(mx, yb - h * 1.25), (mx, yb - h * 1.25 - mh)], fill=(70, 50, 34), width=7)
         top = yb - h * 1.25 - mh
         d.polygon([(mx - sw / 2, top + mh * .08), (mx + sw / 2, top + mh * .08), (mx + sw / 2 + bil, top + mh * .55), (mx, top + mh * .62 + bil), (mx - sw / 2 + bil, top + mh * .55)], fill=(240, 232, 214), outline=INK)
