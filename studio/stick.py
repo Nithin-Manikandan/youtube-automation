@@ -835,11 +835,11 @@ def _camera(scene, t, u, fx0, fx1):
 PARALLAX = 0.55          # how much of the camera move the distant layer (sky and hills) follows; the rest is depth
 
 
-def _warp(arr, W, H, z, cx, cy, sx, sy):
+def _warp(arr, W, H, z, cx, cy, sx, sy, border=cv2.BORDER_REPLICATE):
     M = cv2.getRotationMatrix2D((cx * W * SS, cy * H * SS), 0, z / SS)
     M[0, 2] += W / 2 - cx * W * SS + sx / SS
     M[1, 2] += H / 2 - cy * H * SS + sy / SS
-    return cv2.warpAffine(arr, M, (W, H), flags=cv2.INTER_AREA if z / SS < 1 else cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
+    return cv2.warpAffine(arr, M, (W, H), flags=cv2.INTER_AREA if z / SS < 1 else cv2.INTER_LINEAR, borderMode=border)
 
 
 def render_frame(scene, t, W, H):
@@ -889,8 +889,8 @@ def render_frame(scene, t, W, H):
         zf = 1 + (z - 1) * kf
         cxf, cyf = 0.5 + (cx - 0.5) * kf, 0.5 + (cy - 0.5) * kf
         near_pm = cv2.bitwise_and(near, near, mask=mask)       # premultiplied by coverage so edges composite cleanly over the moving background
-        n_w = _warp(near_pm, W, H, z, cx, cy, sx, sy).astype(np.float32)
-        m_w = _warp(mask, W, H, z, cx, cy, sx, sy).astype(np.float32)[..., None] / 255.0
+        n_w = _warp(near_pm, W, H, z, cx, cy, sx, sy, cv2.BORDER_CONSTANT).astype(np.float32)
+        m_w = _warp(mask, W, H, z, cx, cy, sx, sy, cv2.BORDER_CONSTANT).astype(np.float32)[..., None] / 255.0
         f_w = cv2.GaussianBlur(_warp(far, W, H, zf, cxf, cyf, sx * 0.8, sy * 0.8), (0, 0), 1.6).astype(np.float32)     # distant layer is slightly out of focus: depth of field
         out = np.clip(n_w + f_w * (1.0 - m_w), 0, 255).astype(np.uint8)
         if scene.get("dim"):

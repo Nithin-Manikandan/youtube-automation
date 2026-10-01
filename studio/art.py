@@ -496,33 +496,10 @@ def spacecraft(d, o, x, S, gy, t, WS):
     cx, cy = x + math.sin(t * .25) * S * .02, S * .47 + math.sin(t * .4) * S * .012
     a = math.sin(t * .3) * .12 + o.get("tilt", -.12)
     L, R = S * .30 * sc, S * .075 * sc
-    def poly(pts, fill, outline=INK):
-        d.polygon(_rot([(cx + px * L, cy + py * R) for px, py in pts], cx, cy, a), fill=fill, outline=outline)
-    poly([(-.5, -.8), (.15, -.8), (.15, .8), (-.5, .8)], (226, 218, 196))                          # service module
-    roll = t * 0.55 + o.get("roll0", 0.0)                                                        # the stack rolls slowly on its axis: panel stripes wrap round the cylinder
-    for k in range(9):
-        ph = roll + k * math.pi / 4.5
-        c_ = math.cos(ph)
-        if c_ <= 0.08:
-            continue
-        yy = .8 * math.sin(ph)
-        hh = .075 * c_ + .012
-        poly([(-.5, yy - hh), (.15, yy - hh), (.15, yy + hh), (-.5, yy + hh)], (176 + int(28 * c_), 168 + int(28 * c_), 148 + int(26 * c_)), None)
-    for k in range(3):
-        poly([(-.26 + k * .22, -.8), (-.24 + k * .22, -.8), (-.24 + k * .22, .8), (-.26 + k * .22, .8)], (206, 198, 176), None)
-    poly([(.15, -.8), (.50, -.38), (.50, .38), (.15, .8)], (188, 192, 200))                        # command module
-    poly([(.15, -.8), (.18, -.8), (.18, .8), (.15, .8)], (60, 52, 50), None)                        # heat shield
-    poly([(-.5, -.3), (-.66, -.46), (-.66, .46), (-.5, .3)], (92, 94, 100))                         # engine bell
-    for dy in (-.95, .95):
-        poly([(-.2, dy), (-.12, dy), (-.12, dy * .82), (-.2, dy * .82)], (150, 150, 156))           # RCS quads
-    poly([(-.5, -.8), (.15, -.8), (.15, -.45), (-.5, -.45)], (255, 255, 255, 70), None)          # sunlit upper edge
-    poly([(-.5, .45), (.15, .45), (.15, .8), (-.5, .8)], (40, 40, 56, 90), None)                 # shadowed underside
-    for k in range(3):                                                                           # command module windows
-        poly([(.28 + k * .07, -.12), (.32 + k * .07, -.12), (.32 + k * .07, .12), (.28 + k * .07, .12)], (40, 60, 90), None)
-    poly([(.5, -.05), (.62, -.05), (.62, .05), (.5, .05)], (150, 150, 156))                       # docking probe
-    d.line(_rot([(cx - L * .1, cy - R * .8), (cx - L * .1, cy - R * 1.6)], cx, cy, a), fill=INK, width=5)  # antenna mast
-    if o.get("venting"):                                                                          # blown-out service module panel
-        poly([(-.28, .8), (-.12, .8), (-.1, .45), (-.2, .55), (-.3, .4)], (30, 26, 28))
+    from . import space
+    roll = t * 0.55 + o.get("roll0", 0.0)
+    sprite = space.spacecraft_sprite(L, R, roll, bool(o.get("venting")))
+    space.paste_sprite(d, sprite, cx, cy, -math.degrees(a))
     wy = o.get("venting") or (int(t * 1.2) % 5 == 0)
     if o.get("venting"):                                                                              # oxygen streaming out of the side
         for k in range(26):
@@ -537,27 +514,8 @@ def spacecraft(d, o, x, S, gy, t, WS):
 def planet(d, o, x, S, gy, t, WS):
     kind = o.get("kind", "earth")
     cx, cy, r = WS * (.84 if o.get("side", 1) > 0 else .16), S * .22, S * .30 * o.get("scale", 1)
-    if kind == "moon":
-        _circle(d, cx, cy, r, (176, 176, 182), (110, 110, 118), 4)
-        rng = random.Random(8)
-        for i in range(14):
-            a_ = rng.random() * 6.28; rr = rng.random() * r * .8
-            _circle(d, cx + math.cos(a_) * rr, cy + math.sin(a_) * rr, r * (.04 + .08 * rng.random()), (138, 138, 146), (118, 118, 126), 2)
-        return
-    for k in range(4):
-        _circle(d, cx, cy, r * (1.12 - .03 * k), (110, 170, 255, 22))                                 # atmosphere glow
-    _circle(d, cx, cy, r, (36, 94, 178), (120, 190, 255), 4)
-    rng = random.Random(5)
-    for i in range(7):                                                                                # continents
-        a_ = rng.random() * 6.28; rr = rng.random() * r * .6
-        px, py = cx + math.cos(a_ + t * .05) * rr, cy + math.sin(a_) * rr * .8
-        d.ellipse([px - r * .22, py - r * .12, px + r * .22, py + r * .12], fill=(72, 140, 84, 230))
-    rng2 = random.Random(12)
-    for i in range(10):                                                                               # flat cloud banks kept inside the disc
-        a_ = rng2.random() * 6.28; rr = rng2.random() * r * .55
-        px, py = cx + math.cos(a_ + t * .03) * rr, cy + math.sin(a_) * rr * .8
-        w_ = r * (.12 + .1 * rng2.random())
-        d.ellipse([px - w_, py - w_ * .3, px + w_, py + w_ * .3], fill=(244, 248, 255, 150))
+    from . import space
+    space.paste_sprite(d, space.planet_sprite(kind, r, t), cx, cy)
 
 
 def capsule_interior(d, o, x, S, gy, t, WS):
