@@ -94,8 +94,11 @@ def enrich(visual, narration, modern):
     named = [o for o in objs if any(o in r[1] for r in RULES if re.search(r[0], text))]
     rest = [o for o in objs if o not in named]
     objs = named + rest
-    if bg in ("underwater", "submarine_interior"):            # no surface ships, armies or people on the seabed
-        objs = [o for o in objs if o not in ("warship", "ship", "crowd")]
+    if bg in ("underwater", "submarine_interior"):            # nothing from the surface world belongs down here
+        objs = [o for o in objs if o not in ("warship", "ship", "crowd", "plane", "building", "house", "wave", "castle", "pyramid", "volcano")]
+    if str(v.get("title", "")).strip().lower().replace(" ", "_") in {"submarine_interior", "underwater", "city_day", "battlefield", "palace", "sea"}:
+        v["title"] = ""                                       # a place name is not a headline
+    if bg == "underwater":                                    # nobody is standing on the seabed
         v["actors"] = []
     v["objects"] = objs[:3]
     v["effects"] = fx[:3]
