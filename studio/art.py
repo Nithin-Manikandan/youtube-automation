@@ -452,7 +452,7 @@ def spacecraft(d, o, x, S, gy, t, WS):
     """Apollo-style stack: cone command module, cylindrical service module with engine bell, slow tumble, venting gas when damaged."""
     sc = o.get("scale", 1) * 1.9
     cx, cy = x + math.sin(t * .25) * S * .02, S * .42 + math.sin(t * .4) * S * .012
-    a = math.sin(t * .3) * .16 - .12
+    a = math.sin(t * .3) * .12 + o.get("tilt", -.12)
     L, R = S * .30 * sc, S * .075 * sc
     def poly(pts, fill, outline=INK):
         d.polygon(_rot([(cx + px * L, cy + py * R) for px, py in pts], cx, cy, a), fill=fill, outline=outline)
@@ -464,6 +464,14 @@ def spacecraft(d, o, x, S, gy, t, WS):
     poly([(-.5, -.3), (-.66, -.46), (-.66, .46), (-.5, .3)], (92, 94, 100))                         # engine bell
     for dy in (-.95, .95):
         poly([(-.2, dy), (-.12, dy), (-.12, dy * .82), (-.2, dy * .82)], (150, 150, 156))           # RCS quads
+    poly([(-.5, -.8), (.15, -.8), (.15, -.45), (-.5, -.45)], (255, 255, 255, 70), None)          # sunlit upper edge
+    poly([(-.5, .45), (.15, .45), (.15, .8), (-.5, .8)], (40, 40, 56, 90), None)                 # shadowed underside
+    for k in range(3):                                                                           # command module windows
+        poly([(.28 + k * .07, -.12), (.32 + k * .07, -.12), (.32 + k * .07, .12), (.28 + k * .07, .12)], (40, 60, 90), None)
+    poly([(.5, -.05), (.62, -.05), (.62, .05), (.5, .05)], (150, 150, 156))                       # docking probe
+    d.line(_rot([(cx - L * .1, cy - R * .8), (cx - L * .1, cy - R * 1.6)], cx, cy, a), fill=INK, width=5)  # antenna mast
+    if o.get("venting"):                                                                          # blown-out service module panel
+        poly([(-.28, .8), (-.12, .8), (-.1, .45), (-.2, .55), (-.3, .4)], (30, 26, 28))
     wy = o.get("venting") or (int(t * 1.2) % 5 == 0)
     if o.get("venting"):                                                                              # oxygen streaming out of the side
         for k in range(26):
@@ -477,7 +485,7 @@ def spacecraft(d, o, x, S, gy, t, WS):
 
 def planet(d, o, x, S, gy, t, WS):
     kind = o.get("kind", "earth")
-    cx, cy, r = WS * .84, S * .22, S * .30 * o.get("scale", 1)
+    cx, cy, r = WS * (.84 if o.get("side", 1) > 0 else .16), S * .22, S * .30 * o.get("scale", 1)
     if kind == "moon":
         _circle(d, cx, cy, r, (176, 176, 182), (110, 110, 118), 4)
         rng = random.Random(8)
