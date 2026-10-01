@@ -39,7 +39,20 @@ def gemini_text(prompt, urls=None, json_out=False, temperature=0.7):
 
 
 def _json(text):
-    return json.loads(re.sub(r"^```(?:json)?|```$", "", text.strip(), flags=re.M).strip())
+    raw = re.sub(r"^```(?:json)?|```$", "", text.strip(), flags=re.M).strip()
+    try:
+        return json.loads(raw)
+    except ValueError:
+        pass
+    try:                                                    # models sometimes emit unescaped quotes, trailing commas or cut-off output
+        import json_repair
+        out = json_repair.loads(raw)
+        if out not in ("", None):
+            return out
+    except ImportError:
+        pass
+    fixed = re.sub(r",\s*([}\]])", r"\1", raw.replace("\u201c", '"').replace("\u201d", '"'))
+    return json.loads(fixed)
 
 
 # The four prompts from the video's workflow, verbatim. The only additions are the niche, the source
