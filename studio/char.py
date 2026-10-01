@@ -185,13 +185,27 @@ def draw_v2(a, img, t, gy, scene, ctx):
             cx = cx + f * S * 0.10 * min(dt, 0.6) * 1.6
         w, h = rad * 0.9, rad * 0.75
         d.polygon([(cx - w, cy), (cx - w, cy - h), (cx - w / 2, cy - h / 2), (cx, cy - h * 1.1), (cx + w / 2, cy - h / 2), (cx + w, cy - h), (cx + w, cy)], fill=K.GOLD)
-    if "sword" in props:
-        tip = add(hand, K.seg((0, 0), dirv, 0.34 * S, f))
-        K.line(d, [hand, tip], lw * 0.6, (150, 154, 164))
-        gx = K.seg((0, 0), dirv + 90, 0.05 * S, f)
-        d.line([add(hand, gx), (hand[0] - gx[0], hand[1] - gx[1])], fill=(90, 70, 50), width=int(lw * .7))
+    if "sword" in props:                                             # a tapered steel blade with a cross-guard, grip and pommel
+        tip = add(hand, K.seg((0, 0), dirv, 0.40 * S, f))
+        ux, uy = tip[0] - hand[0], tip[1] - hand[1]
+        un = math.hypot(ux, uy) or 1.0
+        ux, uy = ux / un, uy / un
+        nx_, ny_ = -uy, ux
+        bw_ = S * 0.017
+        base_ = (hand[0] + ux * S * 0.05, hand[1] + uy * S * 0.05)
+        d.polygon([(base_[0] + nx_ * bw_, base_[1] + ny_ * bw_), tip, (base_[0] - nx_ * bw_, base_[1] - ny_ * bw_)], fill=(206, 212, 224))
+        d.line([base_, (tip[0] - ux * S * 0.03, tip[1] - uy * S * 0.03)], fill=(244, 247, 252), width=max(2, int(S * 0.006)))
+        d.line([(base_[0] + nx_ * S * 0.05, base_[1] + ny_ * S * 0.05), (base_[0] - nx_ * S * 0.05, base_[1] - ny_ * S * 0.05)], fill=(186, 150, 60), width=max(3, int(S * 0.016)))
+        d.line([hand, (hand[0] - ux * S * 0.06, hand[1] - uy * S * 0.06)], fill=(98, 66, 44), width=max(3, int(S * 0.018)))
+        d.ellipse([hand[0] - ux * S * 0.075 - S * 0.011, hand[1] - uy * S * 0.075 - S * 0.011, hand[0] - ux * S * 0.075 + S * 0.011, hand[1] - uy * S * 0.075 + S * 0.011], fill=(186, 150, 60))
     if "spear" in props:
-        K.line(d, [add(hand, K.seg((0, 0), dirv + 180, .2 * S, f)), add(hand, K.seg((0, 0), dirv, .5 * S, f))], lw * .5, (130, 96, 62))
+        p0, p1 = add(hand, K.seg((0, 0), dirv + 180, .2 * S, f)), add(hand, K.seg((0, 0), dirv, .5 * S, f))
+        K.line(d, [p0, p1], lw * .5, (130, 96, 62))
+        ux, uy = p1[0] - p0[0], p1[1] - p0[1]
+        un = math.hypot(ux, uy) or 1.0
+        ux, uy = ux / un, uy / un
+        tipp = (p1[0] + ux * S * 0.075, p1[1] + uy * S * 0.075)
+        d.polygon([(p1[0] - uy * S * 0.02, p1[1] + ux * S * 0.02), tipp, (p1[0] + uy * S * 0.02, p1[1] - ux * S * 0.02)], fill=(206, 212, 224))   # steel head
     if "shield" in props:
         sr = 0.085 * S
         d.ellipse([b2[0] - sr, b2[1] - sr, b2[0] + sr, b2[1] + sr], fill=col)
