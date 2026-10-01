@@ -390,4 +390,31 @@ def iceberg(d, o, x, S, gy, t, WS):
         _circle(d, x + (-.4 + age * .8) * w, gy + S * .004, S * .008 * (1 - age) + 2, (240, 250, 255, int(200 * (1 - age))))
 
 
-DRAW = {"liner": liner, "iceberg": iceberg, "interior": interior, "crowd": crowd, "wave": wave, "explosion": explosion, "submarine": submarine, "warship": warship, "plane": plane, "seascape": seascape}
+def burning_town(d, o, x, S, gy, t, WS):
+    """A row of timber houses far back, engulfed: tall flames, glowing windows, rolling smoke and an orange sky glow."""
+    sc = o.get("scale", .6)
+    rng = random.Random(17)
+    d.polygon([(0, gy), (WS, gy), (WS, gy - S * .42), (0, gy - S * .42)], fill=(255, 110, 30, 26))             # sky glow
+    xs = [WS * (.06 + .11 * i) + rng.random() * S * .02 for i in range(9)]
+    for i, hx in enumerate(xs):
+        hw, hh = S * (.07 + .02 * rng.random()) * sc * 2.6, S * (.08 + .05 * rng.random()) * sc * 2.4
+        top = gy - hh
+        d.polygon([(hx - hw / 2, gy), (hx + hw / 2, gy), (hx + hw / 2, top), (hx, top - hh * .5), (hx - hw / 2, top)], fill=(58, 44, 40, 235), outline=(20, 16, 16))
+        for wx in (-.2, .2):
+            on = .6 + .4 * math.sin(t * 5 + i + wx * 9)
+            _rect(d, hx + wx * hw - hw * .07, gy - hh * .6, hx + wx * hw + hw * .07, gy - hh * .35, fill=(255, int(150 + 80 * on), 40, 255))
+        for k in range(4):                                                 # flames licking up the roofline
+            ph = t * (6 + k) + i * 1.7 + k
+            fh = hh * (.55 + .35 * math.sin(ph) ** 2 + .15 * (k % 2))
+            fx = hx - hw * .35 + k * hw * .23
+            d.polygon([(fx - hw * .13, top + hh * .2), (fx + hw * .13, top + hh * .2), (fx + math.sin(ph * 1.3) * hw * .08, top - fh)], fill=(255, 120, 30, 235))
+            d.polygon([(fx - hw * .07, top + hh * .2), (fx + hw * .07, top + hh * .2), (fx + math.sin(ph * 1.3) * hw * .05, top - fh * .6)], fill=(255, 220, 90, 245))
+        for j in range(5):                                                 # smoke columns
+            age = (t * .3 + j / 5 + i * .11) % 1.0
+            _circle(d, hx + math.sin(age * 5 + i) * hw * .6 + age * S * .04, top - hh * .3 - age * S * .45, S * (.02 + .045 * age), (60, 56, 58, int(170 * (1 - age) ** .8)))
+    for k in range(40):                                                    # embers drifting up
+        age = (t * .4 + k / 40) % 1.0
+        _circle(d, WS * (k * .0251 % 1) + math.sin(t + k) * S * .02, gy - age * S * .5, 2 + 2 * (k % 3), (255, int(160 + 80 * (1 - age)), 50, int(230 * (1 - age))))
+
+
+DRAW = {"burning_town": burning_town, "liner": liner, "iceberg": iceberg, "interior": interior, "crowd": crowd, "wave": wave, "explosion": explosion, "submarine": submarine, "warship": warship, "plane": plane, "seascape": seascape}

@@ -52,11 +52,19 @@ def anchor_for(topic_text):
         return "volcano"
     if re.search(r"\b(pyramids?|giza|pharaoh)\b", t):
         return "pyramid"
+    if re.search(r"\b(great fire|fire of|burn(?:ed|ing|t)?|blaze|inferno|fire)\b", t):
+        return "burning_town"
     return None
+
+
+GEO_WORDS = re.compile(r"\b(march\w*|invad\w*|invasion|route|sail\w*|voyage|spread|spreading|border\w*|empire|territor\w*|advanc\w*|retreat\w*|expand\w*|conquer\w*|kingdom|coast|island|continent|across the|crossed|trade route|armies|fleet)\b", re.I)
 
 
 def enrich(visual, narration, modern, anchor=None, story_has_sub=True):
     """Return the visual with the narration's subjects added. Only stage scenes are touched."""
+    if visual.get("type") == "map" and not GEO_WORDS.search(narration):
+        # a map with no geography in the line is decoration: draw the scene instead
+        visual = dict(type="stage", background="countryside" if not modern else "city_modern", actors=[], objects=[], effects=[], title="", camera="push_in")
     if visual.get("type") != "stage":
         return visual
     v = dict(visual)
@@ -143,7 +151,8 @@ def enrich(visual, narration, modern, anchor=None, story_has_sub=True):
     v["background"] = bg or v.get("background")
     flags["modern"] = bool(modern)
     v["flags"] = flags
-    if anchor and bg not in ("submarine_interior", "underwater") and anchor not in (v.get("objects") or []):
+    gate = {"burning_town": r"\b(fire|fires|flames?|burn\w*|blaze|inferno|ember|embers|smoke|ablaze|ash|ashes|scorch\w*)\b"}.get(anchor)
+    if anchor and bg not in ("submarine_interior", "underwater") and anchor not in (v.get("objects") or []) and (gate is None or re.search(gate, text)):
         v["anchor"] = anchor
     # a sunk-in-thought lone character is boring: if the subject is a vehicle/disaster, let it dominate
     if any(o in v["objects"] for o in ("submarine", "volcano", "wave", "missile", "warship", "plane", "explosion")) and len(v.get("actors", [])) > 1:
@@ -156,7 +165,10 @@ FAMILY = {"city_day": ["palace", "countryside"], "palace": ["city_day", "desert"
           "sea": ["storm", "city_modern"], "forest": ["countryside", "snow"], "snow": ["forest", "night"]}
 
 
-def variety_pass(visuals):
+BYSTANDER = {True: ("reporter", "worker", "officer"), False: ("citizen", "scholar", "soldier")}
+
+
+def variety_pass(visuals, modern=False):
     """Never three scenes in a row with the same setting: cut away to a related one (outside the boat, another location, a close two-shot)."""
     out = list(visuals)
     for i in range(2, len(out)):
@@ -171,4 +183,24 @@ def variety_pass(visuals):
         elif c["background"] in FAMILY:
             c["background"] = FAMILY[c["background"]][i % 2]
         out[i] = c
+    return out
+
+
+def company_pass(visuals, modern=False):
+    """Never three lone figures in a row: the third scene gets a second person reacting."""
+    out = list(visuals)
+    lone = 0
+    for i, v in enumerate(out):
+        if v.get("type") == "stage" and len(v.get("actors") or []) == 1 and v.get("background") not in ("underwater",):
+            lone += 1
+            if lone >= 3:
+                v = dict(v)
+                a0 = v["actors"][0]
+                role = BYSTANDER[bool(modern)][i % 3]
+                v["actors"] = list(v["actors"]) + [dict(role=role, color="", pos="right" if str(a0.get("pos", "center")).endswith(("left", "center")) else "left", action="talk",
+                                                       emotion="worried", facing="", scale=.95)]
+                out[i] = v
+                lone = 0
+        else:
+            lone = 0
     return out
