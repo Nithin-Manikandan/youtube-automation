@@ -207,7 +207,7 @@ emotional word. No ALL CAPS, no lies, nothing the video does not deliver. Write 
 THUMBNAIL RULES: 2-3 words maximum, huge and readable on a phone; the text must ADD to the title, not repeat it (tease the twist or stakes);
 one clear focal character with a strong emotion; scale contrast (a small hero against something huge) is proven to work; high contrast; an optional
 date badge (like "476 AD"). Make 3 different concepts, one per layout: "looming" (hero vs a giant menacing silhouette and an army), "ruin" (a burning
-skyline of the story's setting), "versus" (two sides clashing). Different text, mood, character and emotion in each.
+skyline of the story's setting), "versus" (two sides clashing, ONLY if the story really has two opposing sides such as a war, duel or rivalry; for disasters, mysteries and discoveries use "looming" or "ruin" instead). Different text, mood, character and emotion in each.
 
 Return JSON:
 {{"title": "best title",
@@ -282,6 +282,12 @@ def _wav(path, x):
         wf.setsampwidth(2)
         wf.setframerate(tts.SR)
         wf.writeframes((np.clip(x.T, -1, 1) * 32767).astype(np.int16).tobytes())
+
+
+def _clean_title(t):
+    """YouTube chapter names should read like titles: drop 'Chapter 3:' and 'Cold Open:' style prefixes."""
+    t = re.sub(r"^\s*(cold open|prologue|chapter\s*\d+|part\s*\d+)\s*[:\-\u2013\u2014.]\s*", "", str(t), flags=re.I).strip()
+    return t[:1].upper() + t[1:] if t else "Chapter"
 
 
 def _stamp(sec):
@@ -383,7 +389,7 @@ def plan(job, pdir, settings, hint=None):
         scenes.append(sc)
         voices.append(vx)
         starts.append(cursor + LEAD)
-        words_all += [[x[0], cursor + LEAD + x[1], cursor + LEAD + x[2]] for x in w]
+        words_all += [[x[0], cursor + LEAD + x[1], cursor + LEAD + x[2], k == 0] for k, x in enumerate(w)]
         sc["_t0"] = cursor
         cursor += dur
     total = cursor
@@ -434,14 +440,14 @@ def plan(job, pdir, settings, hint=None):
     starts_ch = {}
     for sc in scenes:
         starts_ch.setdefault(sc["chapter"], sc["_t0"])
-    chap_lines = [f"{_stamp(starts_ch.get(i, 0) if i else 0)} {c['title']}" for i, c in enumerate(chapters) if i in starts_ch or i == 0]
+    chap_lines = [f"{_stamp(starts_ch.get(i, 0) if i else 0)} {_clean_title(c['title'])}" for i, c in enumerate(chapters) if i in starts_ch or i == 0]
     desc = (meta.get("description_intro", "").strip() + "\n\nChapters\n" + "\n".join(chap_lines) +
             "\n\nNew history stories every week: subscribe so you don't miss the next one.\n\n"
             "Made with AI-assisted stick-figure illustrations and a synthetic narrator.\n\n" + " ".join(meta.get("hashtags", [])[:3]))
     package = {"topic": topic, "hook": hook, "title": meta["title"][:100], "title_options": [t for t in (meta.get("title_options") or [meta["title"]])][:6],
                "description": desc, "tags": meta.get("tags", [])[:15], "pinned_comment": meta.get("pinned_comment", ""), "thumbs": thumbs,
                "chosen_thumb": thumbs[0], "flags": flags,
-               "chapters": [{"title": c["title"], "start": _stamp(starts_ch.get(i, 0))} for i, c in enumerate(chapters)],
+               "chapters": [{"title": _clean_title(c["title"]), "start": _stamp(starts_ch.get(i, 0))} for i, c in enumerate(chapters)],
                "minutes": round(total / 60, 1), "words": wc, "script": full_text, "length_ok": MIN_S <= total <= MAX_S}
     plain_scenes = [{k: v_ for k, v_ in sc.items() if k != "_actors"} for sc in scenes]
     with open(pdir / "plan.pkl", "wb") as f:

@@ -49,7 +49,7 @@ def phrases(words, max_words=9, min_words=3, pause=0.4):
     for w in words:
         if not w[0].strip():
             continue
-        if cur and (w[1] - cur[-1][2] > pause or re.search(r"[.!?]$", cur[-1][0])):
+        if cur and (w[1] - cur[-1][2] > pause or re.search(r"[.!?]$", cur[-1][0]) or (len(w) > 3 and w[3])):
             sentences.append(cur)
             cur = []
         cur.append(w)
