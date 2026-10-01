@@ -12,6 +12,10 @@ def _clamp(v, a=0.0, b=1.0):
     return max(a, min(b, v))
 
 
+def _rect(d, x0, y0, x1, y1, **kw):
+    d.rectangle([min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1)], **kw)
+
+
 def _circle(d, cx, cy, r, fill, outline=None, width=0):
     d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=fill, outline=outline, width=width)
 
@@ -261,7 +265,7 @@ def ambient(d, bg, t, S, gy, WS):
                 fx, fy = bx - k * S * .035, by + abs(k) * S * .012
                 fl = math.sin(t * 7 + k + i * 2) * S * .008
                 d.line([(fx - S * .012, fy + fl), (fx, fy), (fx + S * .012, fy + fl)], fill=(40, 44, 54, 190), width=3)
-    if bg in ("city_day", "city_modern", "countryside", "palace", "desert", "sea"):                # tiny people going about their day, far away
+    if bg in ("city_day", "city_modern", "countryside", "palace", "desert"):                # tiny people going about their day, far away
         for i in range(5):
             dirn = 1 if i % 2 == 0 else -1
             fx = ((t * (.018 + .006 * (i % 3)) * dirn + i * .21) % 1.2 - .1) * WS
@@ -340,4 +344,50 @@ def interior(d, o, x, S, gy, t, WS):
         d.rectangle([cx - 7, cy + S * .04, cx + 7, gy], fill=(80, 88, 90))
 
 
-DRAW = {"interior": interior, "crowd": crowd, "wave": wave, "explosion": explosion, "submarine": submarine, "warship": warship, "plane": plane, "seascape": seascape}
+def liner(d, o, x, S, gy, t, WS):
+    """A four-funnel passenger liner: black hull, white decks with window rows, buff funnels, drifting smoke, lifeboats."""
+    sc = o.get("scale", 1)
+    w, h = S * 0.72 * sc, S * 0.07 * sc
+    yb = gy - S * 0.004 + math.sin(t * .9) * S * 0.004
+    x += (t - o.get("dur", 6) / 2) * S * 0.015
+    d.polygon([(x - w * .5, yb - h * 1.15), (x + w * .5, yb - h * 1.15), (x + w * .6, yb - h * 1.65), (x + w * .5, yb), (x - w * .46, yb)], fill=(24, 28, 40), outline=INK)
+    _rect(d, x - w * .48, yb - h * .55, x + w * .5, yb - h * .45, fill=(176, 56, 48))
+    for k in range(3):                                                  # tiered white superstructure
+        tw = w * (.84 - .13 * k)
+        y0 = yb - h * (1.15 + 1.0 * (k + 1))
+        _rect(d, x - tw / 2 - w * .02, y0, x + tw / 2 - w * .02, y0 + h * 1.0, fill=(240, 240, 234), outline=INK, width=3)
+        for q in range(int(tw / (S * .022))):
+            _rect(d, x - tw / 2 + q * S * .022, y0 + h * .3, x - tw / 2 + q * S * .022 + S * .012, y0 + h * .55, fill=(70, 96, 130))
+    top = yb - h * 4.15
+    for k in range(4):                                                   # funnels with smoke
+        fx = x - w * .22 + k * w * .14
+        d.polygon([(fx - w * .035, top), (fx + w * .035, top), (fx + w * .03, top - h * 1.7), (fx - w * .03, top - h * 1.7)], fill=(222, 170, 80), outline=INK)
+        _rect(d, fx - w * .03, top - h * 1.7, fx + w * .03, top - h * 1.95, fill=INK)
+        for j in range(4):
+            age = (t * .5 + j / 4 + k * .13) % 1.0
+            _circle(d, fx + age * w * .25, top - h * 2.0 - age * h * 1.8, S * (.012 + .02 * age), (80, 80, 86, int(150 * (1 - age))))
+    for mx in (x - w * .38, x + w * .36):
+        d.line([(mx, top + h * .6), (mx, top - h * 1.5)], fill=INK, width=4)
+    for q in range(8):                                                   # lifeboats
+        d.ellipse([x - w * .3 + q * w * .075, yb - h * 2.2, x - w * .3 + q * w * .075 + S * .02, yb - h * 2.2 + S * .008], fill=(200, 120, 60), outline=INK, width=2)
+    for k in range(8):
+        age = (t * .7 + k / 8) % 1.0
+        _circle(d, x + w * .56 + age * S * .02, yb - h * .1, S * (.006 + .01 * age), (240, 248, 255, int(210 * (1 - age))))
+
+
+def iceberg(d, o, x, S, gy, t, WS):
+    """A jagged berg: lit white face, blue shadow face, and the huge pale mass hidden under the surface."""
+    sc = o.get("scale", 1)
+    w, h = S * 0.55 * sc, S * 0.34 * sc
+    bob = math.sin(t * .8) * S * .004
+    pts = [(-.5, 0), (-.36, -.42), (-.22, -.3), (-.1, -.78), (.04, -.52), (.16, -1.0), (.3, -.6), (.42, -.7), (.5, 0)]
+    d.polygon([(x + px * w, gy + py * h + bob + S * .004) for px, py in [(-.5, 0), (-.4, .4), (-.15, .75), (.1, .7), (.4, .45), (.5, 0)]], fill=(150, 200, 230, 90))
+    d.polygon([(x + px * w, gy + py * h + bob) for px, py in pts], fill=(236, 246, 252), outline=(90, 130, 160))
+    d.polygon([(x + px * w, gy + py * h + bob) for px, py in [(.04, -.52), (.16, -1.0), (.3, -.6), (.42, -.7), (.5, 0), (.12, 0)]], fill=(168, 206, 232))
+    d.line([(x + .16 * w, gy - h + bob), (x + .12 * w, gy + bob)], fill=(120, 164, 196), width=4)
+    for k in range(6):
+        age = (t * .4 + k / 6) % 1.0
+        _circle(d, x + (-.4 + age * .8) * w, gy + S * .004, S * .008 * (1 - age) + 2, (240, 250, 255, int(200 * (1 - age))))
+
+
+DRAW = {"liner": liner, "iceberg": iceberg, "interior": interior, "crowd": crowd, "wave": wave, "explosion": explosion, "submarine": submarine, "warship": warship, "plane": plane, "seascape": seascape}

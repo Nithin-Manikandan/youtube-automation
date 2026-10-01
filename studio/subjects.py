@@ -14,6 +14,8 @@ RULES = [
     (r"\b(submarine|u-boat|periscope|b-59|submerged|submariners?)\b", ["submarine"], ["bubbles"], "underwater", {}),
     (r"\btorpedo", ["submarine", "torpedo"], ["bubbles"], "underwater", {}),
     (r"\bsonar|ping\b", ["submarine"], ["sonar", "bubbles"], "underwater", {}),
+    (r"\b(titanic|liner|steamships?|steamer|ocean liner|passenger ship|rms|lusitania|carpathia|californian)\b", ["liner"], [], "sea", {}),
+    (r"\b(icebergs?|pack ice|ice fields?|bergs?|ice floes?)\b", ["iceberg"], [], "sea", {}),
     (r"\b(warships?|destroyers?|cruiser|battleship|fleet|navy|naval|carrier|flotilla)\b", ["warship"], [], "sea", {}),
     (r"\b(?:missiles?|rockets?|icbms?)\b.{0,40}\b(?:launch\w*|fired|fire|lift\w* off)\b|\blaunch\w* (?:the |a |its |their )?(?:nuclear )?(?:missiles?|rockets?)|\blift\w* off\b|\bsilos?\b|\brockets?\b", ["missile"], [], None, {"launch": True}),
     (r"\b(planes?|aircraft|bombers?|airplane|jets?)\b", ["plane"], [], None, {}),
@@ -53,7 +55,7 @@ def anchor_for(topic_text):
     return None
 
 
-def enrich(visual, narration, modern, anchor=None):
+def enrich(visual, narration, modern, anchor=None, story_has_sub=True):
     """Return the visual with the narration's subjects added. Only stage scenes are touched."""
     if visual.get("type") != "stage":
         return visual
@@ -75,7 +77,7 @@ def enrich(visual, narration, modern, anchor=None):
             hinted_bg = hinted_bg or bghint
             flags.update(extra)
     # objects that depict an event or vehicle are only drawn when the narration is literally about them
-    bound = {"missile", "torpedo", "depth_charge", "explosion", "volcano", "wave", "fire", "plane", "warship", "submarine", "pyramid", "castle", "ash_cloud", "crowd"}
+    bound = {"missile", "torpedo", "depth_charge", "explosion", "volcano", "wave", "fire", "plane", "warship", "submarine", "pyramid", "castle", "ash_cloud", "crowd", "liner", "iceberg"}
     said = {o for pat, add_o, _, _, _ in RULES if re.search(pat, text) for o in add_o}
     objs = [o for o in objs if o not in bound or o in said]
     inside = re.search(r"\b(inside|aboard|hull|control room|crew|compartment|cramped|bunk|captain|commander|officers?|shouted|declared|declaration|consent|vot(?:e|ed|es)|refus\w+|argued|orders?|ordered|authoriz\w+|veto|beside him|protocol|sailors|men)\b", text)
@@ -87,6 +89,8 @@ def enrich(visual, narration, modern, anchor=None):
         # take the narration's setting unless the AI already chose something equally specific
         if bg != hinted_bg and not (bg in ("underwater", "submarine_interior") and hinted_bg == "sea"):
             bg = hinted_bg
+    if bg == "underwater" and not story_has_sub and not any(o in objs for o in ("submarine", "depth_charge", "torpedo")):
+        bg = "sea"                                                   # no submarine in this story: stay on the surface
     if bg == "underwater" and inside and not re.search(r"depth[- ]?charge|sonar|torpedo|hunted|surfaced|dove|dived|diving|destroyers?|warships?", text):
         bg = "submarine_interior"                                    # people talking inside the boat, not the boat from outside
     if bg == "submarine_interior":
@@ -100,8 +104,11 @@ def enrich(visual, narration, modern, anchor=None):
     # sailboats don't belong in modern naval scenes
     if modern and "ship" in objs and ("warship" in objs or "submarine" in objs):
         objs.remove("ship")
+    naval = re.search(r"\b(navy|naval|warships?|destroyers?|cruiser|battleship|fleet|gunboat|frigate)\b", text)
     if modern and "ship" in objs:
-        objs[objs.index("ship")] = "warship"
+        objs[objs.index("ship")] = "warship" if naval else "liner"
+    if modern and "warship" in objs and not naval and re.search(r"\b(liner|steamship|steamer|passenger|cargo|vessel|ship)\b", text) and not re.search(r"\b(navy|naval|warships?|destroyers?)\b", text):
+        objs[objs.index("warship")] = "liner"                     # a civilian ship is not a gunboat
     # keep what the narration named first, then the AI's own picks; cap to three objects
     named = [o for o in objs if any(o in r[1] for r in RULES if re.search(r[0], text))]
     rest = [o for o in objs if o not in named]

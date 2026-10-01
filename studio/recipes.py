@@ -56,7 +56,7 @@ BACKGROUNDS = {
 }
 OBJECTS = {"castle", "column", "pedestal", "cloud", "tree", "tent", "pyramid", "tower", "torch", "ship",
            "submarine", "warship", "missile", "plane", "building", "hatch", "pipes", "gauge",
-           "volcano", "ash_cloud", "wave", "fire", "smoke", "house", "explosion", "depth_charge", "torpedo", "crowd"}
+           "volcano", "ash_cloud", "wave", "fire", "smoke", "house", "explosion", "depth_charge", "torpedo", "crowd", "liner", "iceberg"}
 EFFECTS = {"rain", "flash", "sparks", "dust", "shake", "ashfall", "embers", "bubbles", "sonar"}
 CAMERAS = {"push_in": ([1.0, 1.10], None), "pull_out": ([1.12, 1.0], None), "pan_right": ([1.06, 1.06], (-.04, .04)), "pan_left": ([1.06, 1.06], (.04, -.04)), "static": ([1.0, 1.0], None)}
 
@@ -196,7 +196,7 @@ def build_stage(v, dur, rnd, seed=0):
     scene["actors"] = actors
     xs = [.12, .88, .3, .7]
     objs = []
-    BIG = {"submarine": .56, "warship": .56, "plane": .3, "missile": .86, "pyramid": .5, "ship": .6, "volcano": .62, "wave": .6, "ash_cloud": .05, "explosion": .5, "fire": .5}
+    BIG = {"liner": .5, "iceberg": .76, "submarine": .56, "warship": .56, "plane": .3, "missile": .86, "pyramid": .5, "ship": .6, "volcano": .62, "wave": .6, "ash_cloud": .05, "explosion": .5, "fire": .5}
     flags = v.get("flags") or {}
     for j, o in enumerate(v["objects"]):
         objs.append(dict(type=o, x=BIG.get(o, [.16, .84, .5, .3][j % 4]) if o not in ("torch",) else xs[j % 4], y=.18 + .05 * j, r=.05, scale=1.0,
@@ -214,7 +214,7 @@ def build_stage(v, dur, rnd, seed=0):
     for o in objs:
         if o["type"] == "explosion":
             o["x"] = .78 if not actors or actors[0]["keys"][0]["x"] < .6 else .22     # blast beside the people, not on top of them
-    big = [o for o in objs if o["type"] in ("submarine", "warship", "ship", "volcano", "wave", "pyramid")]
+    big = [o for o in objs if o["type"] in ("submarine", "warship", "ship", "liner", "iceberg", "volcano", "wave", "pyramid")]
     if big and actors:                                                           # keep people out from in front of the main subject
         for i, a in enumerate(actors):
             side = .13 if i % 2 == 0 else .87
