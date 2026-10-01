@@ -309,16 +309,16 @@ def _face(d, a, K, head, rad, f, face, ex, S, t, skin, props):
     if face == "smile":
         for cx_ in (head[0] + f * rad * 0.52,):
             d.ellipse([cx_ - rad * .2, head[1] + rad * .16, cx_ + rad * .2, head[1] + rad * .38], fill=(244, 170, 160, 120))
-    lid_base = {"worried": 0.22, "sad": 0.34, "angry": 0.28, "smile": 0.12, "shock": 0.0}.get(face, 0.06)
+    lid_base = {"worried": 0.12, "sad": 0.24, "angry": 0.14, "smile": 0.08, "shock": 0.0}.get(face, 0.0)
     lid = max(lid_base, blink)
     for i_, (ex_, ey_) in enumerate(eyes):
         erx, ery = er_x * big, er_y * big
         if i_ == 1:
             erx *= 0.88
         d.ellipse([ex_ - erx, ey_ - ery, ex_ + erx, ey_ + ery], fill=(255, 255, 255), outline=None if "glasses" in props else INK, width=max(2, int(S * 0.006)))
-        pr = erx * (0.62 if face != "shock" else 0.42)
+        pr = erx * (0.72 if face != "shock" else 0.46)
         px_ = ex_ + look[0] * erx * 0.55
-        py_ = ey_ + look[1] * ery * 0.55
+        py_ = ey_ + ery * 0.14 + look[1] * ery * 0.55
         d.ellipse([px_ - pr, py_ - pr * 1.12, px_ + pr, py_ + pr * 1.12], fill=(30, 26, 34))
         d.ellipse([px_ - pr * 0.42 - pr * 0.1, py_ - pr * 0.62, px_ + pr * 0.12 - pr * 0.1, py_ - pr * 0.1], fill=(255, 255, 255))   # specular
         if lid > 0.02:                                                  # eyelid: skin-coloured cap that closes down over the eye
