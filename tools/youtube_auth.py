@@ -18,7 +18,12 @@ code = {}
 class H(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+        if not q.get("code") and not q.get("error"):          # favicon and other stray requests: keep waiting
+            self.send_response(204)
+            self.end_headers()
+            return
         code["v"] = q.get("code", [""])[0]
+        code["err"] = q.get("error", [""])[0]
         self.send_response(200)
         self.end_headers()
         self.wfile.write(b"Done. You can close this tab and go back to the terminal.")
@@ -31,9 +36,12 @@ class H(http.server.BaseHTTPRequestHandler):
 url = ("https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode({
     "client_id": cid, "redirect_uri": redirect, "response_type": "code", "scope": scope,
     "access_type": "offline", "prompt": "consent"}))
+print("Scope requested:", scope)
 print("Opening browser. If it does not open, visit:\n", url)
 webbrowser.open(url)
 http.server.HTTPServer(("127.0.0.1", PORT), H).serve_forever()
+if not code.get("v"):
+    sys.exit("Google did not send back a code (error: %s). Run again and click Allow on every screen." % (code.get("err") or "none"))
 r = requests.post("https://oauth2.googleapis.com/token", data={
     "code": code["v"], "client_id": cid, "client_secret": secret, "redirect_uri": redirect,
     "grant_type": "authorization_code"})
