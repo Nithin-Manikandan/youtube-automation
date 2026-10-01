@@ -250,4 +250,41 @@ def crowd(d, o, x, S, gy, t, WS):
             _circle(d, WS * .5 + math.sin(k * 2.1 + t * 5) * S * .15, gy - S * (.02 + .06 * (k % 4)), S * (.03 + .015 * (k % 3)), (196, 176, 146, 46))
 
 
+def ambient(d, bg, t, S, gy, WS):
+    """Small constant background life so no scene is ever a still photograph."""
+    rng = random.Random(33)
+    if bg in ("city_day", "countryside", "sea", "palace", "desert", "forest", "snow", "battlefield"):
+        for i in range(2):                                             # distant gulls / birds
+            bx = ((t * (.03 + .01 * i) + i * .5) % 1.2 - .1) * WS
+            by = S * (.18 + .08 * i) + math.sin(t * .8 + i) * S * .01
+            for k in range(3 if i == 0 else 2):
+                fx, fy = bx - k * S * .035, by + abs(k) * S * .012
+                fl = math.sin(t * 7 + k + i * 2) * S * .008
+                d.line([(fx - S * .012, fy + fl), (fx, fy), (fx + S * .012, fy + fl)], fill=(40, 44, 54, 190), width=3)
+    if bg in ("night", "storm", "ashen", "volcanic", "city_modern"):
+        for i in range(36):                                            # twinkling stars / lights
+            sx, sy = rng.random() * WS, rng.random() * gy * .55
+            a = 90 + 120 * (0.5 + 0.5 * math.sin(t * (1.5 + rng.random() * 2) + i))
+            _circle(d, sx, sy, 2 + rng.random() * 2, (255, 248, 220, int(a)))
+    if bg == "city_modern":
+        for i in range(3):                                             # cars crossing the far street
+            cx = ((t * (.06 + .02 * i) * (1 if i % 2 == 0 else -1) + i * .37) % 1.2 - .1) * WS
+            cy = gy - S * .012
+            d.rounded_rectangle([cx - S * .04, cy - S * .022, cx + S * .04, cy], 8, fill=(60 + 50 * i, 70, 90, 220))
+            d.rectangle([cx - S * .02, cy - S * .036, cx + S * .02, cy - S * .02], fill=(110, 130, 150, 220))
+    if bg == "submarine_interior":
+        for i, lx in enumerate((.18, .5, .82)):                        # warning lamps pulsing, steam venting
+            on = 0.5 + 0.5 * math.sin(t * 3.2 + i * 2)
+            _circle(d, WS * lx, S * .1, S * .014, (255, 70, 50, int(90 + 160 * on)))
+            _circle(d, WS * lx, S * .1, S * .035, (255, 70, 50, int(50 * on)))
+        for i in range(10):
+            age = (t * .45 + i / 10) % 1.0
+            _circle(d, WS * (.08 + .84 * ((i * 7) % 10) / 10) + math.sin(age * 6 + i) * 10, gy - S * .5 * age, S * (.012 + .02 * age), (220, 226, 230, int(70 * (1 - age))))
+    if bg in ("sea", "storm"):
+        for i in range(14):                                            # sparkles / whitecaps on the water
+            wx = (rng.random() * WS + t * S * .02 * (1 + i % 3)) % WS
+            wy = gy + S * .01 + rng.random() * (S - gy) * .8
+            d.line([(wx, wy), (wx + S * .03, wy)], fill=(235, 246, 255, int(60 + 80 * abs(math.sin(t * 2 + i)))), width=3)
+
+
 DRAW = {"crowd": crowd, "wave": wave, "explosion": explosion, "submarine": submarine, "warship": warship, "plane": plane, "seascape": seascape}

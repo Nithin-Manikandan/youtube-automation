@@ -208,7 +208,7 @@ def build_stage(v, dur, rnd, seed=0):
                 for k in a["keys"]:
                     k["x"] = side
     if not objs and v["background"] == "submarine_interior":
-        objs = [dict(type="pipes", x=.5), dict(type="gauge", x=.14, y=.34), dict(type="gauge", x=.86, y=.4), dict(type="hatch", x=.5)]
+        objs = [dict(type="pipes", x=.5), dict(type="gauge", x=.14, y=.34), dict(type="gauge", x=.86, y=.4), dict(type="hatch", x=.9 if rnd.random() < .5 else .1)]
     if not objs and v["background"] == "city_modern":
         objs = [dict(type="building", x=.12), dict(type="building", x=.88, scale=1.15)]
     if not objs and v["background"] in ("city_day", "palace"):
@@ -237,6 +237,7 @@ def build_stage(v, dur, rnd, seed=0):
         while tt < dur - .3:
             fx.append(dict(type="sparks", t=tt, x=.5, y=.40))
             tt += 1.0
+    fx.append(dict(type="ambient", bg=v["background"]))
     scene["fx"] = fx
     if v.get("title"):
         scene["text"] = [dict(t=.35, end=min(dur - .2, 3.6), text=v["title"], y=.085,
