@@ -20,7 +20,7 @@ ROLES = {  # role -> (props, default tunic colour name)
     "scientist": (["glasses", "hair"], "white"), "president": (["hair", "tie"], "black"), "worker": (["hat"], "orange"),
     "pilot": (["helmet"], "green"), "modern_soldier": (["helmet", "rifle"], "green"), "spy": (["hat", "tie"], "black"), "reporter": (["hat", "tie"], "brown"),
 }
-ACTIONS = {"stand", "talk", "cheer", "scared", "slump", "point", "proud", "shrug", "sword_up", "crouch", "fight",
+ACTIONS = {"think", "salute", "armscross", "facepalm", "demand", "stand", "talk", "cheer", "scared", "slump", "point", "proud", "shrug", "sword_up", "crouch", "fight",
            "enter_walk", "enter_run", "exit_run", "walk", "run"}
 EMOTIONS = {"neutral", "smile", "sad", "angry", "shock", "worried"}
 BACKGROUNDS = {
@@ -116,8 +116,9 @@ def actor_keys(a, dur, idx, n):
     if act == "talk":
         rng = random.Random(idx * 31 + int(x * 100))
         per = 1.6
-        gestures = ["point", "proud", "shrug", "point", "stand"]
-        listening = ["stand", "stand", "shrug", "scared", "stand"] if n > 1 else gestures
+        gestures = {"angry": ["demand", "point", "point", "proud"], "worried": ["think", "shrug", "facepalm", "point"], "shock": ["scared", "shrug", "point"],
+                    "sad": ["slump", "think", "shrug"], "smile": ["proud", "point", "shrug", "salute"]}.get(em, ["point", "proud", "shrug", "think", "armscross"])
+        listening = ["armscross", "think", "stand", "shrug", "facepalm"] if n > 1 else gestures
         ks, cur, t = [], x, 0.0
         i = 0
         while t < dur + per:

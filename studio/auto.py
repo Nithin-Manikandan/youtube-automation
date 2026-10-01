@@ -133,6 +133,7 @@ Chapter target_words must sum to about 2000 (between 1800 and 2200)."""
 
 
 REWIND = "The opening hook has already shown the dramatic moment and ends by promising to go back. Start by rewinding to where the story really begins, in plain words, and do NOT repeat the events of the hook."
+LEAK_HOOK = re.compile(r"\b(refus\w+|said no|says no|saved|prevent\w*|stopped the|averted|survived|spared|talked (?:him|them) out|decides? (?:not|to say no))\b", re.I)
 BANNED_HOOK = re.compile(r"\b(imagine|picture this|welcome|in this video|today we|armageddon|precipice|brink of|chess match|tapestry|little did|unimaginable|"
                          r"terrifying|single-handedly|forever change[sd]?|the world (?:would|will) never|what if i told|but here'?s the thing|you won'?t believe|"
                          r"dark chapter|unfolded|the stage was set|against all odds|a story of|history'?s? (?:most|greatest))\b|[\u2014\u2013]|!|\?\?", re.I)
@@ -150,7 +151,7 @@ no 'Imagine', no greeting, no 'in this video', no rhetorical 'what if', no 'litt
 Show the stakes through specifics (the number of men, the depth, the minutes left) instead of saying it was dangerous."""
 
 
-def write_hook(topic, outline):
+def write_hook(topic, outline, _retry=True):
     """A short, specific cold open built the way big documentary channels do it: candidates, a hard critic, banned-phrase filter."""
     ch0 = outline["chapters"][0]
     if FAKE():
@@ -170,9 +171,14 @@ Return JSON: {{"candidates": [{{"technique": "a", "lines": ["line 1", "line 2"]}
     for x in c:
         lines = [str(l).strip() for l in x["lines"] if str(l).strip()]
         words = sum(len(l.split()) for l in lines)
-        if 4 <= len(lines) <= 10 and 55 <= words <= 120 and not any(BANNED_HOOK.search(l) for l in lines):
+        concrete = bool(re.search(r"\d", lines[0])) or sum(1 for w_ in lines[0].split()[1:] if w_[:1].isupper()) >= 1
+        asks = any(l.rstrip().endswith("?") for l in lines)
+        leak = any(LEAK_HOOK.search(l) for l in lines if not l.rstrip().endswith("?"))
+        if 4 <= len(lines) <= 10 and 55 <= words <= 120 and concrete and asks and not leak and not any(BANNED_HOOK.search(l) for l in lines):
             ok.append({"technique": x.get("technique", ""), "lines": lines})
-    if not ok:                                      # the filter caught everything: take the cleanest and strip the offenders
+    if not ok and _retry:                           # nothing met the bar (concrete first line, a question, no outcome leak): write new ones
+        return write_hook(topic, outline, _retry=False)
+    if not ok:                                      # still nothing: keep the length-valid, clean ones and let the critic pick the best
         for x in c[:2]:
             lines = [BANNED_HOOK.sub("", str(l)).strip() for l in x["lines"]]
             ok.append({"technique": x.get("technique", ""), "lines": [l for l in lines if len(l.split()) > 2]})
@@ -534,6 +540,11 @@ def plan(job, pdir, settings, hint=None):
     thumbs = []
     for k, tr in enumerate((meta.get("thumbs") or [])[:3]):
         pth = pdir / "out" / f"thumb{k + 1}.jpg"
+        first_back = ((meta.get("thumbs") or [{}])[0].get("backdrop") or "").lower()
+        back = str(tr.get("backdrop") or "").lower()
+        back = back if back in recipes.OBJECTS else (first_back if first_back in recipes.OBJECTS else "")
+        if back:                                                  # all three thumbnails show the story's real subject, framed three different ways
+            tr = dict(tr, concept="subject", backdrop=back)
         thumb.render(str(tr.get("text", topic))[:40], tr, pth, k)
         thumbs.append(pth.name)
     if not thumbs:
