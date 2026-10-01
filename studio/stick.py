@@ -981,7 +981,7 @@ def make_shots(scene, rnd):
     dur = scene["duration"]
     acts = scene.get("actors", [])
     objs = [o for o in scene.get("objects", []) if o["type"] not in ("cloud", "torch", "seascape")]
-    bigs = [o for o in objs if o["type"] in ("submarine", "warship", "ship", "liner", "airship", "iceberg", "volcano", "wave", "pyramid", "plane", "missile", "explosion", "castle")]
+    bigs = [o for o in objs if o["type"] in ("submarine", "warship", "ship", "liner", "airship", "iceberg", "volcano", "wave", "pyramid", "plane", "missile", "explosion", "castle", "spacecraft")]
     n = 1 if dur < 4.2 else 2 if dur < 8 else 3 if dur < 13 else 4
     if n == 1:
         scene["hits"] = []
@@ -1005,6 +1005,8 @@ def make_shots(scene, rnd):
             if bigs and st != "wide":                      # the subject of the scene stays in frame
                 o = bigs[i % len(bigs)]
                 fx, fy = o.get("x", 0.5), 0.52
+                if o["type"] == "spacecraft":                  # cut-ins on different parts of the stack instead of the same full view
+                    fx += (-.07, .06, -.02)[i % 3]
                 if acts and st == "close" and abs(_kx(acts[0]["keys"], tm) - fx) < .3:
                     fx = (fx + _kx(acts[0]["keys"], tm)) / 2
                 z0, z1 = (1.15, 1.3) if st == "medium" else (1.35, 1.55)
@@ -1024,7 +1026,7 @@ def make_shots(scene, rnd):
             if rnd.random() < 0.5:
                 z0, z1 = z1, z0 if st == "wide" else z1
             if scene.get("text") and st != "wide" and bounds[i] < 3.8:      # the on-screen title sits at the top: keep heads below it
-                fy = min(fy, 0.34)
+                fy = min(fy, 0.27)
             shots.append(dict(t0=bounds[i], t1=bounds[i + 1], z0=z0, z1=z1, x0=fx, x1=fx + rnd.choice([-.02, .02]), y0=fy, y1=fy))
         scene["shots"] = shots
         scene["hits"] = []
