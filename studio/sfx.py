@@ -483,7 +483,7 @@ def _sound(kind, extra):
 
 
 LEVEL = {"foot": 0.5, "foot_run": 0.55, "clash": 0.8, "whoosh": 0.5, "whoosh_s": 0.5, "thunder": 0.7, "thump": 0.75, "applause": 0.45,
-         "clink": 0.55, "scratch": 0.4, "AMB_rain": 0.16, "AMB_wind": 0.15, "AMB_crickets": 0.08, "AMB_birds": 0.07, "AMB_waves": 0.22, "AMB_rumble": 0.3, "AMB_crackle": 0.16}
+         "clink": 0.55, "ping": 0.4, "roar": 0.7, "scratch": 0.4, "AMB_rain": 0.16, "AMB_wind": 0.15, "AMB_crickets": 0.08, "AMB_birds": 0.07, "AMB_waves": 0.22, "AMB_rumble": 0.3, "AMB_crackle": 0.16}
 REVERB = {"clash": 0.2, "clink": 0.25, "thump": 0.1, "thunder": 0.0, "foot": 0.1, "foot_run": 0.1, "whoosh": 0.12, "whoosh_s": 0.12, "applause": 0.15}
 
 
