@@ -151,8 +151,21 @@ no 'Imagine', no greeting, no 'in this video', no rhetorical 'what if', no 'litt
 Show the stakes through specifics (the number of men, the depth, the minutes left) instead of saying it was dangerous."""
 
 
-def write_hook(topic, outline, _retry=True):
-    """A short, specific cold open built the way big documentary channels do it: candidates, a hard critic, banned-phrase filter."""
+def _hook_penalty(lines):
+    words = sum(len(l.split()) for l in lines)
+    concrete = bool(re.search(r"\d|\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|million|midnight|noon|dawn)\b", lines[0], re.I)) or sum(1 for w_ in lines[0].split()[1:] if w_[:1].isupper()) >= 1
+    asks = any(l.rstrip().endswith("?") for l in lines)
+    pen = 3 * sum(1 for l in lines if BANNED_HOOK.search(l))
+    pen += 2 * sum(1 for l in lines if LEAK_HOOK.search(l) and not l.rstrip().endswith("?"))
+    pen += 0 if concrete else 2
+    pen += 0 if asks else 2
+    pen += 0 if 4 <= len(lines) <= 10 else 2
+    pen += 0 if 55 <= words <= 125 else 1
+    return pen
+
+
+def write_hook(topic, outline, rounds=3):
+    """A short, specific cold open built the way big documentary channels do it: candidates, penalty scoring, a hard critic."""
     ch0 = outline["chapters"][0]
     if FAKE():
         return None
@@ -166,37 +179,34 @@ DOCUMENTED FACTS YOU MAY USE: {facts}
 Write 4 different openings, each using a different technique: (a) cold moment in progress, (b) a counterintuitive fact that reframes everything,
 (c) a ticking clock (minutes, seconds or a countdown), (d) a quiet contradiction (the safest thing turns out to be the danger).
 Return JSON: {{"candidates": [{{"technique": "a", "lines": ["line 1", "line 2"]}}]}} where every line is one spoken sentence (6-20 words), 6-9 lines each."""
-    c = [x for x in _unwrap(_llm(cands_prompt, 0.95), "candidates")["candidates"] if isinstance(x, dict) and isinstance(x.get("lines"), list)]
-    ok = []
-    for x in c:
-        lines = [str(l).strip() for l in x["lines"] if str(l).strip()]
-        words = sum(len(l.split()) for l in lines)
-        concrete = bool(re.search(r"\d", lines[0])) or sum(1 for w_ in lines[0].split()[1:] if w_[:1].isupper()) >= 1
-        asks = any(l.rstrip().endswith("?") for l in lines)
-        leak = any(LEAK_HOOK.search(l) for l in lines if not l.rstrip().endswith("?"))
-        if 4 <= len(lines) <= 10 and 55 <= words <= 120 and concrete and asks and not leak and not any(BANNED_HOOK.search(l) for l in lines):
-            ok.append({"technique": x.get("technique", ""), "lines": lines})
-    if not ok and _retry:                           # nothing met the bar (concrete first line, a question, no outcome leak): write new ones
-        return write_hook(topic, outline, _retry=False)
-    if not ok:                                      # still nothing: keep the length-valid, clean ones and let the critic pick the best
-        for x in c[:2]:
-            lines = [BANNED_HOOK.sub("", str(l)).strip() for l in x["lines"]]
-            ok.append({"technique": x.get("technique", ""), "lines": [l for l in lines if len(l.split()) > 2]})
-    if not ok:
-        return None
-    if len(ok) == 1:
-        best = ok[0]
-    else:
-        judge = f"""You are the hardest critic at a top documentary channel. Pick the opening that would keep the most viewers watching past 30 seconds.
-Judge: is line 1 a concrete moment (not a summary)? Is every detail specific? Does it sound like a person, not an AI (no stock drama phrases)? Is there a real open loop? Does it flow into the rewind?
-Openings: {json.dumps([{'i': i, 'lines': o['lines']} for i, o in enumerate(ok)])}
-Return JSON: {{"best": 0, "why": "one sentence", "fixes": ["optional: line index and a better wording only if a line is weak"]}}"""
+    pool = []
+    for rnd_ in range(rounds):
         try:
-            r = _llm(judge, 0.2)
-            best = ok[int(r.get("best", 0)) % len(ok)]
+            c = [x for x in _unwrap(_llm(cands_prompt, 0.95), "candidates")["candidates"] if isinstance(x, dict) and isinstance(x.get("lines"), list)]
         except Exception:
-            best = ok[0]
-    return best["lines"]
+            continue
+        for x in c:
+            lines = [str(l).strip() for l in x["lines"] if str(l).strip()]
+            if lines:
+                pool.append((_hook_penalty(lines), lines))
+        if any(p_ == 0 for p_, _ in pool):
+            break
+    if not pool:
+        return None
+    pool.sort(key=lambda pl: pl[0])
+    best_pen = pool[0][0]
+    top = [l for p_, l in pool if p_ == best_pen][:4] if best_pen == 0 else [l for _, l in pool[:3]]
+    if len(top) == 1:
+        return top[0]
+    judge = f"""You are the hardest critic at a top documentary channel. Pick the opening that would keep the most viewers watching past 30 seconds.
+Judge: is line 1 a concrete moment (not a summary)? Is every detail specific? Does it sound like a person, not an AI (no stock drama phrases)? Is there a real open loop? Does it flow into the rewind?
+Openings: {json.dumps([{'i': i, 'lines': o} for i, o in enumerate(top)])}
+Return JSON: {{"best": 0, "why": "one sentence"}}"""
+    try:
+        r = _llm(judge, 0.2)
+        return top[int(r.get("best", 0)) % len(top)]
+    except Exception:
+        return top[0]
 
 
 def direct_hook(topic, lines):
@@ -204,6 +214,8 @@ def direct_hook(topic, lines):
     if FAKE():
         return None
     n = len(lines)
+    plain = [{"narration": l, "mood": "tense", "delivery": {"emotion": "tense" if i < n - 2 else "dramatic", "emphasis": [], "pause_before_ms": 450 if i == n - 2 else 0},
+              "visual": {"type": "stage", "background": "night", "actors": [], "objects": [], "effects": [], "title": "", "camera": "push_in"}} for i, l in enumerate(lines)]
     prompt = f"""You direct the first 40 seconds of a documentary-style stickman video about: {topic}.
 Give each narration line a scene. The opening must feel cinematic: line 1 is a striking establishing image of the exact place; keep every scene visually different
 (vary background, camera and who is on screen); show the ACTUAL subject of the line; use at most one card scene (for a time or number).
@@ -213,13 +225,16 @@ Music mood for every scene: "tense" (use "mystery" only for the loop line).
 LINES: {json.dumps(lines)}
 Return JSON only: {{"scenes": [{{"narration": "(copy the line exactly)", "mood": "tense", "delivery": {{"emotion": "tense", "emphasis": ["word"], "pause_before_ms": 0}}, "visual": {{"type": "stage", "background": "night", "actors": [], "objects": [], "effects": [], "title": "", "camera": "push_in"}}}}]}}"""
     for _ in range(2):
-        o = _unwrap(_llm(prompt, 0.7), "scenes")
+        try:
+            o = _unwrap(_llm(prompt, 0.7), "scenes")
+        except Exception:
+            continue
         sc = [x for x in o["scenes"] if isinstance(x, dict) and str(x.get("narration", "")).strip()]
         if len(sc) >= max(3, n - 2):
             for x, l in zip(sc, lines):
                 x["narration"] = l                  # never let the director reword the vetted lines
             return sc[:n]
-    return None
+    return plain                                    # the director failed: the vetted lines still go out, with plain visuals the scene rules enrich
 
 
 def write_chapter(topic, outline, idx, prev_tail, words):

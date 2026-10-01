@@ -18,7 +18,7 @@ ROLES = {  # role -> (props, default tunic colour name)
     # modern (1800s onward): no swords, spears or shields
     "sailor": (["navycap"], "white"), "captain": (["navycap", "beard"], "blue"), "officer": (["navycap", "tie"], "grey"),
     "scientist": (["glasses", "hair"], "white"), "president": (["hair", "tie"], "black"), "worker": (["hat"], "orange"),
-    "astronaut": (["helmet", "glasses"], "white"), "pilot": (["helmet"], "green"), "modern_soldier": (["helmet", "rifle"], "green"), "spy": (["hat", "tie"], "black"), "reporter": (["hat", "tie"], "brown"),
+    "astronaut": (["spacehelmet"], "white"), "pilot": (["helmet"], "green"), "modern_soldier": (["helmet", "rifle"], "green"), "spy": (["hat", "tie"], "black"), "reporter": (["hat", "tie"], "brown"),
 }
 ACTIONS = {"think", "salute", "armscross", "facepalm", "demand", "stand", "talk", "cheer", "scared", "slump", "point", "proud", "shrug", "sword_up", "crouch", "fight",
            "enter_walk", "enter_run", "exit_run", "walk", "run"}
@@ -237,6 +237,14 @@ def build_stage(v, dur, rnd, seed=0):
         objs = [dict(type="column", x=.1), dict(type="column", x=.9)]
     if not objs and v["background"] in ("countryside", "forest"):
         objs = [dict(type="tree", x=.1), dict(type="tree", x=.9, scale=.9)]
+    for o_ in objs:                                                     # no two spaceflight shots look alike
+        if o_["type"] == "spacecraft":
+            o_["scale"] = rnd.uniform(.55, 1.2)
+            o_["x"] = rnd.uniform(.3, .7)
+            o_["tilt"] = rnd.uniform(-.5, .5)
+        elif o_["type"] == "planet":
+            o_["side"] = rnd.choice([-1, 1])
+            o_["scale"] = rnd.uniform(.8, 1.5)
     scene["objects"] = objs
     fx = []
     for e in v["effects"]:
