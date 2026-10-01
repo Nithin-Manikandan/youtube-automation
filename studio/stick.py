@@ -244,7 +244,8 @@ class Actor:
                 a_ = -2.4 + k_ * .6
                 d.line([(ex_ + math.cos(a_) * rad * (.8 + .3 * pulse), ey_ + rad * .5 + math.sin(a_) * rad * (.8 + .3 * pulse)), (ex_ + math.cos(a_) * rad * 1.4, ey_ + rad * .5 + math.sin(a_) * rad * 1.4)], fill=(210, 50, 40), width=max(4, int(lw * .5)))
         elif face == "sad":
-            d.ellipse([head[0] + f * rad * .3, head[1] + rad * (.1 + .6 * ((t * .8) % 1.0)), head[0] + f * rad * .5, head[1] + rad * (.35 + .6 * ((t * .8) % 1.0))], fill=(120, 190, 240, 220))
+            tx0, tx1 = sorted((head[0] + f * rad * .3, head[0] + f * rad * .5))
+            d.ellipse([tx0, head[1] + rad * (.1 + .6 * ((t * .8) % 1.0)), tx1, head[1] + rad * (.35 + .6 * ((t * .8) % 1.0))], fill=(120, 190, 240, 220))
         hand, dirv = add(sh, add(seg((0, 0), wide[0], L["upper"] * S, f), seg((0, 0), wide[0] + wide[1], L["fore"] * S, f))), wide[0] + wide[1]
         if "sword" in props:
             tip = add(hand, seg((0, 0), dirv, 0.34 * S, f))
