@@ -1023,6 +1023,8 @@ def make_shots(scene, rnd):
                 fx, fy, z0, z1 = 0.5, 0.55, 1.0, 1.1
             if rnd.random() < 0.5:
                 z0, z1 = z1, z0 if st == "wide" else z1
+            if scene.get("text") and st != "wide" and bounds[i] < 3.8:      # the on-screen title sits at the top: keep heads below it
+                fy = min(fy, 0.34)
             shots.append(dict(t0=bounds[i], t1=bounds[i + 1], z0=z0, z1=z1, x0=fx, x1=fx + rnd.choice([-.02, .02]), y0=fy, y1=fy))
         scene["shots"] = shots
         scene["hits"] = []
