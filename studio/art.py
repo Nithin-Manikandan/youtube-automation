@@ -261,6 +261,18 @@ def ambient(d, bg, t, S, gy, WS):
                 fx, fy = bx - k * S * .035, by + abs(k) * S * .012
                 fl = math.sin(t * 7 + k + i * 2) * S * .008
                 d.line([(fx - S * .012, fy + fl), (fx, fy), (fx + S * .012, fy + fl)], fill=(40, 44, 54, 190), width=3)
+    if bg in ("city_day", "city_modern", "countryside", "palace", "desert", "sea"):                # tiny people going about their day, far away
+        for i in range(5):
+            dirn = 1 if i % 2 == 0 else -1
+            fx = ((t * (.018 + .006 * (i % 3)) * dirn + i * .21) % 1.2 - .1) * WS
+            fy = gy - S * (.004 + .006 * (i % 2))
+            h = S * .075
+            ph = t * 5 + i
+            col = [(150, 90, 70), (70, 100, 150), (110, 130, 80), (140, 110, 60), (120, 80, 120)][i]
+            d.line([(fx, fy - h * .45), (fx + math.sin(ph) * h * .12, fy)], fill=(40, 40, 46, 200), width=3)
+            d.line([(fx, fy - h * .45), (fx - math.sin(ph) * h * .12, fy)], fill=(40, 40, 46, 200), width=3)
+            d.rectangle([fx - h * .09, fy - h * .85, fx + h * .09, fy - h * .42], fill=col + (210,))
+            _circle(d, fx, fy - h * .95, h * .1, (232, 205, 175, 230))
     if bg in ("night", "storm", "ashen", "volcanic", "city_modern"):
         for i in range(36):                                            # twinkling stars / lights
             sx, sy = rng.random() * WS, rng.random() * gy * .55

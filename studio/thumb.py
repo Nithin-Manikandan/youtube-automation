@@ -173,7 +173,7 @@ SUBJECT_BG = {"submarine": "underwater", "torpedo": "underwater", "depth_charge"
               "building": "city_modern", "house": "countryside", "tower": "battlefield", "column": "palace"}
 
 
-def _subject_scene(recipe, flip):
+def _subject_scene(recipe, flip, variant=0):
     """The story's actual subject drawn big and lit by the real scene engine, graded and darkened on the text side."""
     obj = str(recipe.get("backdrop") or (recipe.get("objects") or ["castle"])[0]).lower()
     obj = obj if obj in recipes.OBJECTS else "castle"
@@ -199,8 +199,8 @@ def _subject_scene(recipe, flip):
     sc["blur"] = False
     sc["shake"] = []
     sc["text"] = []
-    sc["zoom"] = [1.05, 1.05]
-    sc["focus"] = (0.5, 0.58)
+    sc["zoom"] = [1.05, 1.05] if variant == 0 else [1.6, 1.6] if variant == 1 else [1.0, 1.0]
+    sc["focus"] = (0.5, 0.58) if variant != 1 else (0.58 if not flip else 0.42, 0.5)
     sc.pop("focus_to", None)
     sc["fx"] = [f for f in sc.get("fx", []) if f["type"] != "sparks"]
     stick.prepare(sc, W, H)
@@ -213,6 +213,13 @@ def _subject_scene(recipe, flip):
         if k > 0:
             sd.line([(x, 0), (x, H)], fill=(0, 0, 0, int(165 * k ** 1.4)))
     frame.alpha_composite(shade)
+    if variant == 2:                                         # danger variant: red wash and a ringed focus point
+        red = Image.new("RGBA", (W, H), (255, 30, 20, 58))
+        frame.alpha_composite(red)
+        rd = ImageDraw.Draw(frame, "RGBA")
+        cx, cy = W * (0.62 if not flip else 0.38), H * 0.42
+        for r_, a_ in ((120, 255), (132, 90)):
+            rd.ellipse([cx - r_, cy - r_, cx + r_, cy + r_], outline=(255, 244, 80, a_), width=10)
     return frame
 
 
@@ -220,6 +227,8 @@ def render(text, recipe, out_path, variant=0):
     concept = recipe.get("concept") or ("looming", "ruin", "versus")[variant % 3]
     concept = concept if concept in ("looming", "ruin", "versus", "subject") else "looming"
     flip = bool(recipe.get("flip", variant % 3 == 1))
+    if recipe.get("concept") == "subject" and variant % 3 == 1:
+        flip = True
     mood = recipe.get("mood", "fire")
     if mood not in MOODS:
         mood = "fire"
@@ -232,7 +241,7 @@ def render(text, recipe, out_path, variant=0):
     horizon = 0.80
 
     if concept == "subject":
-        base = _subject_scene(recipe, flip)
+        base = _subject_scene(recipe, flip, variant % 3)
         _embers(base, rng, 22, (255, 220, 150))
     elif concept == "ruin":
         xs = _skyline(base, recipe.get("objects") or ["castle", "tower", "column"], flip, H * horizon, 1.9)

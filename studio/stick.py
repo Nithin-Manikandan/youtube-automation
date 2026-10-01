@@ -35,6 +35,11 @@ POSES = {
     "scared": dict(a1=120, a2=-70, b1=-120, b2=-70, torso=-8, head=6, l1=14, l2=-10, m1=-14, m2=-10),
     "sword_up": dict(a1=150, a2=-15, b1=25, b2=40, torso=-4),
     "slump": dict(torso=24, head=26, a1=-5, a2=6, b1=-20, b2=6, l1=18, l2=-28, m1=-8, m2=-18),
+    "think": dict(a1=62, a2=128, b1=-8, b2=12, torso=3, head=8),
+    "salute": dict(a1=150, a2=118, b1=-8, b2=10, torso=-2, head=-3),
+    "armscross": dict(a1=34, a2=112, b1=-34, b2=112, head=2),
+    "facepalm": dict(a1=110, a2=132, b1=-10, b2=10, torso=9, head=16),
+    "demand": dict(a1=98, a2=10, b1=-98, b2=10, torso=5, head=-2),
     "crouch": dict(torso=14, l1=55, l2=-95, m1=40, m2=-90, a1=30, a2=50, b1=10, b2=60),
 }
 
@@ -223,6 +228,23 @@ class Actor:
             w, h = rad * 0.9, rad * 0.75
             pts = [(cx - w, cy), (cx - w, cy - h), (cx - w / 2, cy - h / 2), (cx, cy - h * 1.1), (cx + w / 2, cy - h / 2), (cx + w, cy - h), (cx + w, cy)]
             d.polygon(pts, fill=GOLD, outline=INK)
+        ex_, ey_ = head[0], head[1] - rad * 1.55                       # emotion shown above the head so reactions read at a glance
+        pulse = 0.5 + 0.5 * math.sin(t * 6)
+        if face == "shock":
+            d.rectangle([ex_ - rad * .1, ey_ - rad * .6, ex_ + rad * .1, ey_ + rad * .1], fill=(255, 210, 60), outline=INK, width=3)
+            d.ellipse([ex_ - rad * .12, ey_ + rad * .22, ex_ + rad * .12, ey_ + rad * .46], fill=(255, 210, 60), outline=INK, width=3)
+        elif face == "worried":
+            for k_ in range(2):
+                age = (t * .9 + k_ * .5) % 1.0
+                dx_, dy_ = f * rad * (1.05 + .1 * k_), -rad * .5 + age * rad * 1.1
+                d.polygon([(ex_ + dx_, ey_ + dy_ + rad * .9 - rad * .3), (ex_ + dx_ - rad * .13, ey_ + dy_ + rad * .9), (ex_ + dx_ + rad * .13, ey_ + dy_ + rad * .9)], fill=(120, 190, 240, int(230 * (1 - age))))
+                d.ellipse([ex_ + dx_ - rad * .13, ey_ + dy_ + rad * .84, ex_ + dx_ + rad * .13, ey_ + dy_ + rad * 1.1], fill=(120, 190, 240, int(230 * (1 - age))))
+        elif face == "angry":
+            for k_ in range(3):
+                a_ = -2.4 + k_ * .6
+                d.line([(ex_ + math.cos(a_) * rad * (.8 + .3 * pulse), ey_ + rad * .5 + math.sin(a_) * rad * (.8 + .3 * pulse)), (ex_ + math.cos(a_) * rad * 1.4, ey_ + rad * .5 + math.sin(a_) * rad * 1.4)], fill=(210, 50, 40), width=max(4, int(lw * .5)))
+        elif face == "sad":
+            d.ellipse([head[0] + f * rad * .3, head[1] + rad * (.1 + .6 * ((t * .8) % 1.0)), head[0] + f * rad * .5, head[1] + rad * (.35 + .6 * ((t * .8) % 1.0))], fill=(120, 190, 240, 220))
         hand, dirv = add(sh, add(seg((0, 0), wide[0], L["upper"] * S, f), seg((0, 0), wide[0] + wide[1], L["fore"] * S, f))), wide[0] + wide[1]
         if "sword" in props:
             tip = add(hand, seg((0, 0), dirv, 0.34 * S, f))
