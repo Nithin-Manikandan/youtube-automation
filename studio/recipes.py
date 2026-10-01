@@ -237,6 +237,7 @@ def build_stage(v, dur, rnd, seed=0):
         while tt < dur - .3:
             fx.append(dict(type="sparks", t=tt, x=.5, y=.40))
             tt += 1.0
+    fx.append(dict(type="ambient", bg=v["background"]))
     scene["fx"] = fx
     if v.get("title"):
         scene["text"] = [dict(t=.35, end=min(dur - .2, 3.6), text=v["title"], y=.085,

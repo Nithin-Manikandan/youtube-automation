@@ -15,7 +15,7 @@ RULES = [
     (r"\btorpedo", ["submarine", "torpedo"], ["bubbles"], "underwater", {}),
     (r"\bsonar|ping\b", ["submarine"], ["sonar", "bubbles"], "underwater", {}),
     (r"\b(warships?|destroyers?|cruiser|battleship|fleet|navy|naval|carrier|flotilla)\b", ["warship"], [], "sea", {}),
-    (r"\b(rockets?|launch(?:ed|es|ing)?|lift(?:ed|s)? off|silos?)\b", ["missile"], [], None, {"launch": True}),
+    (r"\b(?:missiles?|rockets?|icbms?)\b.{0,40}\b(?:launch\w*|fired|fire|lift\w* off)\b|\blaunch\w* (?:the |a |its |their )?(?:nuclear )?(?:missiles?|rockets?)|\blift\w* off\b|\bsilos?\b|\brockets?\b", ["missile"], [], None, {"launch": True}),
     (r"\b(planes?|aircraft|bombers?|airplane|jets?)\b", ["plane"], [], None, {}),
     (r"\b(volcano|volcanic|eruption|erupt\w*|lava|magma|crater|caldera)\b", ["volcano"], ["embers"], "volcanic", {}),
     (r"\b(ash|ashfall|pumice|soot)\b", ["ash_cloud"], ["ashfall"], "ashen", {}),
@@ -94,6 +94,8 @@ def enrich(visual, narration, modern):
     named = [o for o in objs if any(o in r[1] for r in RULES if re.search(r[0], text))]
     rest = [o for o in objs if o not in named]
     objs = named + rest
+    if bg != "submarine_interior":                            # interior fittings only make sense inside the boat
+        objs = [o for o in objs if o not in ("pipes", "gauge", "hatch")]
     if bg in ("underwater", "submarine_interior"):            # nothing from the surface world belongs down here
         objs = [o for o in objs if o not in ("warship", "ship", "crowd", "plane", "building", "house", "wave", "castle", "pyramid", "volcano")]
     if str(v.get("title", "")).strip().lower().replace(" ", "_") in {"submarine_interior", "underwater", "city_day", "battlefield", "palace", "sea"}:

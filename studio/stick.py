@@ -502,8 +502,13 @@ def draw_map(d, scene, W, H, t):
     d.rectangle([0, 0, w, S], fill=(214, 190, 142))
     for k in range(18):  # worn parchment edges
         d.rectangle([k * 9, k * 9, w - k * 9, S - k * 9], outline=(120, 86, 40, 10 + k * 3), width=16)
+    for k in range(0, int(S), 22):                                   # inked sea lines, drifting slowly
+        off = (t * 14 + k * 3) % 60
+        for x0 in range(-60, int(w), 120):
+            d.arc([x0 + off, k, x0 + off + 40, k + 14], 200, 340, fill=(150, 126, 84, 70), width=3)
     for poly in scene["land"]:
         pts = [(x * w, y * S) for x, y in poly["pts"]]
+        d.polygon([(px + 12, py + 14) for px, py in pts], fill=(120, 90, 50, 80))              # drop shadow so land lifts off the page
         d.polygon(pts, fill=poly.get("color", (236, 222, 184)), outline=INK)
         d.line(pts + [pts[0]], fill=INK, width=5)
         if poly.get("label"):
@@ -512,6 +517,9 @@ def draw_map(d, scene, W, H, t):
             d.text((lx * w - d.textlength(poly["label"], font=f_) / 2, ly * S), poly["label"], font=f_, fill=poly.get("label_color", (60, 44, 26)))
     for c in scene.get("cities", []):
         cx, cy = c["x"] * w, c["y"] * S
+        for j in range(2):                                           # pulsing target rings
+            ph = (t * .8 + j * .5) % 1.0
+            d.ellipse([cx - 16 - ph * 70, cy - 16 - ph * 70, cx + 16 + ph * 70, cy + 16 + ph * 70], outline=(196, 57, 43, int(200 * (1 - ph))), width=5)
         d.ellipse([cx - 16, cy - 16, cx + 16, cy + 16], fill=GOLD, outline=INK, width=4)
         f_ = font(int(S * 0.034))
         d.text((cx - d.textlength(c["name"], font=f_) / 2, cy + 24), c["name"], font=f_, fill=INK, stroke_width=3, stroke_fill=(236, 204, 132))
@@ -538,6 +546,17 @@ def draw_map(d, scene, W, H, t):
         d.polygon([(x2 + math.cos(ang) * hs, y2 + math.sin(ang) * hs),
                    (x2 + math.cos(ang + 2.5) * hs, y2 + math.sin(ang + 2.5) * hs),
                    (x2 + math.cos(ang - 2.5) * hs, y2 + math.sin(ang - 2.5) * hs)], fill=col)
+        for j in range(3):                                           # little units marching along the arrow
+            q = (t * .35 + j / 3) % 1.0
+            tot = sum(lens)
+            target, run_ = tot * pr * q, 0.0
+            for i, L_ in enumerate(lens):
+                if run_ + L_ >= target:
+                    uu = (target - run_) / max(L_, 1e-6)
+                    ux, uy = lerp(pts[i][0], pts[i + 1][0], uu), lerp(pts[i][1], pts[i + 1][1], uu)
+                    d.ellipse([ux - 11, uy - 11, ux + 11, uy + 11], fill=(255, 244, 220), outline=col, width=4)
+                    break
+                run_ += L_
         if ar.get("label") and pr > 0.15:
             f_ = font(int(S * 0.04))
             lx, ly = ar["label_at"]
@@ -548,7 +567,9 @@ def draw_fx(d, scene, t, W, H, gy, actors):
     S = H * SS
     for fx in scene.get("fx", []):
         k = fx["type"]
-        if k == "rain" and fx["t0"] <= t <= fx["t1"]:
+        if k == "ambient":
+            art.ambient(d, fx["bg"], t, S, gy, W * SS)
+        elif k == "rain" and fx["t0"] <= t <= fx["t1"]:
             rng = np.random.default_rng(3)
             xs, ys, sp = rng.random(160), rng.random(160), 0.9 + rng.random(160) * 0.8
             for i in range(160):
@@ -654,6 +675,9 @@ def render_card(scene, t, W, H):
     arr = (np.array(top) * (1 - g) + np.array(bot) * g).astype(np.uint8).repeat(W, axis=1)
     pil = Image.fromarray(arr)
     d = ImageDraw.Draw(pil, "RGBA")
+    for k in range(14):                                              # slow diagonal light streaks so the card is never dead
+        x0 = ((k * 137 + t * 40 * (1 + k % 3)) % (W + 400)) - 200
+        d.polygon([(x0, 0), (x0 + 90, 0), (x0 - 160, H), (x0 - 250, H)], fill=(255, 255, 255, 6 if dark else 10))
     ink = (244, 240, 230) if dark else INK
     u = smooth(t / 0.45)
     big = c.get("big", "")
@@ -673,7 +697,7 @@ def render_card(scene, t, W, H):
     for i, b in enumerate(c.get("bullets", [])):
         a = smooth((t - 0.8 - i * 0.7) / 0.4)
         f3 = font(int(H * 0.055))
-        x0, y0 = W * 0.22, H * (0.50 + i * 0.095)
+        x0, y0 = W * 0.22 + (1 - a) * W * 0.12, H * (0.50 + i * 0.095)          # bullets slide in from the right
         d.ellipse([x0 - 40, y0 + 14, x0 - 22, y0 + 32], fill=GOLD + (int(255 * a),))
         d.text((x0, y0), b, font=f3, fill=ink + (int(240 * a),))
     return _grade(np.asarray(pil), W, H, t)
@@ -740,6 +764,9 @@ def render_frame(scene, t, W, H):
             k = 1 - (t - sh_["t"]) / sh_.get("dur", 0.4)
             sx = math.sin(t * 90) * sh_.get("amp", 14) * k * SS
             sy = math.cos(t * 77) * sh_.get("amp", 14) * k * SS
+    if scene.get("kind") != "map":                       # faint handheld drift: the camera is never perfectly still
+        sx += (math.sin(t * 1.3) * 2.2 + math.sin(t * 3.1 + 1) * 0.8) * SS
+        sy += (math.cos(t * 1.1) * 1.6 + math.sin(t * 2.7) * 0.6) * SS
     M = cv2.getRotationMatrix2D((cx * W * SS, cy * H * SS), 0, z / SS)
     M[0, 2] += W / 2 - cx * W * SS + sx / SS
     M[1, 2] += H / 2 - cy * H * SS + sy / SS
