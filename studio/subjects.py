@@ -110,6 +110,9 @@ def enrich(visual, narration, modern):
     if bg == "underwater":                                    # nobody is standing on the seabed
         v["actors"] = []
     v["objects"] = objs[:3]
+    scenery = {"seascape", "interior", "pipes", "column", "tree", "cloud", "torch"}
+    if not v.get("actors") and not [o for o in v["objects"] if o not in scenery] and bg != "underwater":
+        v["actors"] = [dict(role="president" if modern else "citizen", color="", pos="center", action="talk", emotion="worried", facing="", scale=1.0)]   # never an empty stage
     if bg == "submarine_interior" and len(v.get("actors") or []) < 2:           # an interior scene is about the people in it
         keep = list(v.get("actors") or [])[:1]
         v["actors"] = keep + [dict(role="captain", color="red", pos="left", action="talk", emotion="angry", facing="", scale=1.0),
