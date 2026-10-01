@@ -61,7 +61,7 @@ BACKGROUNDS = {
 }
 OBJECTS = {"castle", "column", "pedestal", "cloud", "tree", "tent", "pyramid", "tower", "torch", "ship",
            "submarine", "warship", "missile", "plane", "building", "hatch", "pipes", "gauge",
-           "volcano", "ash_cloud", "wave", "fire", "smoke", "house", "explosion", "depth_charge", "torpedo", "crowd", "liner", "iceberg", "burning_town", "spacecraft", "planet", "capsule_interior", "mission_control", "reactor"}
+           "volcano", "ash_cloud", "wave", "fire", "smoke", "house", "explosion", "depth_charge", "torpedo", "crowd", "liner", "iceberg", "burning_town", "airship", "spacecraft", "planet", "capsule_interior", "mission_control", "reactor"}
 EFFECTS = {"rain", "flash", "sparks", "dust", "shake", "ashfall", "embers", "bubbles", "sonar"}
 CAMERAS = {"push_in": ([1.0, 1.10], None), "pull_out": ([1.12, 1.0], None), "pan_right": ([1.06, 1.06], (-.04, .04)), "pan_left": ([1.06, 1.06], (.04, -.04)), "static": ([1.0, 1.0], None)}
 
@@ -201,11 +201,11 @@ def build_stage(v, dur, rnd, seed=0):
     scene["actors"] = actors
     xs = [.12, .88, .3, .7]
     objs = []
-    BIG = {"reactor": .72, "spacecraft": .5, "planet": .84, "liner": .5, "iceberg": .76, "submarine": .56, "warship": .56, "plane": .3, "missile": .86, "pyramid": .5, "ship": .6, "volcano": .62, "wave": .6, "ash_cloud": .05, "explosion": .5, "fire": .5}
+    BIG = {"airship": .5, "reactor": .72, "spacecraft": .5, "planet": .84, "liner": .5, "iceberg": .76, "submarine": .56, "warship": .56, "plane": .3, "missile": .86, "pyramid": .5, "ship": .6, "volcano": .62, "wave": .6, "ash_cloud": .05, "explosion": .5, "fire": .5}
     flags = v.get("flags") or {}
     for j, o in enumerate(v["objects"]):
         objs.append(dict(type=o, x=BIG.get(o, [.16, .84, .5, .3][j % 4]) if o not in ("torch",) else xs[j % 4], y=.18 + .05 * j, r=.05, scale=1.0,
-                         harbor=v["background"] == "harbor", dur=dur, modern=bool(flags.get("modern")), afloat=v["background"] == "underwater", launch=bool(flags.get("launch")), venting=bool(flags.get("venting")), kind=flags.get("kind", "earth"),
+                         harbor=v["background"] == "harbor", dur=dur, modern=bool(flags.get("modern")), afloat=v["background"] == "underwater", launch=bool(flags.get("launch")), burning=bool(flags.get("burning")), venting=bool(flags.get("venting")), kind=flags.get("kind", "earth"),
                          t0=dur * (.3 + .12 * j) if o in ("depth_charge", "explosion", "torpedo") else .4,
                          color=(255, 255, 255, 160) if v["background"] not in ("storm", "night", "battlefield", "volcanic", "ashen", "space") else (92, 94, 104)))
     dc = [o for o in objs if o["type"] == "depth_charge"]

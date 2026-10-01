@@ -375,6 +375,45 @@ def liner(d, o, x, S, gy, t, WS):
         _circle(d, x + w * .56 + age * S * .02, yb - h * .1, S * (.006 + .01 * age), (240, 248, 255, int(210 * (1 - age))))
 
 
+def airship(d, o, x, S, gy, t, WS):
+    """A rigid airship: silver envelope with girder rings, tail fins, gondola and propeller pods; burning tail and nose-up tilt when o['burning']."""
+    sc = o.get("scale", 1)
+    L, H_ = S * 0.8 * sc, S * 0.1 * sc
+    burning = bool(o.get("burning"))
+    cx = WS * .5 + math.sin(t * .35) * S * .02 + (t - o.get("dur", 6) / 2) * S * .012
+    cy = S * (.17 if not burning else .2) + math.sin(t * .8) * S * .008
+    tilt = -.18 if burning else 0.0
+    def P(px, py):
+        c_, s_ = math.cos(tilt), math.sin(tilt)
+        return (cx + px * c_ - py * s_, cy + px * s_ + py * c_)
+    pts = [P(math.cos(a / 24 * 6.2832) * L / 2, math.sin(a / 24 * 6.2832) * H_) for a in range(24)]
+    for sgn in (-1, 1):                                                  # tail fins
+        d.polygon([P(-L * .5, 0), P(-L * .5 - L * .06, sgn * H_ * 1.55), P(-L * .34, sgn * H_ * .8)], fill=(168, 174, 182), outline=INK)
+    d.polygon([P(-L * .5, 0), P(-L * .56, -H_ * 1.5), P(-L * .34, -H_ * .8)], fill=(176, 182, 190), outline=INK)
+    d.polygon(pts, fill=(196, 202, 210), outline=INK)
+    for k in range(-5, 6):                                               # girder rings
+        a = k / 6 * 1.35
+        xx = math.cos(a + 1.5708) * 0
+        px_ = k * L * .082
+        hh = H_ * math.sqrt(max(0.0, 1 - (px_ / (L / 2)) ** 2))
+        d.line([P(px_, -hh), P(px_, hh)], fill=(150, 158, 168), width=2)
+    d.line([P(-L * .48, -H_ * .12), P(L * .48, -H_ * .12)], fill=(150, 158, 168), width=2)
+    d.polygon([P(-L * .45, H_ * .62), P(L * .45, H_ * .62), P(L * .4, H_ * .78), P(-L * .4, H_ * .78)], fill=(150, 158, 168))
+    d.polygon([P(-L * .1, H_ * .95), P(L * .12, H_ * .95), P(L * .1, H_ * 1.35), P(-L * .08, H_ * 1.35)], fill=(88, 92, 100), outline=INK)   # gondola
+    for px_ in (-L * .22, L * .2):
+        _circle(d, *P(px_, H_ * 1.05), S * .012, (70, 74, 82), INK, 2)
+    if burning:
+        rng = random.Random(5)
+        for k in range(16):
+            age = (t * .9 + k / 16) % 1.0
+            fx, fy = P(-L * (.3 + .2 * rng.random()), -H_ * (.2 + .5 * rng.random()))
+            _circle(d, fx, fy - age * S * .1, S * (.02 + .035 * (1 - age)), (255, int(150 - 90 * age), 30, int(230 * (1 - age * .6))))
+        for k in range(10):
+            age = (t * .5 + k / 10) % 1.0
+            fx, fy = P(-L * .4, -H_ * .3)
+            _circle(d, fx - age * S * .05, fy - age * S * .22, S * (.03 + .04 * age), (60, 58, 62, int(160 * (1 - age))))
+
+
 def iceberg(d, o, x, S, gy, t, WS):
     """A jagged berg: lit white face, blue shadow face, and the huge pale mass hidden under the surface."""
     sc = o.get("scale", 1)
@@ -578,4 +617,4 @@ def reactor(d, o, x, S, gy, t, WS):
         _circle(d, rx, gy - hh - rh * .2, S * (.1 + .04 * k) * sc, (120, 255, 140, 14 + int(8 * math.sin(t * 2))))
 
 
-DRAW = {"reactor": reactor, "spacecraft": spacecraft, "planet": planet, "capsule_interior": capsule_interior, "mission_control": mission_control, "ship": ship, "burning_town": burning_town, "liner": liner, "iceberg": iceberg, "interior": interior, "crowd": crowd, "wave": wave, "explosion": explosion, "submarine": submarine, "warship": warship, "plane": plane, "seascape": seascape}
+DRAW = {"airship": airship, "reactor": reactor, "spacecraft": spacecraft, "planet": planet, "capsule_interior": capsule_interior, "mission_control": mission_control, "ship": ship, "burning_town": burning_town, "liner": liner, "iceberg": iceberg, "interior": interior, "crowd": crowd, "wave": wave, "explosion": explosion, "submarine": submarine, "warship": warship, "plane": plane, "seascape": seascape}
