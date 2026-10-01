@@ -238,7 +238,7 @@ FAMILY = {"city_day": ["palace", "countryside"], "palace": ["city_day", "desert"
 BYSTANDER = {True: ("reporter", "worker", "officer"), False: ("citizen", "scholar", "soldier")}
 
 
-def variety_pass(visuals, modern=False):
+def variety_pass(visuals, modern=False, domain=None):
     """Never three scenes in a row with the same setting: cut away to a related one (outside the boat, another location, a close two-shot)."""
     out = list(visuals)
     for i in range(2, len(out)):
@@ -248,7 +248,9 @@ def variety_pass(visuals, modern=False):
         if not (a.get("background") == b.get("background") == c.get("background")):
             continue
         c = dict(c)
-        if c["background"] in ("capsule", "mission_control"):             # cutaway to the spacecraft from outside
+        if c["background"] in ("capsule", "mission_control") and domain != "space":
+            c["background"] = "night"                                       # an industrial control room is never a spacecraft
+        elif c["background"] in ("capsule", "mission_control"):             # cutaway to the spacecraft from outside
             c.update(background="space", actors=[], objects=["spacecraft", "planet"], effects=[], flags={"modern": True, "kind": "earth"}, title=c.get("title", ""))
         elif c["background"] == "submarine_interior":                       # cutaway to the boat seen from outside
             c.update(background="underwater", actors=[], objects=["submarine"], effects=["bubbles"], title=c.get("title", ""))

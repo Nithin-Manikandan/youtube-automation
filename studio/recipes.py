@@ -210,7 +210,7 @@ def build_stage(v, dur, rnd, seed=0):
                          color=(255, 255, 255, 160) if v["background"] not in ("storm", "night", "battlefield", "volcanic", "ashen", "space") else (92, 94, 104)))
     dc = [o for o in objs if o["type"] == "depth_charge"]
     if v.get("anchor") and v["background"] not in ("submarine_interior", "underwater"):          # the story's landmark looms far behind every outdoor scene
-        ax = .84 if not actors or actors[0]["keys"][0]["x"] < .6 else .16
+        ax = .9 if not actors or sum(a["keys"][0]["x"] for a in actors) / len(actors) < .55 else .1
         objs.insert(0, dict(type=v["anchor"], x=ax, y=.2, r=.05, scale=.5, dur=dur, modern=False, afloat=False, launch=False, t0=.4, color=(92, 94, 104)))
     if v["background"] == "underwater":
         objs.insert(0, dict(type="seascape", x=.5, dur=dur))

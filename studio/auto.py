@@ -521,7 +521,7 @@ def plan(job, pdir, settings, hint=None):
     domain = subjects.domain_for(topic + " " + hook)
     story_has_sub = len(re.findall(r"submarine|u-boat|torpedo|sonar", full_text.lower())) >= 3
     visuals = [subjects.enrich(vis, s["narration"], modern, anchor, story_has_sub, domain) for vis, (_, s) in zip(visuals, scripts)]
-    visuals = subjects.variety_pass(visuals)
+    visuals = subjects.variety_pass(visuals, modern, domain)
     visuals = subjects.company_pass(visuals, modern)
     scene_moods = []
     cur = "calm"
