@@ -25,8 +25,15 @@ def _pn(clip):
     return LEGACY.get(clip) or "mc:" + clip
 
 
+BEND_ACTS = {"pull", "push", "pick_up", "duck", "dodge", "stumble", "fall", "sit", "crouch", "cry", "scared", "kick", "punch"}
+
+
 def available():
     return bool(mocap._load())
+
+
+def _outward(x, n):
+    return 0.0 if n < 2 else (-0.07 if x < 0.5 else 0.07)
 
 
 def _leg_speed(dxr, dt, scale):
@@ -122,11 +129,12 @@ def _base_keys(a, dur, idx, n, pos_x, facing, other=None):
         clip, loop = ACTION_CLIP[act]
         if not mocap.has(clip):
             return None
-        ks = [K(0, pos_x, clip, loop=loop, facing=face_other, speak=False, ct0=0)]
+        px = pos_x + _outward(pos_x, n) if act in BEND_ACTS else pos_x                # a person bending over needs room that the other person is not standing in
+        ks = [K(0, px, clip, loop=loop, facing=face_other, speak=False, ct0=0)]
         if not loop:
-            ks.append(dict(t=mocap.duration(clip) + 0.2, x=pos_x, pose="stand", face=em, facing=face_other, xf=0.5))
+            ks.append(dict(t=mocap.duration(clip) + 0.2, x=px, pose="stand", face=em, facing=face_other, xf=0.5))
         else:
-            ks.append(K(dur + 2, pos_x, clip, loop=True, facing=face_other, ct0=0))
+            ks.append(K(dur + 2, px, clip, loop=True, facing=face_other, ct0=0))
         return ks
     return None
 
@@ -199,7 +207,8 @@ def keys_for(a, dur, idx, n, pos_x, facing, other=None, beats=None):
         ln = BEAT_LEN.get(act, 2.2)
         if act == "fall":
             ln = max(1.0, dur - ts + 1.0)                                   # a body that has fallen stays down for the rest of the scene
-        evs.append((ts, ts + ln, dict(x=cur_x, pose=_pn(clip), face=emo, facing=face_other, speak=False, xf=0.25, ct0=ts - 0.05, loop=False if act in ("flinch", "fall", "stumble", "duck", "wave", "shrug", "pick_up", "sit") else True), cur_x, face_other))
+        ex_ = max(0.08, min(0.92, cur_x + (_outward(cur_x, n) if act in BEND_ACTS else 0.0)))
+        evs.append((ts, ts + ln, dict(x=ex_, pose=_pn(clip), face=emo, facing=face_other, speak=False, xf=0.25, ct0=ts - 0.05, loop=False if act in ("flinch", "fall", "stumble", "duck", "wave", "shrug", "pick_up", "sit") else True), cur_x, face_other))
         last_end = ts + ln
     if not evs:
         return base
