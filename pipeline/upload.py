@@ -25,6 +25,9 @@ def upload(mp4, data, cfg, log=print, shorts=True, thumb=None):
         "status": {"privacyStatus": up.get("privacy", "private"), "selfDeclaredMadeForKids": False,
                    "containsSyntheticMedia": bool(up.get("synthetic_media_disclosure", False))},
     }
+    if up.get("publish_at"):                                  # YouTube publishes it by itself at this time (UTC, RFC 3339)
+        body["status"]["privacyStatus"] = "private"
+        body["status"]["publishAt"] = up["publish_at"]
     token = _access_token()
     size = os.path.getsize(mp4)
     init = requests.post(
