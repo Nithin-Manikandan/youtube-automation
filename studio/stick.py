@@ -838,8 +838,8 @@ def make_shots(scene, rnd):
         scene["hits"] = []
     for sh_ in scene.get("shake", []):
         scene["hits"].append(sh_["t"])
-    for fx in scene.get("fx", []):
-        if fx["type"] in ("sparks", "flash"):
+    for i_, fx in enumerate(f_ for f_ in scene.get("fx", []) if f_["type"] in ("sparks", "flash")):
+        if fx["type"] == "flash" or i_ % 3 == 0:      # not every exchange punches the camera
             scene["hits"].append(fx["t"])
     for o in scene.get("objects", []):
         if o["type"] in ("explosion",):
