@@ -43,7 +43,17 @@ def era_modern(full_text, default=False):
     return statistics.median(years) >= 1800
 
 
-def enrich(visual, narration, modern):
+def anchor_for(topic_text):
+    """A place-defining subject of the whole video (the volcano, the pyramids) that should loom in the background of its outdoor scenes."""
+    t = topic_text.lower()
+    if re.search(r"\b(vesuvius|volcano|volcanic|eruption|krakatoa|etna|pompeii|st\.? helens|pinatubo)\b", t):
+        return "volcano"
+    if re.search(r"\b(pyramids?|giza|pharaoh)\b", t):
+        return "pyramid"
+    return None
+
+
+def enrich(visual, narration, modern, anchor=None):
     """Return the visual with the narration's subjects added. Only stage scenes are touched."""
     if visual.get("type") != "stage":
         return visual
@@ -96,6 +106,9 @@ def enrich(visual, narration, modern):
     named = [o for o in objs if any(o in r[1] for r in RULES if re.search(r[0], text))]
     rest = [o for o in objs if o not in named]
     objs = named + rest
+    if not modern:
+        objs = ["house" if o == "building" else o for o in objs]                 # no skyscrapers in the ancient world
+        objs = list(dict.fromkeys(objs))
     if bg == "underwater":
         objs = ["depth_charge" if o == "explosion" else o for o in objs]          # a blast under water is a blue-white burst, not a fireball
         objs = [o for o in objs if o != "fire"]
@@ -110,7 +123,7 @@ def enrich(visual, narration, modern):
     if bg == "underwater":                                    # nobody is standing on the seabed
         v["actors"] = []
     v["objects"] = objs[:3]
-    scenery = {"seascape", "interior", "pipes", "column", "tree", "cloud", "torch"}
+    scenery = {"seascape", "interior", "pipes", "column", "tree", "cloud", "torch", "smoke", "house", "ash_cloud", "fire", "building"}
     if not v.get("actors") and not [o for o in v["objects"] if o not in scenery] and bg != "underwater":
         v["actors"] = [dict(role="president" if modern else "citizen", color="", pos="center", action="talk", emotion="worried", facing="", scale=1.0)]   # never an empty stage
     if bg == "submarine_interior" and len(v.get("actors") or []) < 2:           # an interior scene is about the people in it
@@ -123,6 +136,8 @@ def enrich(visual, narration, modern):
     v["background"] = bg or v.get("background")
     flags["modern"] = bool(modern)
     v["flags"] = flags
+    if anchor and bg not in ("submarine_interior", "underwater") and anchor not in (v.get("objects") or []):
+        v["anchor"] = anchor
     # a sunk-in-thought lone character is boring: if the subject is a vehicle/disaster, let it dominate
     if any(o in v["objects"] for o in ("submarine", "volcano", "wave", "missile", "warship", "plane", "explosion")) and len(v.get("actors", [])) > 1:
         v["actors"] = v["actors"][:1]
