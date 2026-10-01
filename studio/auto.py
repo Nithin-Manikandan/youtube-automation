@@ -121,7 +121,7 @@ Structure for maximum retention: chapter 1 is the cold open: pick ONE concrete, 
 that each end with an open loop or twist that pulls the viewer into the next one, and a final payoff that answers the opening question and
 lands one memorable takeaway. Chronology must be correct. Use only well-documented facts.
 Return JSON: {{"working_title": "", "chapters": [{{"title": "", "purpose": "", "key_facts": ["specific documented facts/dates/names this chapter must use"], "target_words": 240}}]}}
-Chapter target_words must sum to about 2000 (between 1800 and 2200)."""
+Chapter target_words must sum to about 1650 (between 1500 and 1800)."""
     o = _llm(prompt, 0.7)
     if isinstance(o, dict) and "working_title" not in o and "chapters" not in o:
         o = _unwrap(o, "chapters")
@@ -484,7 +484,7 @@ def plan(job, pdir, settings, hint=None):
         scripts += [(i, s) for s in scenes]
     wc = sum(len(s["narration"].split()) for _, s in scripts)
     _log(job, f"script: {wc} words, {len(scripts)} scenes")
-    if not FAKE() and wc < 1750:
+    if not FAKE() and wc < 1400:
         _log(job, "  script is short for 8 minutes; extending the shortest chapters")
         for _ in range(3):
             counts = {}
@@ -496,11 +496,11 @@ def plan(job, pdir, settings, hint=None):
             scripts += [(ci, s) for s in extra]
             scripts.sort(key=lambda cs: cs[0])
             wc = sum(len(s["narration"].split()) for _, s in scripts)
-            if wc >= 1750:
+            if wc >= 1400:
                 break
-    if wc > 2450:
+    if wc > 1950:
         _log(job, "  script is long for 15 minutes; trimming")
-        while wc > 2400:
+        while wc > 1900:
             mid = [k for k, (c, _) in enumerate(scripts) if 0 < c < len(chapters) - 1]
             k = random.Random(1).choice(mid)
             wc -= len(scripts[k][1]["narration"].split())
