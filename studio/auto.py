@@ -440,7 +440,7 @@ def render_segment(args):
     n = int(round(sc["duration"] * FPS))
     for i in range(n):
         t = i / FPS
-        if sc.get("blur"):
+        if False:                                                      # whole-frame motion smear is off: it made running and fighting scenes look broken
             fr = np.mean([stick.render_frame(sc, max(0, t + d), W, H).astype(np.float32) for d in (-0.006, 0, 0.006)], axis=0).astype(np.uint8)
         else:
             fr = stick.render_frame(sc, t, W, H).copy()

@@ -844,6 +844,10 @@ def _camera(scene, t, u, fx0, fx1):
             if e <= t < e + 0.35:
                 punch = (1 - (t - e) / 0.35)
                 z *= 1 + 0.09 * punch
+    acts_ = scene.get("_actors") or []
+    if acts_ and z > 1.2 and scene.get("kind") != "map":    # a close shot never cuts the top of a head off: keep the tallest head 7% inside the frame
+        top_w = min(scene.get("ground", 0.80) - 0.52 * 1.16 * a_.s.get("scale", 1.0) - 0.04 * (1 if a_.s.get("float") else 0) for a_ in acts_)
+        cy = min(cy, top_w + 0.43 / z)
     if z > 1.0:                                           # never look past the edge of the drawn picture (a flat cut through a planet or sky)
         cx = min(max(cx, 0.5 / z), 1 - 0.5 / z)
         cy = min(max(cy, 0.5 / z), 1 - 0.5 / z)

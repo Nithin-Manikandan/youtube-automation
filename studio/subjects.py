@@ -37,7 +37,7 @@ RULES = [
     # everyday props: what people are standing next to, working with and carrying
     (r"\b(cesspits?|cesspools?|latrines?|sewers?|drains?|pits?|trench\w*|vaults?)\b", ["pit"], [], None, {}),
     (r"\b(swamps?|marsh\w*|ponds?|bogs?|leech\w*)\b", ["swamp"], [], "countryside", {}),
-    (r"\b(barrels?|casks?|kegs?|tubs?|weans?)\b", ["barrel"], [], None, {}),
+    (r"\b(barrels?|casks?|kegs?|tubs?|weans?|jars?|vats?|urns?|jugs?|amphorae?|vessels? of)\b", ["barrel"], [], None, {}),
     (r"\b(buckets?|pails?|ladles?)\b", ["bucket"], [], None, {}),
     (r"\b(baskets?|wicker|hampers?)\b", ["basket"], [], None, {}),
     (r"\b(carts?|wagons?|carted|hauled|hauling)\b", ["cart"], [], None, {}),
@@ -155,7 +155,7 @@ def enrich(visual, narration, modern, anchor=None, story_has_sub=True, domain=No
     if visual.get("type") != "stage":
         return visual
     v = dict(visual)
-    text = narration.lower()
+    text = re.sub(r"rapid[- ]fire|open[- ]fire|fire[- ]?(?:and|or) brimstone|under fire|friendly fire|fired (?:up|from|him|her|them|the (?:cook|worker|servant))|set on fire", " ", narration.lower())     # figures of speech are not flames
     if domain == "space":
         return _space(v, text)
     if v.get("background") in ("mission_control", "capsule", "space", "moon"):            # spacecraft sets only exist in spaceflight stories
