@@ -201,7 +201,7 @@ def build_stage(v, dur, rnd, seed=0, wins=None):
             if k["pose"] == "fight_swing":
                 k["pose"] = "swing"
         crown_fall = dur * 0.3 if ("crown" in props and a["action"] in ("slump", "scared")) else None
-        actors.append(dict(id=f"a{i}", talks=a["action"] == "talk", crown_fall=crown_fall, color=col, tunic=col if a["role"] not in ("scholar", "priest") else (238, 234, 224),
+        actors.append(dict(id=f"a{i}", float=v["background"] == "capsule", talks=a["action"] == "talk", crown_fall=crown_fall, color=col, tunic=col if a["role"] not in ("scholar", "priest") else (238, 234, 224),
                            props=props, scale=a["scale"] * (0.98 if a["role"] in ("soldier", "knight") else 1.0),
                            hair=(random.Random(i + seed).choice([(70, 48, 30), (40, 30, 24), (150, 110, 60), (200, 200, 196)])), keys=keys))
     seen = set()

@@ -78,4 +78,8 @@ def sample(name, tt, loop=None, boost=None):
         row[7] *= 0.3; row[9] *= 0.3
         row[0] -= 0.75 * max(mean[0] - 2.0, 0.0)
         row[1] -= 0.5 * mean[1]
+    if name in ("sword_1", "sword_2", "punch", "boxing", "kick", "dodge", "stumble", "surprised"):
+        row = row.copy()                                                     # fighters keep a ready stance, not a deep squat
+        row[7] *= 0.55; row[9] *= 0.55
+        row[6] = 4 + (row[6] - 4) * 0.7; row[8] = -4 + (row[8] + 4) * 0.7
     return dict(zip(KEYS, [float(v) for v in row]))

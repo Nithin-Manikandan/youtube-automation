@@ -132,6 +132,12 @@ class Actor:
         pose, x, facing, face = self._key_state(t)
         for ch, k in (("a2", 0.55), ("b2", 0.55), ("l2", 0.35), ("m2", 0.35), ("head", 0.4)):
             pose[ch] = pose[ch] * (1 - k) + lag[ch] * k
+        if self.s.get("float"):                                       # weightless: drifting off the floor, legs trailing loosely, a slow tumble-sway
+            ph = t * 0.55 + self.seed * 1.7
+            pose["lift"] = pose.get("lift", 0) + 0.085 + 0.03 * math.sin(ph)
+            pose["torso"] += 7 * math.sin(ph * 0.8 + 1.0)
+            for ch, v in (("l1", 12 + 3 * math.sin(ph + .5)), ("m1", 4 + 3 * math.sin(ph + 2.0)), ("l2", -26 + 4 * math.sin(ph + 1.0)), ("m2", -34 + 4 * math.sin(ph + 2.5))):
+                pose[ch] = pose[ch] * 0.25 + v * 0.75
         return pose, x, facing, face
 
     def _key_state(self, t):
@@ -1039,11 +1045,11 @@ def make_shots(scene, rnd):
             titled = bool(scene.get("text")) and bounds[i] < 3.8
             if acts and st != "wide" and max(z0, z1) < 1.7:                 # feet stay above the caption band (ground lands at <= .85 of the frame)
                 if titled:                                                  # ...and heads stay under the on-screen title
-                    z0, z1 = min(z0, 1.25), min(z1, 1.25)
+                    z0, z1 = min(z0, 1.1), min(z1, 1.1)
                 lo = 0.80 - 0.35 / min(z0, z1)
                 fy = max(fy, lo)
                 if titled:
-                    fy = min(fy, 0.28 + 0.35 / max(z0, z1)) if lo <= 0.28 + 0.35 / max(z0, z1) else lo
+                    fy = min(fy, 0.25 + 0.35 / max(z0, z1)) if lo <= 0.25 + 0.35 / max(z0, z1) else lo
             elif titled and st != "wide":                                   # close-ups: keep the head under the title
                 fy = min(fy, 0.27)
             shots.append(dict(t0=bounds[i], t1=bounds[i + 1], z0=z0, z1=z1, x0=fx, x1=fx + rnd.choice([-.02, .02]), y0=fy, y1=fy))
