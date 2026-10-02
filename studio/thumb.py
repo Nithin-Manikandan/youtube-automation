@@ -133,7 +133,7 @@ def _grade(img):
     return out.filter(ImageFilter.UnsharpMask(radius=2, percent=70, threshold=2))
 
 
-def _hero(role, color, pose, emo, x, scale, facing, gy_frac=1.0, boss=False):
+def _hero(role, color, pose, emo, x, scale, facing, gy_frac=1.0, boss=False, ink=False):
     role = role if role in recipes.ROLES else "citizen"
     props, tun = recipes.ROLES[role]
     col = recipes.COLORS.get(color or tun, recipes.COLORS[tun])
@@ -144,7 +144,7 @@ def _hero(role, color, pose, emo, x, scale, facing, gy_frac=1.0, boss=False):
     actor = stick.Actor(spec, W, H)
     if stick.V2:
         from . import char
-        char.draw_v2(actor, layer, 0.4, H * SS * gy_frac, {}, {"light": (-0.72, -0.62), "rim": (255, 220, 170), "shadow": False})
+        char.draw_v2(actor, layer, 0.4, H * SS * gy_frac, {}, {"light": (-0.72, -0.62), "rim": (255, 220, 170), "shadow": False, "ink": ink})
     else:
         d = ImageDraw.Draw(layer, "RGBA")
         actor.draw(d, 0.4, H * SS * gy_frac)
@@ -232,9 +232,42 @@ def _subject_scene(recipe, flip, variant=0):
     return frame
 
 
+def _fun_scene(recipe, flip, variant=0):
+    """Entertainment-history thumbnail background: a bright, saturated drawn scene (the story's everyday props in a sunny setting) with warm rays."""
+    bg = str(recipe.get("scene") or "countryside").lower()
+    bg = bg if bg in ("countryside", "city_day", "palace", "desert", "forest", "snow", "harbor") else "countryside"
+    objs = [o for o in (recipe.get("objects") or []) if o in recipes.OBJECTS][:3]
+    rnd = random.Random(9 + variant)
+    vis = recipes.clean_visual({"type": "stage", "background": bg, "actors": [], "objects": objs, "effects": []}, rnd)
+    vis["objects"] = objs
+    sc = recipes.build_stage(vis, 6.0, rnd)
+    for k_, o in enumerate(sc["objects"]):
+        o["x"] = (0.16, 0.40, 0.30)[k_ % 3] if not flip else (0.84, 0.60, 0.70)[k_ % 3]
+        o["scale"] = 1.15
+        o["dur"] = 6.0
+    sc["shots"], sc["hits"], sc["text"], sc["shake"] = [], [], [], []
+    sc["speed"], sc["blur"] = False, False
+    sc["zoom"], sc["focus"] = [1.0, 1.0], (0.5, 0.58)
+    sc.pop("focus_to", None)
+    stick.prepare(sc, W, H)
+    frame = Image.fromarray(stick.render_frame(sc, 1.5, W, H)[..., :3]).convert("RGBA")
+    arr = np.asarray(frame).astype(np.float32)
+    g = arr.mean(axis=2, keepdims=True)
+    arr = np.clip(g + (arr - g) * 1.35, 0, 255)                      # pushed colour: thumbnails need to pop at tiny sizes
+    frame = Image.fromarray(arr.astype(np.uint8)).convert("RGBA")
+    yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
+    cx = W * (0.72 if not flip else 0.28)
+    ang = np.arctan2(yy - H * .45, xx - cx)
+    rays = ((0.5 + 0.5 * np.sin(ang * 9)) ** 3) * np.exp(-np.hypot(xx - cx, yy - H * .45) / (W * 0.55))
+    glow = Image.new("RGBA", (W, H), (255, 240, 150, 0))
+    glow.putalpha(Image.fromarray((np.clip(rays, 0, 1) * 120).astype(np.uint8)))
+    frame.alpha_composite(glow)
+    return frame
+
+
 def render(text, recipe, out_path, variant=0):
     concept = recipe.get("concept") or ("looming", "ruin", "versus")[variant % 3]
-    concept = concept if concept in ("looming", "ruin", "versus", "subject") else "looming"
+    concept = concept if concept in ("looming", "ruin", "versus", "subject", "fun") else "looming"
     flip = bool(recipe.get("flip", variant % 3 == 1))
     if recipe.get("concept") == "subject" and variant % 3 == 1:
         flip = True
@@ -246,10 +279,14 @@ def render(text, recipe, out_path, variant=0):
     hx = 0.73 if not flip else 0.27
     if concept == "subject":
         hx = 0.88 if not flip else 0.12
+    if concept == "fun":
+        hx = 0.77 if not flip else 0.23
     base = _bg(mood, hx, 0.62)
     horizon = 0.80
 
-    if concept == "subject":
+    if concept == "fun":
+        base = _fun_scene(recipe, flip, variant % 3)
+    elif concept == "subject":
         base = _subject_scene(recipe, flip, variant % 3)
         _embers(base, rng, 22, (255, 220, 150))
     elif concept == "ruin":
@@ -286,7 +323,7 @@ def render(text, recipe, out_path, variant=0):
                 base.alpha_composite(eyes.filter(ImageFilter.GaussianBlur(9)).point(lambda v: min(255, int(v * 2.2))))
                 base.alpha_composite(eyes)
         _embers(base, rng, 30, (255, 190, 70))
-    if concept != "subject":
+    if concept not in ("subject", "fun"):
         _fog(base, H * (horizon - 0.02))
         ground = Image.new("RGBA", (W, H), (0, 0, 0, 0))
         gd = ImageDraw.Draw(ground)
@@ -312,6 +349,8 @@ def render(text, recipe, out_path, variant=0):
         sd.ellipse([cx - 30, cy - 30, cx + 30, cy + 30], fill=(255, 250, 220, 255))
         base.alpha_composite(spark.filter(ImageFilter.GaussianBlur(10)).point(lambda v: min(255, int(v * 2))))
         base.alpha_composite(spark)
+    elif concept == "fun":
+        hero = _hero(role, recipe.get("color"), recipe.get("action", "scared"), recipe.get("emotion", "shock"), hx, 2.7, facing, 1.9, ink=stick.INK_STYLE)
     else:
         if concept == "subject":        # a big close reaction shot beside the story's subject: face and shoulders only
             hero = _hero(role, recipe.get("color"), recipe.get("action", "scared"), recipe.get("emotion", "shock"), hx, 2.1, facing, 1.3)
@@ -327,24 +366,24 @@ def render(text, recipe, out_path, variant=0):
     words = [w for w in text.upper().split() if w][:3] or ["HISTORY"]
     lines = []
     for w in words:  # keep short words together ("WHY IT" / "COLLAPSED")
-        if lines and len(lines[-1]) < 6:
+        if lines and len(lines[-1]) < 6 and concept != "fun":
             lines[-1] += " " + w
         else:
             lines.append(w)
     tmp = ImageDraw.Draw(Image.new("RGB", (10, 10)))
-    zone_w = W * (0.44 if concept == "subject" else 0.54)
+    zone_w = W * (0.44 if concept in ("subject", "fun") else 0.54)
     hero_mask = np.asarray(hero.split()[3]) > 40
     size = 290
     while size > 70:
         f = ImageFont.truetype(FONT_BIG, size)
         if max(tmp.textlength(l, font=f) for l in lines) <= zone_w and size * 0.93 * len(lines) <= H * 0.80:
-            tl = _text_layer(lines, f, hi, flip, size, 44 if not flip else W - 44 - zone_w, (H - size * 0.93 * len(lines)) / 2 - size * 0.04)
+            tl = _text_layer(lines, f, hi, flip, size, 44 if not flip else W - 44 - zone_w, (28 if concept == 'fun' else (H - size * 0.93 * len(lines)) / 2 - size * 0.04))
             tm = np.asarray(tl.split()[3]) > 128
             if tm.sum() and (tm & hero_mask).sum() / tm.sum() < 0.012:
                 break
         size -= 8
     f = ImageFont.truetype(FONT_BIG, size)
-    tl = _text_layer(lines, f, hi, flip, size, 44 if not flip else W - 44 - zone_w, (H - size * 0.93 * len(lines)) / 2 - size * 0.04)
+    tl = _text_layer(lines, f, hi, flip, size, 44 if not flip else W - 44 - zone_w, (28 if concept == 'fun' else (H - size * 0.93 * len(lines)) / 2 - size * 0.04))
     base.alpha_composite(tl)
 
     badge = str(recipe.get("badge") or "").upper()[:9]
