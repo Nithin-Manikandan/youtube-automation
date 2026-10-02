@@ -7,6 +7,10 @@ on:
       hint:
         description: "Optional topic hint (blank = the AI picks)"
         required: false
+      plan_only:
+        description: "true = only write the script and plan (fast); download plan.pkl and render a few scenes locally to check them"
+        required: false
+        default: "false"
 
 permissions:
   contents: read
@@ -31,7 +35,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: plan
-          retention-days: 1
+          retention-days: 3
           compression-level: 0
           path: |
             output/auto/plan.pkl
@@ -40,6 +44,7 @@ jobs:
 
   draw:
     needs: plan
+    if: github.event.inputs.plan_only != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     strategy:
@@ -68,6 +73,7 @@ jobs:
 
   assemble:
     needs: draw
+    if: github.event.inputs.plan_only != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
