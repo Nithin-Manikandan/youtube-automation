@@ -142,6 +142,10 @@ def enrich(visual, narration, modern, anchor=None, story_has_sub=True, domain=No
     text = narration.lower()
     if domain == "space":
         return _space(v, text)
+    if v.get("background") in ("mission_control", "capsule", "space", "moon"):            # spacecraft sets only exist in spaceflight stories
+        v["background"] = "night" if re.search(r"\b(night|dark|torch|candle|underground|cellar|pit|sewer|vault|midnight)\b", text) else ("palace" if re.search(r"\b(council|court|official|authorit|magistrate|mayor|parliament)\b", text) else "city_day")
+        if v["background"] != "space":
+            v["objects"] = [o for o in v.get("objects", []) if o not in ("spacecraft", "planet", "capsule_interior", "mission_control")]
     objs = list(v.get("objects", []))
     fx = list(v.get("effects", []))
     bg = v.get("background")
@@ -297,6 +301,8 @@ def variety_pass(visuals, modern=False, domain=None):
             c.update(background="underwater", actors=[], objects=["submarine"], effects=["bubbles"], title=c.get("title", ""))
         elif c["background"] in FAMILY:
             c["background"] = FAMILY[c["background"]][i % 2]
+            if not modern and c["background"] == "city_modern":
+                c["background"] = "city_day"                            # no modern skyline in an old story
         out[i] = c
     return out
 
