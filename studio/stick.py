@@ -865,7 +865,7 @@ def render_frame(scene, t, W, H):
         for layer in hills:
             _hills(d, W, H, gy, layer, off)
         if hills:                                           # below the horizon the distant layer continues in the nearest hill colour, so its slower camera never shows a gap
-            d.rectangle([0, gy, W * SS, H * SS], fill=hills[-1]["color"])
+            d.rectangle([0, gy, W * SS, H * SS], fill=scene.get("ground_color", (176, 158, 120)))   # ground colour, so a panning camera never exposes a mismatched strip beside the near ground
         far = np.asarray(img).copy()
         gcol = scene.get("ground_color", (176, 158, 120))
         img.paste(_ground(W, H, gy, gcol), (0, int(gy)))
@@ -1025,7 +1025,15 @@ def make_shots(scene, rnd):
                 fx, fy, z0, z1 = 0.5, 0.55, 1.0, 1.1
             if rnd.random() < 0.5:
                 z0, z1 = z1, z0 if st == "wide" else z1
-            if scene.get("text") and st != "wide" and bounds[i] < 3.8:      # the on-screen title sits at the top: keep heads below it
+            titled = bool(scene.get("text")) and bounds[i] < 3.8
+            if acts and st != "wide" and max(z0, z1) < 1.7:                 # feet stay above the caption band (ground lands at <= .85 of the frame)
+                if titled:                                                  # ...and heads stay under the on-screen title
+                    z0, z1 = min(z0, 1.25), min(z1, 1.25)
+                lo = 0.80 - 0.35 / min(z0, z1)
+                fy = max(fy, lo)
+                if titled:
+                    fy = min(fy, 0.28 + 0.35 / max(z0, z1)) if lo <= 0.28 + 0.35 / max(z0, z1) else lo
+            elif titled and st != "wide":                                   # close-ups: keep the head under the title
                 fy = min(fy, 0.27)
             shots.append(dict(t0=bounds[i], t1=bounds[i + 1], z0=z0, z1=z1, x0=fx, x1=fx + rnd.choice([-.02, .02]), y0=fy, y1=fy))
         scene["shots"] = shots

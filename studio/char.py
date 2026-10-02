@@ -145,6 +145,12 @@ def draw_v2(a, img, t, gy, scene, ctx):
     d.line([add(hip, m2), (add(hip, m2)[0] + f * S * 0.07, add(hip, m2)[1])], fill=_shade(shoe, far), width=int(S * 0.045))
     _tcap(d, sh, b1, S * 0.026, S * 0.021, _shade(shirt, far)); _tcap(d, b1, b2, S * 0.021, S * 0.017, _shade(shirt, far))
     _hand(d, b2, wide[2] + wide[3], f, S, _shade(skin, far))
+    shield_at = None
+    if "shield" in props:                                            # round shield strapped to the forearm, face to the viewer
+        sr = 0.105 * S
+        sc_ = ((b1[0] + b2[0]) / 2 + f * S * 0.03, (b1[1] + b2[1]) / 2 + S * 0.01)
+        d.ellipse([sc_[0] - sr, sc_[1] - sr, sc_[0] + sr, sc_[1] + sr], fill=col)
+        shield_at = (sc_, sr)
     # near leg
     _tcap(d, hip, add(hip, l1), S * 0.038, S * 0.028, pants); _tcap(d, add(hip, l1), add(hip, l2), S * 0.028, S * 0.022, pants)
     foot = add(hip, l2)
@@ -198,17 +204,18 @@ def draw_v2(a, img, t, gy, scene, ctx):
         d.line([(base_[0] + nx_ * S * 0.05, base_[1] + ny_ * S * 0.05), (base_[0] - nx_ * S * 0.05, base_[1] - ny_ * S * 0.05)], fill=(186, 150, 60), width=max(3, int(S * 0.016)))
         d.line([hand, (hand[0] - ux * S * 0.06, hand[1] - uy * S * 0.06)], fill=(98, 66, 44), width=max(3, int(S * 0.018)))
         d.ellipse([hand[0] - ux * S * 0.075 - S * 0.011, hand[1] - uy * S * 0.075 - S * 0.011, hand[0] - ux * S * 0.075 + S * 0.011, hand[1] - uy * S * 0.075 + S * 0.011], fill=(186, 150, 60))
-    if "spear" in props:
-        p0, p1 = add(hand, K.seg((0, 0), dirv + 180, .2 * S, f)), add(hand, K.seg((0, 0), dirv, .5 * S, f))
+    if "spear" in props:                                             # held upright beside the body, leaning a little forward: never across the face
+        p1 = add(hand, K.seg((0, 0), 172, 0.62 * S, f))
+        if p1[1] < S * 0.10:                                     # keep the spear head inside the character's box
+            k_ = (hand[1] - S * 0.10) / max(hand[1] - p1[1], 1e-6)
+            p1 = (hand[0] + (p1[0] - hand[0]) * k_, hand[1] + (p1[1] - hand[1]) * k_)
+        p0 = (hand[0] - (p1[0] - hand[0]) * 0.45, hand[1] - (p1[1] - hand[1]) * 0.45)
         K.line(d, [p0, p1], lw * .5, (130, 96, 62))
         ux, uy = p1[0] - p0[0], p1[1] - p0[1]
         un = math.hypot(ux, uy) or 1.0
         ux, uy = ux / un, uy / un
-        tipp = (p1[0] + ux * S * 0.075, p1[1] + uy * S * 0.075)
-        d.polygon([(p1[0] - uy * S * 0.02, p1[1] + ux * S * 0.02), tipp, (p1[0] + uy * S * 0.02, p1[1] - ux * S * 0.02)], fill=(206, 212, 224))   # steel head
-    if "shield" in props:
-        sr = 0.085 * S
-        d.ellipse([b2[0] - sr, b2[1] - sr, b2[0] + sr, b2[1] + sr], fill=col)
+        tipp = (p1[0] + ux * S * 0.085, p1[1] + uy * S * 0.085)
+        d.polygon([(p1[0] - uy * S * 0.022, p1[1] + ux * S * 0.022), tipp, (p1[0] + uy * S * 0.022, p1[1] - ux * S * 0.022)], fill=(206, 212, 224))   # steel head
     if "scroll" in props:
         d.rectangle([hand[0] - S * .05, hand[1] - S * .06, hand[0] + S * .05, hand[1] + S * .06], fill=(232, 215, 170))
     if "hardhat" in props:
@@ -242,6 +249,13 @@ def draw_v2(a, img, t, gy, scene, ctx):
         d2.ellipse([head[0] - hr_, head[1] - hr_, head[0] + hr_, head[1] + hr_], outline=(236, 242, 248), width=max(4, int(S * 0.03)))
         d2.arc([head[0] - hr_ * .8, head[1] - hr_ * .8, head[0] + hr_ * .8, head[1] + hr_ * .8], 200, 260, fill=(255, 255, 255, 200), width=max(3, int(S * 0.02)))
         d2.rectangle([head[0] - rad * .9, head[1] + rad * 1.05, head[0] + rad * .9, head[1] + rad * 1.4], fill=(214, 218, 222), outline=INK, width=max(2, int(S * 0.012)))
+    if shield_at:                                                    # rim, boss and straps on top of the shaded disc
+        (scx, scy), sr = shield_at
+        d2.ellipse([scx - sr * .86, scy - sr * .86, scx + sr * .86, scy + sr * .86], outline=_shade(col, 0.55), width=max(3, int(S * 0.012)))
+        d2.line([scx - sr * .86, scy, scx + sr * .86, scy], fill=_shade(col, 0.62), width=max(3, int(S * 0.010)))
+        d2.line([scx, scy - sr * .86, scx, scy + sr * .86], fill=_shade(col, 0.62), width=max(3, int(S * 0.010)))
+        d2.ellipse([scx - sr * .26, scy - sr * .26, scx + sr * .26, scy + sr * .26], fill=(206, 176, 84), outline=INK, width=max(2, int(S * 0.006)))
+        d2.ellipse([scx - sr * .12 - sr * .06, scy - sr * .16, scx - sr * .02, scy - sr * .06], fill=(250, 236, 170))
     _face(d2, a, K, head, rad, f, face, ex, S, t, skin, props)
     # ---- cast shadow on the ground, then composite ------------------------------------------------
     A = arr[..., 3]
@@ -356,7 +370,7 @@ def _face(d, a, K, head, rad, f, face, ex, S, t, skin, props):
     elif face == "shock":
         d.ellipse([mx - rad * .17, my - rad * .08, mx + rad * .17, my + rad * .34], fill=(96, 34, 44), outline=INK, width=max(2, int(S * 0.006)))
     else:
-        d.line([mx - rad * .30, my, mx + rad * .30, my], fill=INK, width=mw)
+        d.arc([mx - rad * .32, my - rad * .14, mx + rad * .32, my + rad * .14], 20, 160, fill=INK, width=mw)
     if "glasses" in props:
         for ex_, ey_ in eyes:
             d.ellipse([ex_ - er_x * 1.45, ey_ - er_x * 1.45, ex_ + er_x * 1.45, ey_ + er_x * 1.45], outline=INK, width=max(3, int(S * 0.008)))
