@@ -1,0 +1,38 @@
+name: Fix stills
+on:
+  push:
+    branches: [claude/youtube-automation-review-k9f3cu]
+    paths: [.github/workflows/stills-fix.yml, tools/fix_stills.json, tools/fix_stills.py]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          name: plan
+          run-id: 37059491799
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: output/auto
+      - run: python tools/fix_stills.py
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plan
+          retention-days: 3
+          compression-level: 0
+          path: |
+            output/auto/plan.pkl
+            output/auto/mix.flac
+            output/auto/stills/*

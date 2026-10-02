@@ -1,0 +1,21 @@
+"""Redraw a few chosen scene pictures and crop the signature strip off every picture; rewrites the plan's stills folder in place."""
+import json, os, pathlib, sys
+sys.path.insert(0, ".")
+from PIL import Image
+from studio import stills
+d = pathlib.Path("output/auto/stills")
+FIX = json.load(open("tools/fix_stills.json"))
+for k, prompt in FIX.items():
+    img = stills.generate(f"{stills.STYLE}. {prompt}")
+    if img is None:
+        print("FAILED", k); continue
+    w, h = img.size
+    img = img.crop((0, 0, w, int(h * 0.93))).resize((w, w), Image.LANCZOS)
+    img.save(d / f"s{int(k):03d}.jpg", quality=93); print("redrawn", k)
+done = set(f"s{int(k):03d}.jpg" for k in FIX)
+for f in sorted(d.glob("s*.jpg")):
+    if f.name in done:
+        continue
+    im = Image.open(f).convert("RGB"); w, h = im.size
+    im.crop((0, 0, w, int(h * 0.89))).resize((w, w), Image.LANCZOS).save(f, quality=93)
+print("cropped", len(list(d.glob('s*.jpg'))))
