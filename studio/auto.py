@@ -18,7 +18,7 @@ import cv2
 import numpy as np
 
 from pipeline import audio as audiolib, ffmpeg, tts
-from . import ai, moods, music, recipes, score, sfx, stick, subjects, thumb
+from . import ai, moods, music, recipes, score, sfx, stick, stills, subjects, thumb
 from . import voice as narrator
 from .doccap import DocCaptions
 
@@ -434,7 +434,9 @@ def _fake_chapter(idx, title):
 def render_segment(args):
     sc, t0, words, path, first, last = args
     sc["_wins"] = [(w[0], w[1] - t0, w[2] - t0) for w in words if t0 - 0.2 <= w[1] <= t0 + sc["duration"]]      # when each word is spoken, for lip-sync
-    stick.prepare(sc, W, H)
+    still = sc.get("_still_path")
+    if not still:
+        stick.prepare(sc, W, H)
     caps = DocCaptions(words, W, H)
     cmd = [ffmpeg.exe(), "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "pipe:0",
            "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "24", "-maxrate", "3500k", "-bufsize", "7000k", "-pix_fmt", "yuv420p", str(path)]
@@ -444,6 +446,8 @@ def render_segment(args):
         t = i / FPS
         if False:                                                      # whole-frame motion smear is off: it made running and fighting scenes look broken
             fr = np.mean([stick.render_frame(sc, max(0, t + d), W, H).astype(np.float32) for d in (-0.006, 0, 0.006)], axis=0).astype(np.uint8)
+        elif still:
+            fr = stills.frame(still, t, sc["duration"], W, H, seed=int(sc.get("_t0", 0) * 10)).copy()
         else:
             fr = stick.render_frame(sc, t, W, H).copy()
         caps.overlay(fr, t0 + t)
@@ -606,6 +610,14 @@ def plan(job, pdir, settings, hint=None):
         sc["_t0"] = cursor
         cursor += dur
     total = cursor
+    if stills.enabled():                                                  # illustrated-stills mode: one drawing per scene instead of the code-drawn cartoon
+        _log(job, "  drawing the scene illustrations")
+        idx = [i for i, sc in enumerate(scenes) if sc.get("kind") not in ("card", "map") and i < len(scripts)]
+        draws = stills.scene_prompts(_llm, topic, [scripts[i][1]["narration"] for i in idx])
+        got = stills.draw_all(pdir, list(zip(idx, draws)))
+        for i, fn in got.items():
+            scenes[i]["_still"] = fn
+        _log(job, f"  {len(got)}/{len(idx)} illustrations drawn")
     _log(job, f"total length {total / 60:.1f} minutes")
     if not FAKE() and not (MIN_S <= total <= MAX_S):
         _log(job, f"  WARNING: outside the 8-15 minute target ({total / 60:.1f} min)")
@@ -713,7 +725,9 @@ def render_shard(job, pdir, shard=0, shards=1):
     def _key(i):
         sc = scenes[i]
         wins = [w for w in words_all if sc["_t0"] - 0.2 <= w[1] <= sc["_t0"] + sc["duration"]]
-        return hashlib.md5((repr(sorted((k, repr(v)) for k, v in sc.items() if not k.startswith("_a"))) + repr(wins) + f"{W}x{H}@{FPS}|{code}|{i == 0}|{i == len(scenes) - 1}").encode()).hexdigest()
+        stl = pdir / "stills" / sc["_still"] if sc.get("_still") else None
+        sh = hashlib.md5(stl.read_bytes()).hexdigest() if stl and stl.exists() else ""
+        return hashlib.md5((repr(sorted((k, repr(v)) for k, v in sc.items() if not k.startswith("_a"))) + repr(wins) + f"{W}x{H}@{FPS}|{code}|{i == 0}|{i == len(scenes) - 1}|{sh}").encode()).hexdigest()
     keys = {i: _key(i) for i in mine}
     todo = []
     for i in mine:
@@ -725,6 +739,9 @@ def render_shard(job, pdir, shard=0, shards=1):
             todo.append(i)
     _log(job, f"  {len(mine) - len(todo)} scenes reused from the cache, {len(todo)} to draw")
     mine = todo
+    for i in mine:
+        if scenes[i].get("_still") and (pdir / "stills" / scenes[i]["_still"]).exists():
+            scenes[i]["_still_path"] = str(pdir / "stills" / scenes[i]["_still"])
     jobs = [(scenes[i], scenes[i]["_t0"], words_all, seg_dir / f"s{i:03d}.mp4", i == 0, i == len(scenes) - 1) for i in mine]
     workers = max(1, min(os.cpu_count() or 2, int(os.environ.get("STUDIO_WORKERS", 4))))
     _log(job, f"  drawing {len(jobs)} of {len(scenes)} scenes (shard {shard + 1}/{shards}) with {workers} workers")

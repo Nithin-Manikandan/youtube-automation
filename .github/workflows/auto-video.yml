@@ -11,6 +11,10 @@ on:
         description: "Optional: reuse the script/voice/music from this earlier plan_only run (its number) and just draw and assemble it"
         required: false
         default: ""
+      stills:
+        description: "true = illustrated stills (one drawing per scene via Cloudflare free tier) instead of the code-drawn cartoon"
+        required: false
+        default: "false"
       plan_only:
         description: "true = only write the script and plan (fast); download plan.pkl and render a few scenes locally to check them"
         required: false
@@ -45,6 +49,9 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           HINT: ${{ github.event.inputs.hint }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          STUDIO_STILLS: ${{ github.event.inputs.stills == 'true' && '1' || '0' }}
         run: python -m studio.run_auto --phase plan --hint "$HINT" --out output/auto
       - uses: actions/upload-artifact@v4
         with:
@@ -54,6 +61,7 @@ jobs:
           path: |
             output/auto/plan.pkl
             output/auto/mix.flac
+            output/auto/stills/*
             output/auto/out/thumb*.jpg
 
   draw:
