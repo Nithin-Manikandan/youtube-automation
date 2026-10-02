@@ -299,7 +299,7 @@ def build_stage(v, dur, rnd, seed=0, wins=None):
     fx.append(dict(type="ambient", bg=v["background"]))
     scene["fx"] = fx
     if v.get("title"):
-        scene["text"] = [dict(t=.35, end=min(dur - .2, 3.6), text=v["title"], y=.04, size=.072,
+        scene["text"] = [dict(t=.35, end=min(dur - .2, 3.6), text=v["title"], y=.025, size=.062,
                               color=(255, 255, 255) if v["background"] in ("storm", "night", "battlefield", "underwater", "submarine_interior", "city_modern", "volcanic", "ashen", "space", "capsule", "mission_control", "moon") else (27, 27, 32))]
     z, pan = CAMERAS[v["camera"]]
     scene["zoom"] = z

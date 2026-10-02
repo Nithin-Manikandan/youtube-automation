@@ -16,7 +16,7 @@ PAPER, INK = (244, 238, 224), (27, 27, 32)
 GOLD, RED, BLUE, PURPLE, GREY = (226, 176, 40), (196, 57, 43), (47, 99, 176), (122, 59, 140), (150, 146, 138)
 SS = 2  # supersampling for smooth lines
 import os
-INK_STYLE = os.environ.get("STICK_STYLE", "ink") == "ink"           # stick-figure look (white heads, ink lines); STICK_STYLE=shaded keeps the shaded cartoon bodies
+INK_STYLE = os.environ.get("STICK_STYLE", "toon") in ("ink", "toon")           # stick-figure look (white heads, ink lines); STICK_STYLE=shaded keeps the shaded cartoon bodies
 V2 = os.environ.get("STICK_V1") != "1"       # character renderer v2 (shaded, outlined, expressive); STICK_V1=1 keeps the old flat one
 
 
@@ -890,8 +890,8 @@ def render_frame(scene, t, W, H):
         order = sorted(range(len(acts_)), key=lambda i: xs_[i])
         for p_, q_ in zip(order, order[1:]):
             gap = xs_[q_] - xs_[p_]
-            if gap < 0.15:
-                push = (0.15 - gap) / 2
+            if gap < 0.27:
+                push = (0.27 - gap) / 2
                 acts_[p_]._dx -= push
                 acts_[q_]._dx += push
                 xs_[p_] -= push
@@ -916,7 +916,11 @@ def render_frame(scene, t, W, H):
         d.line([(0, gy), (W * SS, gy)], fill=INK, width=9 if INK_STYLE else 5)
         for o in scene.get("objects", []):
             draw_object(d, o, W, H, gy, t)
-        if V2:
+        if os.environ.get("STICK_STYLE", "toon") == "toon":
+            from . import toon_char
+            for a in sorted(scene["_actors"], key=lambda a: a.s.get("z", 0)):
+                toon_char.draw(a, img, t, gy, scene, {})
+        elif V2:
             from . import char
             lt, rim = char.light_for(scene)
             ctx = {"light": lt, "rim": rim, "ink": INK_STYLE}
