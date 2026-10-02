@@ -222,8 +222,9 @@ def build_stage(v, dur, rnd, seed=0, wins=None):
         from . import props as _pr
         ox_ = BIG.get(o, _pr.HOME_X.get(o, [.16, .84, .5, .3][j % 4])) if o not in ("torch",) else xs[j % 4]
         if o in _pr.DRAW:                                                                                  # two props never stand on top of each other
-            for cand in (ox_, .15, .85, .5, .3, .7):
-                if all(abs(cand - q["x"]) >= .17 for q in objs if q["type"] in _pr.DRAW):
+            ax_ = [a_["keys"][0]["x"] for a_ in actors]
+            for cand in (ox_, .12, .88, .22, .78, .5, .3, .7):
+                if all(abs(cand - q["x"]) >= .17 for q in objs if q["type"] in _pr.DRAW) and all(abs(cand - x_) >= .15 for x_ in ax_):
                     ox_ = cand
                     break
         objs.append(dict(type=o, x=ox_, y=.18 + .05 * j, r=.05, scale=1.0,
