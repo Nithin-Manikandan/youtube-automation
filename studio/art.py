@@ -72,6 +72,31 @@ def explosion(d, o, x, S, gy, t, WS):
     ease = 1 - (1 - min(1.0, u * 1.8)) ** 3
     R = S * 0.17 * (0.35 + ease)
     cy = gy - R * 0.9
+    from . import stick as _st
+    if _st.INK_STYLE:                                     # a cartoon starburst: flat colours, ink outline, puffs of smoke rising
+        Rb = R * (1.0 if u < 0.55 else max(0.25, 1.0 - (u - 0.55) / 0.45 * 0.75))
+        spin = u * 0.6
+        def star(r, n, k, fill, w):
+            pts = []
+            for i in range(n * 2):
+                rr = r * (1.0 if i % 2 == 0 else k) * (1 + 0.08 * math.sin(i * 2.3 + t * 9))
+                a = spin + i * math.pi / n
+                pts.append((x + math.cos(a) * rr, cy + math.sin(a) * rr * 0.9))
+            d.polygon(pts, fill=fill, outline=INK)
+            d.line(pts + [pts[0]], fill=INK, width=w, joint="curve")
+        for i in range(5):                                # smoke puffs
+            ph = min(1.0, max(0.0, u * 1.3 - i * 0.1))
+            _circle(d, x + math.sin(i * 2.2) * S * 0.05, cy - R * 0.4 - ph * S * (0.10 + 0.04 * i), S * (0.03 + 0.012 * i) * (0.5 + ph), (110, 108, 114), INK, 4)
+        star(Rb, 9, 0.62, (232, 86, 40), 6)
+        star(Rb * 0.78, 9, 0.62, (255, 166, 40), 4)
+        star(Rb * 0.5, 8, 0.65, (255, 226, 90), 4)
+        _circle(d, x, cy, Rb * 0.2, (255, 252, 236), INK, 3)
+        for i in range(10):                               # chunks flying out
+            a = i * 0.63 + 0.2
+            dist = ease * S * (0.16 + 0.07 * (i % 3))
+            px_, py_ = x + math.cos(a) * dist, cy + math.sin(a) * dist * 0.8 + u * u * S * 0.12
+            d.polygon([(px_, py_ - S * 0.012), (px_ + S * 0.01, py_ + S * 0.008), (px_ - S * 0.01, py_ + S * 0.008)], fill=INK)
+        return
     if u > 0.12:                                          # rising smoke column + mushroom cap
         for i in range(16):
             f = i / 15
@@ -705,3 +730,5 @@ def clock(d, o, x, S, gy, t, WS):
 
 
 DRAW = {"tank": tank, "parachute": parachute, "flag": flag, "cannon": cannon, "clock": clock, "airship": airship, "reactor": reactor, "spacecraft": spacecraft, "planet": planet, "capsule_interior": capsule_interior, "mission_control": mission_control, "ship": ship, "burning_town": burning_town, "liner": liner, "iceberg": iceberg, "interior": interior, "crowd": crowd, "wave": wave, "explosion": explosion, "submarine": submarine, "warship": warship, "plane": plane, "seascape": seascape}
+from . import props as _props
+DRAW.update(_props.DRAW)

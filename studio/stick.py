@@ -127,6 +127,8 @@ class Actor:
             return p
         return pose_at(nm, tt, self.seed)
 
+    _dx = 0.0                                                          # horizontal nudge so two characters never stand inside each other (set per frame by render_frame)
+
     def key_state(self, t):
         """Pose with follow-through: forearms, lower legs and the head trail their parent by a few frames, so every move whips and settles."""
         lag = self._key_state(t - 0.075)[0]
@@ -143,7 +145,7 @@ class Actor:
             pose["torso"] += 7 * math.sin(ph * 0.8 + 1.0)
             for ch, v in (("l1", 12 + 3 * math.sin(ph + .5)), ("m1", 4 + 3 * math.sin(ph + 2.0)), ("l2", -26 + 4 * math.sin(ph + 1.0)), ("m2", -34 + 4 * math.sin(ph + 2.5))):
                 pose[ch] = pose[ch] * 0.25 + v * 0.75
-        return pose, x, facing, face
+        return pose, x + self._dx, facing, face
 
     def _key_state(self, t):
         ks = self.s["keys"]
@@ -876,6 +878,20 @@ def render_frame(scene, t, W, H):
     fxc = lerp(fx0[0], (fx1 or fx0)[0], u)
     off = (fxc - 0.5) * W * SS
     z, cx, cy, sx, sy, punch = _camera(scene, t, u, fx0, fx1)
+    acts_ = scene.get("_actors", [])
+    if len(acts_) >= 2:                                    # never let two people stand inside each other: push them apart to a minimum gap
+        for a_ in acts_:
+            a_._dx = 0.0
+        xs_ = [a_.key_state(t)[1] for a_ in acts_]
+        order = sorted(range(len(acts_)), key=lambda i: xs_[i])
+        for p_, q_ in zip(order, order[1:]):
+            gap = xs_[q_] - xs_[p_]
+            if gap < 0.15:
+                push = (0.15 - gap) / 2
+                acts_[p_]._dx -= push
+                acts_[q_]._dx += push
+                xs_[p_] -= push
+                xs_[q_] += push
     far = mask = None
     if scene.get("kind") == "map":
         img = Image.new("RGB", (W * SS, H * SS), (214, 190, 142))
