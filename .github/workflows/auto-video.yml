@@ -50,7 +50,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        shard: [0, 1, 2, 3]
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -63,7 +63,7 @@ jobs:
           name: plan
           path: output/auto
       - name: Draw this machine's share of the scenes
-        run: python -m studio.run_auto --phase render --shard ${{ matrix.shard }} --shards 4 --out output/auto
+        run: python -m studio.run_auto --phase render --shard ${{ matrix.shard }} --shards 8 --out output/auto
       - uses: actions/upload-artifact@v4
         with:
           name: scenes-${{ matrix.shard }}

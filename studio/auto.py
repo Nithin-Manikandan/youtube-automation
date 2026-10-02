@@ -3,7 +3,9 @@
 import concurrent.futures as cf
 import pickle
 import multiprocessing as mp
+import hashlib
 import json
+import shutil
 import os
 import pathlib
 import random
@@ -20,7 +22,7 @@ from . import ai, moods, music, recipes, score, sfx, stick, subjects, thumb
 from . import voice as narrator
 from .doccap import DocCaptions
 
-W, H, FPS = 1280, 720, 30
+W, H, FPS = (854, 480, 15) if os.environ.get("STUDIO_PREVIEW") == "1" else (1280, 720, 30)       # STUDIO_PREVIEW=1: quick look (about 4x faster), final builds stay full quality
 GAP, LEAD = 0.4, 0.12
 MIN_S, MAX_S = 8 * 60, 15 * 60
 FAKE = lambda: bool(os.environ.get("STUDIO_FAKE"))
@@ -705,6 +707,25 @@ def render_shard(job, pdir, shard=0, shards=1):
     scenes, words_all = P["scenes"], P["words"]
     _stage(job, 7)
     mine = [i for i in range(len(scenes)) if i % shards == shard]
+    cache = pathlib.Path(os.environ.get("STUDIO_CACHE") or (pdir / "segcache"))
+    cache.mkdir(parents=True, exist_ok=True)
+    code = hashlib.md5("".join(p_.read_text() for p_ in sorted(pathlib.Path(__file__).parent.glob("*.py"))).encode()).hexdigest()[:10]    # any code change invalidates old drawings
+
+    def _key(i):
+        sc = scenes[i]
+        wins = [w for w in words_all if sc["_t0"] - 0.2 <= w[1] <= sc["_t0"] + sc["duration"]]
+        return hashlib.md5((repr(sorted((k, repr(v)) for k, v in sc.items() if not k.startswith("_a"))) + repr(wins) + f"{W}x{H}@{FPS}|{code}|{i == 0}|{i == len(scenes) - 1}").encode()).hexdigest()
+    keys = {i: _key(i) for i in mine}
+    todo = []
+    for i in mine:
+        hit = cache / f"{keys[i]}.mp4"
+        dst = seg_dir / f"s{i:03d}.mp4"
+        if hit.exists():
+            shutil.copyfile(hit, dst)
+        else:
+            todo.append(i)
+    _log(job, f"  {len(mine) - len(todo)} scenes reused from the cache, {len(todo)} to draw")
+    mine = todo
     jobs = [(scenes[i], scenes[i]["_t0"], words_all, seg_dir / f"s{i:03d}.mp4", i == 0, i == len(scenes) - 1) for i in mine]
     workers = max(1, min(os.cpu_count() or 2, int(os.environ.get("STUDIO_WORKERS", 4))))
     _log(job, f"  drawing {len(jobs)} of {len(scenes)} scenes (shard {shard + 1}/{shards}) with {workers} workers")
@@ -714,6 +735,8 @@ def render_shard(job, pdir, shard=0, shards=1):
             f.result()
             if k % 5 == 0 or k == len(jobs):
                 _log(job, f"  drew {k}/{len(jobs)} scenes")
+    for i in mine:
+        shutil.copyfile(seg_dir / f"s{i:03d}.mp4", cache / f"{keys[i]}.mp4")
 
 
 def assemble(job, pdir):
