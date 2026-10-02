@@ -278,7 +278,7 @@ def draw_v2(a, img, t, gy, scene, ctx):
         d.polygon([pole, (pole[0] + f * S * .22, pole[1] + S * .06 + math.sin(t * 6) * S * .015), (pole[0], pole[1] + S * .13)], fill=col)
     # ---- derive outline / shading / shadow from the silhouette ------------------------------------
     light, rim = ctx["light"], ctx["rim"]
-    arr_c, (cx0, cy0) = _post_ink(np.asarray(L), S, light, rim, max(3, S * 0.0072), lc) if ink else _post(np.asarray(L), S, light, rim, max(3, S * 0.0075))
+    arr_c, (cx0, cy0) = _post_ink(np.asarray(L), S, light, rim, max(3, S * 0.0072 * ctx.get("ring", 1.0)), lc) if ink else _post(np.asarray(L), S, light, rim, max(3, S * 0.0075))
     arr = np.zeros((bh, bw, 4), np.uint8)
     arr[cy0:cy0 + arr_c.shape[0], cx0:cx0 + arr_c.shape[1]] = arr_c
     Lp = Image.fromarray(arr, "RGBA")

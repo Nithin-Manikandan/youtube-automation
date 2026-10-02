@@ -137,21 +137,26 @@ def _hero(role, color, pose, emo, x, scale, facing, gy_frac=1.0, boss=False, ink
     role = role if role in recipes.ROLES else "citizen"
     props, tun = recipes.ROLES[role]
     col = recipes.COLORS.get(color or tun, recipes.COLORS[tun])
-    pose = pose if pose in ("scared", "point", "sword_up", "proud", "shrug", "cheer", "crouch", "slump", "swing") else "scared"
+    pose = pose if pose in ("scared", "point", "sword_up", "proud", "shrug", "cheer", "crouch", "slump", "swing", "think", "armscross", "facepalm", "salute", "demand") else "scared"
     emo = emo if emo in recipes.EMOTIONS else "shock"
     spec = dict(id="thumb", color=col, tunic=None if boss else col, props=props, scale=scale, keys=[dict(t=0, x=x, pose=pose, face=emo, facing=facing)])
     layer = Image.new("RGBA", (W * SS, H * SS), (0, 0, 0, 0))
     actor = stick.Actor(spec, W, H)
     if stick.V2:
         from . import char
-        char.draw_v2(actor, layer, 0.4, H * SS * gy_frac, {}, {"light": (-0.72, -0.62), "rim": (255, 220, 170), "shadow": False, "ink": ink})
+        char.draw_v2(actor, layer, 0.4, H * SS * gy_frac, {}, {"light": (-0.72, -0.62), "rim": (255, 220, 170), "shadow": False, "ink": ink, "ring": 1.9 if ink else 1.0})
     else:
         d = ImageDraw.Draw(layer, "RGBA")
         actor.draw(d, 0.4, H * SS * gy_frac)
     return layer.resize((W, H), Image.LANCZOS)
 
 
+ALL_HI = [False]
+
+
 def _text_layer(lines, font, hi, flip, size, x_left, y_top, tilt=-2.2):
+    if ALL_HI[0]:
+        tilt = 0.0
     layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
     y = y_top
@@ -160,7 +165,7 @@ def _text_layer(lines, font, hi, flip, size, x_left, y_top, tilt=-2.2):
         w = d.textlength(l, font=font)
         x = x_left if not flip else x_left + (maxw - w)
         last = i == len(lines) - 1
-        fill = hi if last else (255, 255, 255)
+        fill = hi if (last or ALL_HI[0]) else (255, 255, 255)
         d.text((x + 10, y + 12), l, font=font, fill=(0, 0, 0, 175), stroke_width=16, stroke_fill=(0, 0, 0, 175))
         d.text((x, y), l, font=font, fill=fill, stroke_width=13, stroke_fill=(12, 8, 10))
         y += size * 0.93
@@ -240,14 +245,23 @@ def _fun_scene(recipe, flip, variant=0):
     rnd = random.Random(9 + variant)
     vis = recipes.clean_visual({"type": "stage", "background": bg, "actors": [], "objects": objs, "effects": []}, rnd)
     vis["objects"] = objs
+    vis["actors"] = [dict(role=recipe.get("mini_role", "peasant"), color="", pos="center", action="pick_up", emotion="neutral", facing="", scale=1.0),
+                     dict(role="citizen", color="", pos="center", action="talk", emotion="smile", facing="", scale=1.0)]
     sc = recipes.build_stage(vis, 6.0, rnd)
+    for k_, a_ in enumerate(sc["actors"]):                              # tiny people getting on with the job in the distance
+        a_["scale"] = 0.42
+        for kk in a_["keys"]:
+            kk["x"] = (0.60 + 0.10 * k_) if not flip else (0.40 - 0.10 * k_)
     for k_, o in enumerate(sc["objects"]):
-        o["x"] = (0.16, 0.40, 0.30)[k_ % 3] if not flip else (0.84, 0.60, 0.70)[k_ % 3]
-        o["scale"] = 1.15
+        o["x"] = (0.52, 0.80, 0.70)[k_ % 3] if not flip else (0.48, 0.20, 0.30)[k_ % 3]
+        o["scale"] = 0.62
+    sc["ground"] = 0.72
+    for k_, (cx_, cy_) in enumerate(((0.22, 0.12), (0.62, 0.20), (0.9, 0.09))):
+        sc["objects"].append(dict(type="cloud", x=cx_, y=cy_, r=0.055, color=(255, 255, 255)))
         o["dur"] = 6.0
     sc["shots"], sc["hits"], sc["text"], sc["shake"] = [], [], [], []
     sc["speed"], sc["blur"] = False, False
-    sc["zoom"], sc["focus"] = [1.0, 1.0], (0.5, 0.58)
+    sc["zoom"], sc["focus"] = [1.0, 1.0], (0.5, 0.5)
     sc.pop("focus_to", None)
     stick.prepare(sc, W, H)
     frame = Image.fromarray(stick.render_frame(sc, 1.5, W, H)[..., :3]).convert("RGBA")
@@ -269,18 +283,23 @@ def render(text, recipe, out_path, variant=0):
     concept = recipe.get("concept") or ("looming", "ruin", "versus")[variant % 3]
     concept = concept if concept in ("looming", "ruin", "versus", "subject", "fun") else "looming"
     flip = bool(recipe.get("flip", variant % 3 == 1))
+    if concept == "fun":
+        flip = bool(recipe.get("flip", variant % 2 == 0))                  # the big face on the left, the headline on the right (the layout that works)
     if recipe.get("concept") == "subject" and variant % 3 == 1:
         flip = True
+    ALL_HI[0] = concept == "fun"
     mood = recipe.get("mood", "fire")
     if mood not in MOODS:
         mood = "fire"
     _, _, glow, hi = MOODS[mood]
+    if concept == "fun":
+        hi = (255, 238, 40)
     rng = np.random.default_rng(variant * 7 + 3)
     hx = 0.73 if not flip else 0.27
     if concept == "subject":
         hx = 0.88 if not flip else 0.12
     if concept == "fun":
-        hx = 0.77 if not flip else 0.23
+        hx = 0.80 if not flip else 0.22
     base = _bg(mood, hx, 0.62)
     horizon = 0.80
 
@@ -350,7 +369,7 @@ def render(text, recipe, out_path, variant=0):
         base.alpha_composite(spark.filter(ImageFilter.GaussianBlur(10)).point(lambda v: min(255, int(v * 2))))
         base.alpha_composite(spark)
     elif concept == "fun":
-        hero = _hero(role, recipe.get("color"), recipe.get("action", "scared"), recipe.get("emotion", "shock"), hx, 2.7, facing, 1.9, ink=stick.INK_STYLE)
+        hero = _hero(role, recipe.get("color"), recipe.get("action", "scared"), recipe.get("emotion", "shock"), hx, 2.5, facing, 1.62, ink=stick.INK_STYLE)
     else:
         if concept == "subject":        # a big close reaction shot beside the story's subject: face and shoulders only
             hero = _hero(role, recipe.get("color"), recipe.get("action", "scared"), recipe.get("emotion", "shock"), hx, 2.1, facing, 1.3)
@@ -358,7 +377,7 @@ def render(text, recipe, out_path, variant=0):
             hero = _hero(role, recipe.get("color"), recipe.get("action", "scared"), recipe.get("emotion", "shock"), hx, 1.7 if concept == "looming" else 1.75, facing, 1.0)
     rim = hero.filter(ImageFilter.GaussianBlur(14))
     rim_c = Image.new("RGBA", (W, H), glow + (0,))
-    rim_c.putalpha(rim.split()[3].point(lambda v: min(255, int(v * 2.6))))
+    rim_c.putalpha(rim.split()[3].point(lambda v: min(255, int(v * (0.6 if concept == 'fun' else 2.6)))))
     base.alpha_composite(rim_c)
     base.alpha_composite(hero)
 
