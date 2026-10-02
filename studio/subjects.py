@@ -272,6 +272,16 @@ BYSTANDER = {True: ("reporter", "worker", "officer"), False: ("citizen", "schola
 def variety_pass(visuals, modern=False, domain=None):
     """Never three scenes in a row with the same setting: cut away to a related one (outside the boat, another location, a close two-shot)."""
     out = list(visuals)
+    if domain == "space":                                                   # two exterior spacecraft shots never run back to back: cut inside to the crew or to Houston
+        flip = 0
+        for i in range(1, len(out)):
+            if out[i].get("type") == "stage" and out[i - 1].get("type") == "stage" and out[i].get("background") == out[i - 1].get("background") == "space":
+                c = dict(out[i])
+                bg, roles = (("capsule", ("astronaut", "astronaut")), ("mission_control", ("scientist", "officer")))[flip % 2]
+                flip += 1
+                c.update(background=bg, objects=[], effects=[], flags={"modern": True, "kind": "earth"},
+                         actors=[dict(role=roles[k], color="", pos=("center_left", "center_right")[k], action="talk", emotion="worried", facing="", scale=1.0) for k in range(2)])
+                out[i] = c
     for i in range(2, len(out)):
         a, b, c = out[i - 2], out[i - 1], out[i]
         if not (a.get("type") == b.get("type") == c.get("type") == "stage"):
