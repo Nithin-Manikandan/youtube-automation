@@ -757,8 +757,10 @@ def render_shard(job, pdir, shard=0, shards=1):
     _log(job, f"  {len(mine) - len(todo)} scenes reused from the cache, {len(todo)} to draw")
     mine = todo
     for i in mine:
-        if scenes[i].get("_still") and (pdir / "stills" / scenes[i]["_still"]).exists():
-            scenes[i]["_still_path"] = str(pdir / "stills" / scenes[i]["_still"])
+        fn = scenes[i].get("_still") or f"s{i:03d}.jpg"
+        if scenes[i].get("kind") not in ("card", "map") and (pdir / "stills" / fn).exists():
+            scenes[i]["_still"] = fn
+            scenes[i]["_still_path"] = str(pdir / "stills" / fn)
     jobs = [(scenes[i], scenes[i]["_t0"], words_all, seg_dir / f"s{i:03d}.mp4", i == 0, i == len(scenes) - 1) for i in mine]
     workers = max(1, min(os.cpu_count() or 2, int(os.environ.get("STUDIO_WORKERS", 4))))
     _log(job, f"  drawing {len(jobs)} of {len(scenes)} scenes (shard {shard + 1}/{shards}) with {workers} workers")
