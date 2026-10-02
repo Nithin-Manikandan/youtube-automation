@@ -33,7 +33,33 @@ def _spring(t, wn, z):
     return 1.0 - math.exp(-z * wn * t) * (math.cos(wd * t) + z * wn / wd * math.sin(wd * t))
 
 
+# repeating work actions: (pose that is held, then oscillating channels as {channel: (amplitude, cycles per second, phase)})
+WORK = {
+    "dig":   (dict(torso=26, head=10, a1=42, a2=22, b1=34, b2=24, l1=22, l2=-10, m1=-16, m2=-8), {"torso": (7, 1.1, 0), "a1": (30, 1.1, 0.4), "b1": (30, 1.1, 0.4), "a2": (14, 1.1, 1.2)}),
+    "eat":   (dict(torso=2, head=-4, a1=52, a2=112, b1=-8, b2=14), {"a2": (24, 1.3, 0), "head": (5, 1.3, 0.6)}),
+    "knock": (dict(torso=8, head=-2, a1=100, a2=12, b1=-14, b2=10, l1=12, l2=-6, m1=-8, m2=-6), {"a1": (9, 2.4, 0), "a2": (14, 2.4, 0.8)}),
+    "stomp": (dict(torso=-3, head=-2, a1=26, a2=34, b1=-22, b2=34), {"l1": (34, 1.3, 0), "m1": (34, 1.3, 3.14), "l2": (26, 1.3, 0.5), "m2": (26, 1.3, 3.64), "torso": (2, 2.6, 0)}),
+}
+
+
 def sample(name, tt, seed=0.0):
+    if name in WORK:
+        tgt, osc = WORK[name]
+        base = stick.pose_at("stand", tt, seed)
+        w = _spring(tt, 14, 0.7)
+        p = dict(base)
+        for k, v in tgt.items():
+            p[k] = base[k] + (v - base[k]) * w
+        for k, (amp, hz, ph) in osc.items():
+            p[k] += amp * w * math.sin(2 * math.pi * hz * tt + ph + seed)
+        if name == "stomp":                                           # a lifted knee bends; the standing leg stays straight
+            p["l2"] = -abs(p["l2"]) * 0.8
+            p["m2"] = -abs(p["m2"]) * 0.8
+        return p
+    return _sample(name, tt, seed)
+
+
+def _sample(name, tt, seed=0.0):
     tgt, wn, z, hold, wn_out = SPEC[name]
     base = stick.pose_at("stand", tt, seed)
     if hold is None or tt <= hold:

@@ -14,6 +14,10 @@ def _st(*stems):
 
 
 LEX = [
+    (_st("dig", "dug$", "shovel", "scoop", "scrap", "scrub", "sweep", "swept$", "mop", "stir", "rak", "chop", "hammer", "scrap"), "dig", None, None),
+    (_st("eat", "ate$", "eaten$", "swallow", "devour", "chew", "feast", "drank$", "drink", "gulp", "sip", "bite", "bit$", "dine", "dining$", "munch"), "eat", None, None),
+    (_st("knock", "tap$", "taps$", "tapped$", "tapping$", "poke", "poking$", "rattl", "pound", "bang", "shoot", "shot$", "blast"), "knock", None, None),
+    (_st("stomp", "trampl", "tread", "trod$", "wad", "slog", "trudg", "march", "paddl", "splash", "crush"), "stomp", None, None),
     (_st("cough", "chok", "suffocat", "asphyx", "breath", "wheez", "gagg", "gasping$", "lungs$", "oxygen$", "carbon$", "co2$", "fumes$", "smoke$"), "cough", "worried", None),
     (_st("cold$", "chill", "frigid", "icy$", "frost", "shiver", "bitter$", "arctic", "hypotherm"), "shiver", "worried", None),
     (_st("sweat", "sweltering$", "humid", "scorching$", "stifling$", "overheat", "feverish"), "wipe", "worried", None),
@@ -77,7 +81,7 @@ def extract(wins, n_actors=1):
                     break
                 last_t = a
                 k = len(acts)
-                if act in ("flinch", "scared", "cry", "duck", "cheer", "idle", "sit", "look_around", "think", "shrug", "shiver"):
+                if act in ("flinch", "scared", "cry", "duck", "cheer", "idle", "sit", "look_around", "think", "shrug", "shiver", "eat"):
                     who = "all" if n_actors == 1 else ("reactor" if act in ("flinch", "scared", "cry") else "all")
                 else:
                     who = "agent"
