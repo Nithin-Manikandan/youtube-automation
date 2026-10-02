@@ -258,7 +258,7 @@ def build_stage(v, dur, rnd, seed=0, wins=None):
             o_["tilt"] = rnd.uniform(-.5, .5)
         elif o_["type"] == "planet":
             o_["side"] = rnd.choice([-1, 1])
-            o_["scale"] = rnd.uniform(.8, 1.5)
+            o_["scale"] = rnd.uniform(.8, 1.5) if not actors else rnd.uniform(.55, .85)      # a backdrop world, not one that swallows the crew
     if wins:                                                             # an explosion happens when the narrator says "exploded", not at a fixed time
         for o_ in objs:
             if o_["type"] in ("explosion", "torpedo", "depth_charge", "fire"):
@@ -291,7 +291,7 @@ def build_stage(v, dur, rnd, seed=0, wins=None):
     scene["fx"] = fx
     if v.get("title"):
         scene["text"] = [dict(t=.35, end=min(dur - .2, 3.6), text=v["title"], y=.04, size=.072,
-                              color=(255, 255, 255) if v["background"] in ("storm", "night", "battlefield", "underwater", "submarine_interior", "city_modern", "volcanic", "ashen", "space", "capsule", "mission_control") else (27, 27, 32))]
+                              color=(255, 255, 255) if v["background"] in ("storm", "night", "battlefield", "underwater", "submarine_interior", "city_modern", "volcanic", "ashen", "space", "capsule", "mission_control", "moon") else (27, 27, 32))]
     z, pan = CAMERAS[v["camera"]]
     scene["zoom"] = z
     _late_shots = True
