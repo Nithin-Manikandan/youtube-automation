@@ -100,7 +100,7 @@ def pick_topic(hint):
 Choose the single best next video. It must make a casual viewer think 'wait, really?! I need to know'. Focus on what ordinary people's lives were really like, gross/funny/surprising details, jobs, food, hygiene, school, medicine, crimes and punishments, games - NOT battles, dates and kings.
 Facts must be well documented (so the script can be accurate). Title idea should be a curiosity QUESTION.
 - do NOT reuse any of these already-made topics: {used_topics()[-60:]}
-{f'THE VIEWER REQUESTED THIS TOPIC. Every candidate you brainstorm MUST be about it (different angles of the same subject), keeping its list or countdown format if it has one: {hint}' if hint else ''}
+{f'THE VIEWER REQUESTED THIS TOPIC. Every candidate you brainstorm MUST be about it (different angles of the same subject), keeping its list or countdown format if it has one. If the request names several items (jobs, laws, things), the video MUST cover ALL of them, one section each, never just one of them: {hint}' if hint else ''}
 
 Brainstorm 8 candidates, score each 1-10. Return JSON:
 {{"candidates": [{{"topic": "working title as a sentence", "hook": "the one-line hook", "broad_appeal": 0, "story_drama": 0, "factual_solidity": 0}}]}}"""
@@ -498,6 +498,8 @@ def plan(job, pdir, settings, hint=None):
     _stage(job, 0)
     pick = pick_topic(hint)
     topic, hook = pick["topic"], pick.get("hook", "")
+    if FUN["on"] and hint and re.search(r"countdown|worst|list|top \d|\b\d+ ", hint, re.I):
+        topic = f"{topic} (a countdown video covering every item the viewer listed: {hint[:300]})"
     _log(job, f"topic: {topic}")
 
     _stage(job, 1)
