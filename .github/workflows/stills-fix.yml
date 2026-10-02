@@ -2,7 +2,7 @@ name: Fix stills
 on:
   push:
     branches: [claude/youtube-automation-review-k9f3cu]
-    paths: [.github/workflows/stills-fix.yml, tools/fix_stills.json, tools/fix_stills.py]
+    paths: [.github/workflows/stills-fix.yml, tools/fix_stills.json, tools/fix_stills.py, tools/thumbs.json]
   workflow_dispatch:
 permissions:
   contents: read
@@ -27,6 +27,8 @@ jobs:
         env:
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ACCOUNT_ID_2: ${{ secrets.CF_ACCOUNT_ID_2 }}
+          CF_API_TOKEN_2: ${{ secrets.CF_API_TOKEN_2 }}
       - uses: actions/upload-artifact@v4
         with:
           name: plan
@@ -36,3 +38,4 @@ jobs:
             output/auto/plan.pkl
             output/auto/mix.flac
             output/auto/stills/*
+            output/auto/out/thumb*.jpg

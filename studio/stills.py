@@ -26,9 +26,29 @@ def enabled():
     return os.environ.get("STUDIO_STILLS") == "1" and bool(os.environ.get("CF_ACCOUNT_ID")) and bool(os.environ.get("CF_API_TOKEN"))
 
 
+def _accounts():
+    """Cloudflare accounts to use in order; when one has used its daily free allowance the next one takes over."""
+    acc = [(os.environ.get("CF_ACCOUNT_ID"), os.environ.get("CF_API_TOKEN")), (os.environ.get("CF_ACCOUNT_ID_2"), os.environ.get("CF_API_TOKEN_2"))]
+    return [(a, t) for a, t in acc if a and t]
+
+
+_DEAD = set()
+
+
 def generate(prompt, tries=4):
     """One 1024x1024 PIL image, or None when every try failed."""
-    acct, tok = os.environ["CF_ACCOUNT_ID"], os.environ["CF_API_TOKEN"]
+    for acct, tok in _accounts():
+        if acct in _DEAD:
+            continue
+        img = _generate_on(acct, tok, prompt, tries)
+        if img == "quota":
+            _DEAD.add(acct)
+            continue
+        return img
+    return None
+
+
+def _generate_on(acct, tok, prompt, tries):
     url = f"https://api.cloudflare.com/client/v4/accounts/{acct}/ai/run/{MODEL}"
     for k in range(tries):
         try:
@@ -37,7 +57,10 @@ def generate(prompt, tries=4):
             d = json.load(urllib.request.urlopen(req, timeout=120))
             return Image.open(io.BytesIO(base64.b64decode(d["result"]["image"]))).convert("RGB")
         except urllib.error.HTTPError as e:
-            print("image error", e.code, e.read()[:200].decode(errors="replace"), flush=True)
+            msg = e.read()[:300].decode(errors="replace")
+            print("image error", e.code, msg[:120], flush=True)
+            if e.code == 429 and "daily free allocation" in msg:
+                return "quota"
             if e.code == 429 or e.code >= 500:
                 time.sleep(4 + 4 * k)
                 continue
