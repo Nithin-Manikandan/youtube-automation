@@ -1,0 +1,42 @@
+name: Kaggle art test
+on:
+  push:
+    branches: [claude/youtube-automation-review-k9f3cu]
+    paths: [.github/workflows/kaggle-art.yml, kaggle_art/**]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+      KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install -q kaggle
+      - name: Push the notebook to Kaggle (GPU, internet on)
+        run: |
+          cd kaggle_art
+          cat > kernel-metadata.json <<EOF
+          {"id": "${KAGGLE_USERNAME}/studio-art-test", "title": "studio-art-test", "code_file": "draw.py", "language": "python", "kernel_type": "script",
+           "is_private": true, "enable_gpu": true, "enable_internet": true, "dataset_sources": [], "competition_sources": [], "kernel_sources": []}
+          EOF
+          kaggle kernels push -p .
+      - name: Wait for it to finish
+        run: |
+          for i in $(seq 1 90); do
+            s=$(kaggle kernels status ${KAGGLE_USERNAME}/studio-art-test 2>&1 | tr -d '\n'); echo "$i $s"
+            case "$s" in *COMPLETE*) break;; *ERROR*|*CANCEL*) break;; esac
+            sleep 20
+          done
+      - name: Download the pictures
+        run: |
+          mkdir -p art && kaggle kernels output ${KAGGLE_USERNAME}/studio-art-test -p art || true
+          ls -la art; cat art/log.json 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: art
+          path: art/*
