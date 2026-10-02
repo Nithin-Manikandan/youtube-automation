@@ -119,3 +119,51 @@ def frame(path, t, dur, W, H, seed=0):
     M = np.float32([[W / ww, 0, -x0 * W / ww], [0, H / hh, -y0 * H / hh]])
     import cv2
     return cv2.warpAffine(a, M, (W, H), flags=cv2.INTER_LANCZOS4, borderMode=cv2.BORDER_REPLICATE)
+
+
+def thumbnail(text, scene_prompt, out_path, variant=0, accent=(255, 226, 40)):
+    """A clickable thumbnail in the same illustrated style as the video: one drawn picture with a huge expressive face plus chunky headline text."""
+    from PIL import ImageDraw, ImageFont
+    emo = ("wide-eyed shocked face with mouth open", "disgusted grimace holding his nose", "huge surprised grin with raised eyebrows")[variant % 3]
+    p = (f"{STYLE}. Close-up thumbnail composition: ONE stick figure with a very large round white head filling the left half, {emo}, messy brown hair, "
+         f"plus the key funny object or place of the story on the right: {scene_prompt}. Bold simple shapes, high contrast, bright warm colours.")
+    img = None
+    for k in range(3):
+        img = generate(p)
+        if img is not None:
+            break
+    if img is None:
+        return None
+    W, H = 1280, 720
+    a = np.asarray(img)
+    S = a.shape[0]
+    hh = int(S * 9 / 16)
+    y0 = int(S * 0.20)
+    crop = Image.fromarray(a[y0:y0 + hh, :]).resize((W, H), Image.LANCZOS)
+    FONT = pathlib.Path(__file__).resolve().parent.parent / "assets/fonts/BigShoulders-Bold.ttf"
+    words = [w for w in text.upper().split() if w][:3]
+    lines, cur = [], ""
+    for w in words:
+        if cur and len(cur) + len(w) < 8:
+            cur += " " + w
+        else:
+            if cur:
+                lines.append(cur)
+            cur = w
+    lines.append(cur)
+    d = ImageDraw.Draw(crop)
+    size = 300
+    while size > 80:
+        f = ImageFont.truetype(str(FONT), size)
+        if max(d.textlength(l, font=f) for l in lines) <= W * 0.56 and size * .92 * len(lines) <= H * 0.62:
+            break
+        size -= 8
+    y = 24
+    for i, l in enumerate(lines):
+        tw = d.textlength(l, font=f)
+        x = W - 36 - tw
+        d.text((x + 8, y + 10), l, font=f, fill=(0, 0, 0), stroke_width=16, stroke_fill=(0, 0, 0))
+        d.text((x, y), l, font=f, fill=accent if i == len(lines) - 1 else (255, 255, 255), stroke_width=13, stroke_fill=(20, 16, 22))
+        y += size * .92
+    crop.save(out_path, "JPEG", quality=94)
+    return out_path
