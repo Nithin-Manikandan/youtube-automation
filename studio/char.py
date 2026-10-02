@@ -221,8 +221,14 @@ def draw_v2(a, img, t, gy, scene, ctx):
         ux, uy = ux / un, uy / un
         tipp = (p1[0] + ux * S * 0.085, p1[1] + uy * S * 0.085)
         d.polygon([(p1[0] - uy * S * 0.022, p1[1] + ux * S * 0.022), tipp, (p1[0] + uy * S * 0.022, p1[1] - ux * S * 0.022)], fill=(206, 212, 224))   # steel head
-    if "scroll" in props:
-        d.rectangle([hand[0] - S * .05, hand[1] - S * .06, hand[0] + S * .05, hand[1] + S * .06], fill=(232, 215, 170))
+    if "scroll" in props:                                            # a rolled parchment held in the fist, with curled ends and lines of script
+        sw_, sh_ = S * .045, S * .075
+        d.rounded_rectangle([hand[0] - sw_, hand[1] - sh_, hand[0] + sw_, hand[1] + sh_], radius=int(S * .02), fill=(238, 222, 176))
+        for yy_ in (-.045, -.015, .015, .045):
+            d.line([hand[0] - sw_ * .62, hand[1] + S * yy_, hand[0] + sw_ * .62, hand[1] + S * yy_], fill=(150, 120, 80), width=max(2, int(S * .006)))
+        for sgn_ in (-1, 1):
+            d.ellipse([hand[0] - sw_ * 1.1, hand[1] + sgn_ * sh_ - S * .014, hand[0] + sw_ * 1.1, hand[1] + sgn_ * sh_ + S * .014], fill=(214, 190, 140))
+        _hand(d, hand, dirv, f, S, skin)
     if "hardhat" in props:
         d.pieslice([head[0] - rad * 1.1, head[1] - rad * 1.25, head[0] + rad * 1.1, head[1] + rad * .15], 180, 360, fill=(246, 200, 40))
         d.rectangle([head[0] - rad * 1.3, head[1] - rad * .18, head[0] + rad * 1.3, head[1] - rad * .02], fill=(226, 176, 28))
@@ -363,8 +369,10 @@ def _face(d, a, K, head, rad, f, face, ex, S, t, skin, props):
         arch = rad * (0.06 if face in ("smile", "shock") else 0.0)
         d.line([(ex_ - rad * .21, by - lift + din), (ex_, by - lift - arch), (ex_ + rad * .21, by - lift - din)], fill=(34, 26, 22), width=bw, joint="curve")
     # mouth
-    mx, my = head[0] + f * rad * 0.46, head[1] + rad * 0.56
+    bearded = "beard" in props
+    mx, my = head[0] + f * rad * 0.46, head[1] + rad * (0.76 if bearded else 0.56)
     mw = max(4, int(S * 0.016))
+    MC = (238, 168, 156) if bearded else INK
     if mo > 0.12:
         wd = rad * (0.24 + 0.12 * mo)
         ht = rad * (0.07 + 0.42 * mo)
@@ -373,15 +381,15 @@ def _face(d, a, K, head, rad, f, face, ex, S, t, skin, props):
             d.ellipse([mx - wd * 0.6, my + ht * 0.2, mx + wd * 0.6, my + ht * 0.92], fill=(214, 96, 104))
             d.rectangle([mx - wd * 0.7, my - ht * 0.42, mx + wd * 0.7, my - ht * 0.18], fill=(250, 250, 244))
     elif face == "smile":
-        d.arc([mx - rad * .42, my - rad * .30, mx + rad * .42, my + rad * .26], 10, 170, fill=INK, width=mw)
+        d.arc([mx - rad * .42, my - rad * .30, mx + rad * .42, my + rad * .26], 10, 170, fill=MC, width=mw)
     elif face in ("sad", "worried"):
-        d.arc([mx - rad * .36, my - rad * .02, mx + rad * .36, my + rad * .46], 200, 340, fill=INK, width=mw)
+        d.arc([mx - rad * .36, my - rad * .02, mx + rad * .36, my + rad * .46], 200, 340, fill=MC, width=mw)
     elif face == "angry":
-        d.line([mx - rad * .36, my + rad * .08, mx + rad * .36, my - rad * .04], fill=INK, width=mw)
+        d.line([mx - rad * .36, my + rad * .08, mx + rad * .36, my - rad * .04], fill=MC, width=mw)
     elif face == "shock":
         d.ellipse([mx - rad * .17, my - rad * .08, mx + rad * .17, my + rad * .34], fill=(96, 34, 44), outline=INK, width=max(2, int(S * 0.006)))
     else:
-        d.arc([mx - rad * .32, my - rad * .14, mx + rad * .32, my + rad * .14], 20, 160, fill=INK, width=mw)
+        d.arc([mx - rad * .32, my - rad * .14, mx + rad * .32, my + rad * .14], 20, 160, fill=MC, width=mw)
     if "glasses" in props:
         for ex_, ey_ in eyes:
             d.ellipse([ex_ - er_x * 1.45, ey_ - er_x * 1.45, ex_ + er_x * 1.45, ey_ + er_x * 1.45], outline=INK, width=max(3, int(S * 0.008)))
