@@ -299,7 +299,7 @@ def render(text, recipe, out_path, variant=0):
     if concept == "subject":
         hx = 0.88 if not flip else 0.12
     if concept == "fun":
-        hx = 0.80 if not flip else 0.22
+        hx = 0.75 if not flip else 0.22
     base = _bg(mood, hx, 0.62)
     horizon = 0.80
 
