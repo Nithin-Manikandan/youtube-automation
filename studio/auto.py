@@ -278,7 +278,7 @@ def write_chapter(topic, outline, idx, prev_tail, words):
     tone = ""
     if FUN["on"]:
         tone = """TONE (entertainment history): you are a funny, warm, quick-witted friend telling the viewer the wildest true things about how people really lived. Talk to the viewer ("you"), use vivid concrete details, plain everyday words, short punchy sentences, dry jokes and understatement, and a quick modern comparison now and then. Gross-out and absurd details are welcome. No lecture voice, no dates unless they matter, no stock phrases like 'little did they know'. Stay factual: never invent quotes, numbers or dates.
-HONESTY: never claim people competed, fought or begged for a job (or that something happened) unless it is well documented; frame it as 'would you take this job?' instead. Describe what the job involved and what it paid. Where a detail is a legend or an estimate, say so. Do not dramatise made-up scenes as fact.\nVISUALS FOR THIS STYLE: show exactly what the sentence says with the everyday props (pit, barrel, bucket, basket, sack, chest, bed, bell, table, stool, ladder, swamp, cart, stall, pole) and stage the characters DOING it (pick_up, push, pull, cough, shiver, scared, cheer, shrug, point). Vary backgrounds scene to scene; use a card for a pay rate or a number. Keep characters consistent."""
+HONESTY: never claim people competed, fought or begged for a job (or that something happened) unless it is well documented; frame it as 'would you take this job?' instead. Describe what the job involved and what it paid. Where a detail is a legend or an estimate, say so. Do not dramatise made-up scenes as fact.\nCARDS: use a card only for a pay rate, a number or a one-line verdict. big = 2-4 plain everyday words (e.g. 'THE PAY', '3 PENNIES A DAY', 'DEADLY GAS'), bullets = 1-3 SHORT concrete facts, small = a plain joke or comparison. No fancy or old words.\nVISUALS FOR THIS STYLE: show exactly what the sentence says with the everyday props (pit, barrel, bucket, basket, sack, chest, bed, bell, table, stool, ladder, swamp, cart, stall, pole) and stage the characters DOING it (pick_up, push, pull, cough, shiver, scared, cheer, shrug, point). Vary backgrounds scene to scene; use a card for a pay rate or a number. Keep characters consistent."""
     prompt = f"""You are writing chapter {idx + 1} of {len(outline['chapters'])} of the voiceover for a YouTube history video.
 VIDEO TOPIC: {topic}
 FULL OUTLINE: {json.dumps([{'title': c['title'], 'purpose': c.get('purpose', '')} for c in outline['chapters']])}
@@ -493,6 +493,7 @@ def plan(job, pdir, settings, hint=None):
 
     FUN["on"] = bool(re.search(r"entertain|funny|countdown|worst jobs|would you|everyday|what was it like|actually do", hint or "", re.I))
     if FUN["on"]:
+        subjects.EVERYDAY["on"] = True
         _log(job, "  entertainment-history mode")
     _stage(job, 0)
     pick = pick_topic(hint)

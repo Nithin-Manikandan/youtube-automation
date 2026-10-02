@@ -5,6 +5,7 @@ Here we read the narration, add the objects/effects/background it names, and dro
 import re
 import statistics
 
+EVERYDAY = {"on": False}      # entertainment-history mode: ordinary people, not kings and soldiers, unless the line is about them
 MODERN_ROLES = {"sailor", "captain", "officer", "scientist", "president", "worker", "pilot", "modern_soldier", "spy", "reporter"}
 ANCIENT_PROPS_ROLES = {"soldier", "warrior", "knight", "general", "king", "queen", "emperor", "pharaoh", "priest", "rebel", "pirate"}
 
@@ -162,6 +163,17 @@ def enrich(visual, narration, modern, anchor=None, story_has_sub=True, domain=No
         v["background"] = "night" if re.search(r"\b(night|dark|torch|candle|underground|cellar|pit|sewer|vault|midnight)\b", text) else ("palace" if re.search(r"\b(council|court|official|authorit|magistrate|mayor|parliament)\b", text) else "city_day")
         if v["background"] != "space":
             v["objects"] = [o for o in v.get("objects", []) if o not in ("spacecraft", "planet", "capsule_interior", "mission_control")]
+    if EVERYDAY["on"]:                                                         # no crowns, spears or shields on a leech collector: royalty and soldiers only when the line names them
+        royal = re.search(r"\b(king|queen|emperor|empress|royal|monarch|crown|palace|henry|vespasian|pharaoh|prince|court)\b", text)
+        fight = re.search(r"\b(soldiers?|army|battle|knights?|war|guards?|sword|spear|shield|warriors?)\b", text)
+        for a_ in v.get("actors", []):
+            r_ = a_.get("role")
+            if r_ in ("king", "queen", "emperor", "pharaoh") and not royal:
+                a_["role"] = "merchant"
+            elif r_ in ("soldier", "warrior", "knight", "general", "rebel", "pirate") and not fight:
+                a_["role"] = "worker"
+            elif r_ == "priest" and not re.search(r"\b(priest|church|vicar|clergy|funeral|prayer|sin|sins|heaven)\b", text):
+                a_["role"] = "scholar"
     emo = None                                                                 # faces follow what is being said, whatever the script writer picked
     if re.search(r"\b(gross|disgust\w*|stench|stink\w*|smell\w*|reek\w*|vomit\w*|sewage|waste|filth\w*|poop|pee|urine|excrement|rotten|rot|slime|muck|corpses?|puke)\b", text):
         emo = "worried"
