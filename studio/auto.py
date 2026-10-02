@@ -448,6 +448,12 @@ def render_segment(args):
             fr = np.mean([stick.render_frame(sc, max(0, t + d), W, H).astype(np.float32) for d in (-0.006, 0, 0.006)], axis=0).astype(np.uint8)
         elif still:
             fr = stills.frame(still, t, sc["duration"], W, H, seed=int(sc.get("_t0", 0) * 10)).copy()
+            if not first and t < 0.22:                                  # cut-in: a quick punch-in settle with a flash of paper, so cuts feel intentional
+                k = 1 - t / 0.22
+                zc = 1 + 0.07 * k * k
+                M = np.float32([[zc, 0, W * (1 - zc) / 2], [0, zc, H * (1 - zc) / 2]])
+                fr = cv2.warpAffine(fr, M, (W, H), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
+                fr = (fr * (1 - 0.55 * k) + np.array((250, 244, 230), np.float32) * 0.55 * k).astype(np.uint8)
         else:
             fr = stick.render_frame(sc, t, W, H).copy()
         caps.overlay(fr, t0 + t)
@@ -602,6 +608,7 @@ def plan(job, pdir, settings, hint=None):
         else:
             sc = recipes.build_card(vis, dur)
         sc["chapter"] = ci
+        sc["_say"] = [(x[0].lower().strip(".,!?;:'\""), LEAD + x[1]) for x in w]
         sc["_mood"] = scene_moods[i]
         scenes.append(sc)
         voices.append(vx)
