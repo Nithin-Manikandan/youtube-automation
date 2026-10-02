@@ -151,7 +151,7 @@ def thumbnail(text, scene_prompt, out_path, variant=0, accent=(255, 226, 40)):
     """A clickable thumbnail in the same illustrated style as the video: a clear drawing on the left, a bold colour panel with huge text on the right."""
     from PIL import ImageDraw, ImageFont
     emo = ("wide-eyed shocked face with mouth open and sweat drops", "desperate squirming face, eyes squeezed shut", "huge panicked face with raised eyebrows")[variant % 3]
-    p = (f"{STYLE}. Thumbnail drawing, medium shot showing one character from the knees up with plenty of space around him, big expressive face: {emo}. "
+    p = (f"{STYLE}. Thumbnail drawing, medium shot with plenty of space around the main subject, big expressive face: {emo}. "
          f"Scene: {scene_prompt}. Bold simple shapes, high contrast, bright warm colours, clean uncluttered background.")
     img = None
     for k in range(3):
