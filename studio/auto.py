@@ -552,6 +552,16 @@ def plan(job, pdir, settings, hint=None):
             k = random.Random(1).choice(mid)
             wc -= len(scripts[k][1]["narration"].split())
             scripts.pop(k)
+    seen_ln, kept = set(), []                                           # the model sometimes writes the same transition line twice: keep only the first
+    for c_, s_ in scripts:
+        key_ = re.sub(r"[^a-z ]", "", s_["narration"].lower())[:60].strip()
+        if key_ and key_ in seen_ln:
+            continue
+        seen_ln.add(key_)
+        kept.append((c_, s_))
+    if len(kept) != len(scripts):
+        _log(job, f"  dropped {len(scripts) - len(kept)} repeated lines")
+    scripts = kept
     full_text = "\n".join(s["narration"] for _, s in scripts)
 
     _stage(job, 2)

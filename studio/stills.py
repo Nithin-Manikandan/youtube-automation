@@ -16,9 +16,9 @@ import urllib.request
 import numpy as np
 from PIL import Image
 
-STYLE = ("simple cartoon drawing in the style of the Ink Explainer YouTube channel, stick figure people with round white heads, tiny black dot eyes, messy brown hair, "
-         "plain rough clothes, thin sketchy black ink lines, flat warm pastel colours, hand-drawn detailed background, cozy warm light, "
-         "the characters and the main action stay in the middle horizontal band of the picture, no text, no letters, no speech bubbles, no watermark")
+STYLE = ("simple hand-drawn webcomic cartoon, stick figure people with round white heads, tiny black dot eyes, messy brown hair, thin sketchy black ink lines, "
+         "plain rough clothes, flat warm pastel colours, detailed hand-drawn background, cozy warm light, the same simple character design in every picture, "
+         "the characters and the main action stay in the middle horizontal band of the picture, absolutely no text, no letters, no words, no logo, no signature, no watermark, no speech bubbles")
 MODEL = "@cf/black-forest-labs/flux-1-schnell"
 
 
@@ -80,6 +80,8 @@ def draw_all(pdir, jobs, workers=3):
         if img is None:
             return i, None
         fn = f"s{i:03d}.jpg"
+        w_, h_ = img.size
+        img = img.crop((0, 0, w_, int(h_ * 0.93))).resize((w_, w_), Image.LANCZOS)      # signatures and stray words live in the bottom strip: crop it away
         img.save(d / fn, quality=93)
         return i, fn
     res = {}
