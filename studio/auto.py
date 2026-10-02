@@ -40,6 +40,9 @@ VOCAB = f"""VISUAL RECIPE VOCABULARY (use only these words):
 - card: {{"big":"476 AD","small":"one line","bullets":["up to 3 short points"],"dark":true}} for dates, numbers, key facts."""
 
 
+FUN = {"on": False}          # entertainment-history mode: relatable, funny 'what was it really like' videos (set from the hint)
+
+
 def _log(job, msg):
     job["log"].append(msg)
     print(msg, flush=True)
@@ -90,7 +93,17 @@ def remember_topic(topic):
 def pick_topic(hint):
     if FAKE():
         return {"topic": "The Fall of Rome: how an empire died in 476 AD", "hook": "The day the ancient world ended"}
-    prompt = f"""You run a faceless YouTube history channel with clear, dramatic, accurate storytelling. Choose the single best next video.
+    if FUN["on"]:
+        prompt = f"""You run a stick-figure YouTube channel of ENTERTAINMENT HISTORY: funny, relatable, everyday-life history that millions click on (think: 'What did ancient humans actually do all day?', 'The worst jobs in history', 'How did knights use the toilet in armor?', 'Weird laws people really had').
+Choose the single best next video. It must make a casual viewer think 'wait, really?! I need to know'. Focus on what ordinary people's lives were really like, gross/funny/surprising details, jobs, food, hygiene, school, medicine, crimes and punishments, games - NOT battles, dates and kings.
+Facts must be well documented (so the script can be accurate). Title idea should be a curiosity QUESTION.
+- do NOT reuse any of these already-made topics: {used_topics()[-60:]}
+{f'THE VIEWER REQUESTED THIS TOPIC. Every candidate you brainstorm MUST be about it (different angles of the same subject), keeping its list or countdown format if it has one: {hint}' if hint else ''}
+
+Brainstorm 8 candidates, score each 1-10. Return JSON:
+{{"candidates": [{{"topic": "working title as a sentence", "hook": "the one-line hook", "broad_appeal": 0, "story_drama": 0, "factual_solidity": 0}}]}}"""
+    else:
+      prompt = f"""You run a faceless YouTube history channel with clear, dramatic, accurate storytelling. Choose the single best next video.
 
 Pick a topic that MANY people would click and watch to the end:
 - a well-documented story with high stakes, a surprising twist, and a clear protagonist or event (think: how a small decision changed everything,
@@ -114,7 +127,18 @@ def write_outline(topic, hook):
         fx = _fixture()
         titles = [c["title"] for c in fx["chapters"]] if fx else ("A Mighty Empire", "Trouble at the Borders", "The Last Emperor")
         return {"working_title": topic, "chapters": [{"title": t, "purpose": "", "key_facts": [], "target_words": 160} for t in titles]}
-    prompt = f"""Plan a 12-minute YouTube history video (about 2000 spoken words).
+    if FUN["on"]:
+        prompt = f"""Plan a 10-12 minute ENTERTAINMENT HISTORY video for a stick-figure channel (about 1700 spoken words). Funny, relatable, everyday-life history, told like a hilarious friend who knows a lot - not a lecture.
+TOPIC: {topic}
+HOOK: {hook}
+
+If the topic is a list or countdown ("worst jobs", "weird laws", "things people did"): chapter 1 is a punchy cold open (about 90 target_words) dropping the viewer into the most absurd concrete moment and posing the question ("would you take this job?"); then ONE chapter per item (6-7 items, each about 230 words, each titled "#N <name>" counting down, each a self-contained mini-story: what you actually did, the grossest or funniest detail, what it paid or what happened if you failed, and why people wanted it anyway, plus a one-line modern comparison); the last chapter ranks them / answers the opening question and ends with a fun challenge to the viewer.
+If it is a single subject ("what did X do all day"): cold open, then chapters that walk through a typical day or the funniest facts in a clear order, with a punchy payoff.
+Every chapter ends with a small open loop or a joke that pulls into the next. Use only well-documented facts; where it is a legend say so.
+Return JSON: {{"working_title": "", "chapters": [{{"title": "", "purpose": "", "key_facts": ["specific documented facts/details this chapter must use"], "target_words": 240}}]}}
+Chapter target_words must sum to about 1650 (between 1500 and 1800)."""
+    else:
+      prompt = f"""Plan a 12-minute YouTube history video (about 2000 spoken words).
 TOPIC: {topic}
 HOOK: {hook}
 
@@ -175,7 +199,8 @@ def write_hook(topic, outline, rounds=3):
     if FAKE():
         return None
     facts = json.dumps(ch0.get("key_facts", []))
-    cands_prompt = f"""{HOOK_STYLE}
+    fun_note = "\nENTERTAINMENT MODE: keep the technique but make the voice funnier and more casual: a vivid, slightly absurd concrete moment, dry humour allowed, and end with the playful question the video answers (for a countdown: would you take this job?). Plain everyday words.\n" if FUN["on"] else ""
+    cands_prompt = f"""{HOOK_STYLE}{fun_note}
 
 TOPIC: {topic}
 THE MOMENT TO OPEN ON: {ch0.get('title', '')} - {ch0.get('purpose', '')}
@@ -248,6 +273,10 @@ def write_chapter(topic, outline, idx, prev_tail, words):
         return _fake_chapter(idx, ch["title"])
     words = int(words * 1.4)                      # the model reliably delivers about 70% of the length it is asked for
     n_scenes = max(5, round(words / 26))
+    tone = ""
+    if FUN["on"]:
+        tone = """TONE (entertainment history): you are a funny, warm, quick-witted friend telling the viewer the wildest true things about how people really lived. Talk to the viewer ("you"), use vivid concrete details, plain everyday words, short punchy sentences, dry jokes and understatement, and a quick modern comparison now and then. Gross-out and absurd details are welcome. No lecture voice, no dates unless they matter, no stock phrases like 'little did they know'. Stay factual: never invent quotes, numbers or dates.
+VISUALS FOR THIS STYLE: show exactly what the sentence says with the everyday props (pit, barrel, bucket, basket, sack, chest, bed, bell, table, stool, ladder, swamp, cart, stall, pole) and stage the characters DOING it (pick_up, push, pull, cough, shiver, scared, cheer, shrug, point). Vary backgrounds scene to scene; use a card for a pay rate or a number. Keep characters consistent."""
     prompt = f"""You are writing chapter {idx + 1} of {len(outline['chapters'])} of the voiceover for a YouTube history video.
 VIDEO TOPIC: {topic}
 FULL OUTLINE: {json.dumps([{'title': c['title'], 'purpose': c.get('purpose', '')} for c in outline['chapters']])}
@@ -255,6 +284,7 @@ THIS CHAPTER: "{ch['title']}" - {ch.get('purpose', '')}
 FACTS TO USE (accurate only): {json.dumps(ch.get('key_facts', []))}
 {f'The previous chapter ended with: "{prev_tail}"' if prev_tail else 'This is the cold open: start inside the most dramatic moment, no greetings.'}
 {REWIND if idx == 1 else ''}
+{tone}
 
 Write about {words} words of spoken narration split into {n_scenes} scenes (each scene 18-30 words, one idea, short punchy sentences, vivid but factual).
 Rules: never invent quotes, numbers or dates; where historians disagree say so; keep it gripping (tension, stakes, contrast); end the chapter with an
@@ -346,7 +376,8 @@ def make_metadata(topic, outline, chapters, text):
                 "thumbs": [{"text": "ROME FELL", "mood": "fire", "role": "emperor", "color": "purple", "action": "scared", "emotion": "shock", "badge": "476 AD", "concept": "subject", "backdrop": "castle", "enemy_role": "warrior"},
                            {"text": "WHY IT COLLAPSED", "mood": "blood", "role": "king", "color": "purple", "action": "shrug", "emotion": "worried", "badge": "476", "concept": "ruin", "objects": ["castle", "tower", "column"]},
                            {"text": "NO ONE NOTICED", "mood": "ice", "role": "soldier", "color": "blue", "action": "sword_up", "emotion": "angry", "concept": "versus", "enemy_role": "warrior", "enemy_color": "red"}]}
-    prompt = f"""Create the YouTube click package for a history video. It must earn the click, honestly.
+    fun_meta = "\nENTERTAINMENT-HISTORY STYLE: write titles as curiosity QUESTIONS or bold funny claims a casual viewer cannot resist (e.g. 'What Were the Worst Jobs in History?', 'Would You Take the Worst Job in History?'). Thumbnails: 2 words max, the second often ending in a question mark; ONE big face with an extreme comic reaction (shock, disgust, delight) on a bright colourful background; the first thumbnail uses concept subject with the story's key everyday object as backdrop.\n" if FUN["on"] else ""
+    prompt = f"""Create the YouTube click package for a history video. It must earn the click, honestly.{fun_meta}
 TOPIC: {topic}
 CHAPTERS: {json.dumps([c['title'] for c in chapters])}
 NARRATION (for accuracy and keywords):
@@ -458,6 +489,9 @@ def plan(job, pdir, settings, hint=None):
     (pdir / "out").mkdir(parents=True, exist_ok=True)
     t_start = time.time()
 
+    FUN["on"] = bool(re.search(r"entertain|funny|countdown|worst jobs|would you|everyday|what was it like|actually do", hint or "", re.I))
+    if FUN["on"]:
+        _log(job, "  entertainment-history mode")
     _stage(job, 0)
     pick = pick_topic(hint)
     topic, hook = pick["topic"], pick.get("hook", "")
