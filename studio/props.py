@@ -151,7 +151,7 @@ def stool(d, o, x, S, gy, t, WS):
     sc = o.get("scale", 1)
     w, h = S * .045 * sc, S * .075 * sc
     for dx in (-.8, 0, .8):
-        d.line([(x + w * dx * .85, gy), (x + w * dx, gy - h)], fill=INK, width=_lw(S, .01))
+        d.line([(x + w * dx * .85, gy), (x + w * dx, gy - h)], fill=INK, width=_lw(S, .016))
     _ell(d, x, gy - h, w * 1.2, S * .012, WOOD_L, 4)
     d.polygon([(x - w * 1.2, gy - h), (x + w * 1.2, gy - h), (x + w * 1.0, gy - h + S * .03), (x + w * .3, gy - h + S * .022), (x - w * .3, gy - h + S * .034), (x - w * 1.0, gy - h + S * .026)], fill=(176, 60, 70), outline=INK)
 

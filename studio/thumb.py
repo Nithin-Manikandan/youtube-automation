@@ -280,6 +280,9 @@ def _fun_scene(recipe, flip, variant=0):
 
 
 def render(text, recipe, out_path, variant=0):
+    if recipe.get("concept") == "fun":
+        from . import toon_thumb
+        return toon_thumb.render(text, recipe, out_path, variant)
     concept = recipe.get("concept") or ("looming", "ruin", "versus")[variant % 3]
     concept = concept if concept in ("looming", "ruin", "versus", "subject", "fun") else "looming"
     flip = bool(recipe.get("flip", variant % 3 == 1))

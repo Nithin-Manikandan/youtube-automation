@@ -653,7 +653,8 @@ def plan(job, pdir, settings, hint=None):
         if FUN["on"]:                                             # entertainment history: bright scene, huge comic face, the story's own everyday props
             from collections import Counter
             from . import props as _pr
-            top = [o for o, _ in Counter(o_["type"] for s_ in scenes for o_ in s_.get("objects", []) if o_["type"] in _pr.DRAW).most_common(6)]
+            _compact = {"barrel", "bucket", "sack", "chest", "bed", "stool", "bell", "basket", "table", "cart", "stall"}
+            top = [o for o, _ in Counter(o_["type"] for s_ in scenes for o_ in s_.get("objects", []) if o_["type"] in _compact).most_common(6)]
             pick = (top[k * 2:k * 2 + 3] or top[:3])[:3]
             tr = dict(tr, concept="fun", objects=pick, scene=("countryside", "city_day", "forest")[k % 3], role=("peasant", "citizen", "merchant")[k % 3],
                       emotion=("shock", "worried", "smile")[k % 3], action=("armscross", "facepalm", "shrug")[k % 3], mood="gold", badge="", backdrop="")
