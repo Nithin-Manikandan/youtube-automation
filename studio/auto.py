@@ -336,7 +336,7 @@ def fix_flags(topic, scripts, flags, job):
         return scripts, flags
     remaining = []
     for f in flags:
-        if str(f.get("severity", "")).lower() != "high":
+        if str(f.get("severity", "")).lower() != "high" and not FUN["on"]:
             remaining.append(f)
             continue
         claim = re.sub(r"\s+", " ", str(f.get("claim", ""))).strip().lower()
@@ -354,7 +354,7 @@ def fix_flags(topic, scripts, flags, job):
 LINE: {old}
 PROBLEM: {f.get('issue', '')}
 SAFER WORDING SUGGESTION: {f.get('fix', '')}
-Rewrite the line so every date, number and name is correct and well documented; if unsure, make the claim vaguer instead of specific. Keep the same length, tone and spoken style.
+Rewrite the line so every date, number and name is correct and well documented; if unsure, make the claim vaguer instead of specific. If it is a legend, an anecdote or disputed among historians, keep it funny but say so plainly (for example \"according to legend\", \"one famous story says\", \"historians argue about this\"). Never present a disputed claim as certain. Keep the same length, tone and spoken style.
 Return JSON: {{"line": "the corrected line"}}"""
             new = str(_llm(prompt, 0.2).get("line", "")).strip()
         except Exception:
@@ -399,7 +399,7 @@ Return JSON:
  "tags": ["12-15 search tags, most important first, mix of broad and specific"],
  "hashtags": ["#three", "#relevant", "#hashtags"],
  "pinned_comment": "a question that sparks comments",
- "thumbs": [{{"text": "2-3 WORDS", "mood": "fire|ice|gold|storm|blood|night", "role": "one of {sorted(recipes.ROLES)}", "color": "one of {sorted(recipes.COLORS)}", "action": "scared|point|sword_up|proud|shrug|cheer|slump", "emotion": "shock|angry|worried|sad|smile", "concept": "subject|looming|ruin|versus", "backdrop": "for subject: the main object of the story; for looming: the giant silhouette behind the hero, one of {sorted(recipes.OBJECTS - {'cloud', 'torch'})} that matches the story, or figure", "army": "true only for ancient or medieval stories, false for modern ones", "enemy_role": "role of the opposing side", "enemy_color": "colour name", "badge": "optional short date like 476 AD or empty", "objects": ["1-2 of {sorted(recipes.OBJECTS - {'cloud', 'torch'})} matching the story setting"]}}]}}"""
+ "thumbs": [{{"text": "2-3 WORDS", "mood": "fire|ice|gold|storm|blood|night", "role": "one of {sorted(recipes.ROLES)}", "color": "one of {sorted(recipes.COLORS)}", "action": "scared|point|sword_up|proud|shrug|cheer|slump", "emotion": "shock|angry|worried|sad|smile", "concept": "subject|looming|ruin|versus", "icon": "toilet|poop|coins|skull|bell|bed|barrel|sack|chest|table", "backdrop": "for subject: the main object of the story; for looming: the giant silhouette behind the hero, one of {sorted(recipes.OBJECTS - {'cloud', 'torch'})} that matches the story, or figure", "army": "true only for ancient or medieval stories, false for modern ones", "enemy_role": "role of the opposing side", "enemy_color": "colour name", "badge": "optional short date like 476 AD or empty", "objects": ["1-2 of {sorted(recipes.OBJECTS - {'cloud', 'torch'})} matching the story setting"]}}]}}"""
     m = _llm(prompt, 0.7)
     if isinstance(m, list):
         m = next((x for x in m if isinstance(x, dict)), {})
@@ -657,6 +657,11 @@ def plan(job, pdir, settings, hint=None):
             top = [o for o, _ in Counter(o_["type"] for s_ in scenes for o_ in s_.get("objects", []) if o_["type"] in _compact).most_common(6)]
             pick = (top[k * 2:k * 2 + 3] or top[:3])[:3]
             ic_ = str(tr.get("icon") or "").lower()
+            if ic_ not in ("toilet", "poop", "coins", "skull", "bell", "bed", "barrel", "sack", "chest", "table"):
+                tx_ = (str(tr.get("text", "")) + " " + meta.get("title", "")).lower()
+                ic_ = ("toilet" if re.search(r"wip|bottom|toilet|stool|royal", tx_) else "poop" if re.search(r"poop|waste|sewage|muck|dig|cesspit|gross", tx_) else
+                       "skull" if re.search(r"sin|death|dead|danger|die|body|bodies|grave", tx_) else "coins" if re.search(r"paid|pay|rich|money|gold|coin|cash|wage", tx_) else
+                       "bell" if re.search(r"bell|crier|knock|wake", tx_) else "barrel" if re.search(r"pee|urine|vat|wash", tx_) else ["toilet", "poop", "skull"][k % 3])
             if ic_ in ("toilet", "poop", "coins", "skull", "bell", "bed", "barrel", "sack", "chest", "table"):
                 pick = [ic_] + [o for o in pick if o != ic_][:1]
             tr = dict(tr, concept="fun", objects=pick, scene=("countryside", "city_day", "forest")[k % 3], role=("peasant", "citizen", "merchant")[k % 3],
