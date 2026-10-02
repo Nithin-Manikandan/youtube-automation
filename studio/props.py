@@ -231,7 +231,39 @@ def pole(d, o, x, S, gy, t, WS):
     d.ellipse([x + S * .035, gy - h - S * .012, x + S * .065, gy - h + S * .012], fill=IRON, outline=INK, width=3)
 
 
-_FIT = {"pit": 1.15, "barrel": 2.0, "bucket": 1.9, "basket": 1.9, "sack": 1.8, "chest": 1.6, "bed": 1.45, "bell": 1.0, "table": 1.8, "stool": 2.5, "ladder": 1.5, "swamp": 1.0,
+def dog(d, o, x, S, gy, t, WS):
+    """A turnspit dog galloping inside a big wooden wheel on the wall, with a roasting spit beside it."""
+    sc = o.get("scale", 1)
+    R = S * .17 * sc
+    cx, cy = x, gy - R * 1.05
+    d.ellipse([cx - R, cy - R, cx + R, cy + R], fill=(214, 176, 120), outline=INK, width=_lw(S, .007))
+    d.ellipse([cx - R * .9, cy - R * .9, cx + R * .9, cy + R * .9], fill=(244, 232, 200), outline=INK, width=_lw(S, .004))
+    spin = t * 3.0
+    for k in range(10):
+        a = spin + k * math.pi / 5
+        d.line([(cx, cy), (cx + math.cos(a) * R * .9, cy + math.sin(a) * R * .9)], fill=WOOD_D, width=_lw(S, .005))
+    d.ellipse([cx - R * .08, cy - R * .08, cx + R * .08, cy + R * .08], fill=INK)
+    bx, by = cx, cy + R * .52                                                     # the dog runs on the spot at the bottom of the wheel
+    L = R * .55
+    bob = math.sin(t * 12) * R * .03
+    d.ellipse([bx - L, by - R * .2 + bob, bx + L * .75, by + R * .16 + bob], fill=(176, 118, 70), outline=INK, width=_lw(S, .004))
+    d.ellipse([bx + L * .55, by - R * .36 + bob, bx + L * 1.12, by - R * .02 + bob], fill=(176, 118, 70), outline=INK, width=_lw(S, .004))     # head
+    d.ellipse([bx + L * .92, by - R * .22 + bob, bx + L * 1.2, by - R * .1 + bob], fill=INK)
+    d.polygon([(bx + L * .6, by - R * .34 + bob), (bx + L * .72, by - R * .56 + bob), (bx + L * .84, by - R * .32 + bob)], fill=(110, 70, 40), outline=INK)
+    d.line([(bx - L, by - R * .1 + bob), (bx - L * 1.3, by - R * .32 + bob + math.sin(t * 14) * R * .06)], fill=INK, width=_lw(S, .006))             # wagging tail
+    for k in range(4):
+        ph = t * 12 + k * math.pi / 2
+        fx = bx + (-L * .55 + k * L * .5)
+        d.line([(fx, by + R * .12 + bob), (fx + math.sin(ph) * R * .14, by + R * .38)], fill=INK, width=_lw(S, .007))
+    sx = cx + R * 1.5                                                             # spit with a roast over the fire
+    d.line([(sx - R * .4, cy + R * .1), (sx + R * .5, cy + R * .1)], fill=INK, width=_lw(S, .008))
+    d.ellipse([sx - R * .12, cy - R * .06, sx + R * .36, cy + R * .26], fill=(176, 84, 52), outline=INK, width=_lw(S, .005))
+    for k in range(5):
+        fh = R * (.25 + .1 * math.sin(t * 9 + k))
+        d.polygon([(sx - R * .3 + k * R * .22, gy), (sx - R * .2 + k * R * .22, gy - fh), (sx - R * .1 + k * R * .22, gy)], fill=(244, 140, 40), outline=INK)
+
+
+_FIT = {"dog": 1.6, "pit": 1.15, "barrel": 2.0, "bucket": 1.9, "basket": 1.9, "sack": 1.8, "chest": 1.6, "bed": 1.45, "bell": 1.0, "table": 1.8, "stool": 2.5, "ladder": 1.5, "swamp": 1.0,
         "cart": 1.6, "stall": 1.5, "pole": 1.5}                      # real-world proportions against a person who stands about .52 of the picture tall
 
 
@@ -240,9 +272,9 @@ def _fit(name, fn):
     return lambda d, o, x, S, gy, t, WS: fn(d, {**o, "scale": o.get("scale", 1) * k}, x, S, gy, t, WS)
 
 
-_RAW = {"pit": pit, "barrel": barrel, "bucket": bucket, "basket": basket, "sack": sack, "chest": chest, "bed": bed, "bell": bell, "table": table, "stool": stool,
+_RAW = {"dog": dog, "pit": pit, "barrel": barrel, "bucket": bucket, "basket": basket, "sack": sack, "chest": chest, "bed": bed, "bell": bell, "table": table, "stool": stool,
         "ladder": ladder, "swamp": swamp, "cart": cart, "stall": stall, "pole": pole}
 DRAW = {k: _fit(k, f) for k, f in _RAW.items()}
 # where each prop likes to stand (fraction of the picture width); characters usually stand at .38 and .62
-HOME_X = {"pit": .5, "barrel": .15, "bucket": .24, "basket": .78, "sack": .22, "chest": .82, "bed": .5, "bell": .82, "table": .5, "stool": .5,
+HOME_X = {"dog": .72, "pit": .5, "barrel": .15, "bucket": .24, "basket": .78, "sack": .22, "chest": .82, "bed": .5, "bell": .82, "table": .5, "stool": .5,
           "ladder": .86, "swamp": .5, "cart": .2, "stall": .8, "pole": .9}

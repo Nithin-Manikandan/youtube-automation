@@ -68,7 +68,7 @@ BACKGROUNDS = {
 OBJECTS = {"castle", "column", "pedestal", "cloud", "tree", "tent", "pyramid", "tower", "torch", "ship",
            "submarine", "warship", "missile", "plane", "building", "hatch", "pipes", "gauge",
            "volcano", "ash_cloud", "wave", "fire", "smoke", "house", "explosion", "depth_charge", "torpedo", "crowd", "liner", "iceberg", "burning_town", "airship", "tank", "parachute", "flag", "cannon", "clock", "spacecraft", "planet", "capsule_interior", "mission_control", "reactor",
-           "pit", "barrel", "bucket", "basket", "sack", "chest", "bed", "bell", "table", "stool", "ladder", "swamp", "cart", "stall", "pole"}
+           "dog", "pit", "barrel", "bucket", "basket", "sack", "chest", "bed", "bell", "table", "stool", "ladder", "swamp", "cart", "stall", "pole"}
 EFFECTS = {"rain", "flash", "sparks", "dust", "shake", "ashfall", "embers", "bubbles", "sonar"}
 CAMERAS = {"push_in": ([1.0, 1.10], None), "pull_out": ([1.12, 1.0], None), "pan_right": ([1.06, 1.06], (-.04, .04)), "pan_left": ([1.06, 1.06], (.04, -.04)), "static": ([1.0, 1.0], None)}
 

@@ -51,6 +51,7 @@ RULES = [
     (r"\b(ladders?|descend\w*|climb\w*|rungs?)\b", ["ladder"], [], None, {}),
     (r"\b(markets?|stalls?|vendors?|merchants?|shops?|bazaar|hawkers?)\b", ["stall"], [], None, {}),
     (r"\b(poles?|tapp\w*|knock\w*|rattl\w*)\b", ["pole"], [], None, {}),
+    (r"\b(dogs?|turnspits?|spit|hounds?|puppy|puppies|wheel)\b", ["dog"], [], None, {}),
     (r"\b(castle|fortress|citadel|siege|ramparts?)\b", ["castle"], [], None, {}),
     (r"\b(pyramids?|pharaoh|nile)\b", ["pyramid"], [], "desert", {}),
     (r"\b(towns?|villages?|settlements?|houses?|homes)\b", ["house"], [], None, {}),
@@ -361,7 +362,7 @@ def company_pass(visuals, modern=False):
             if lone >= 3:
                 v = dict(v)
                 a0 = v["actors"][0]
-                role = BYSTANDER[bool(modern)][i % 3]
+                role = ("citizen", "merchant", "worker")[i % 3] if EVERYDAY["on"] else BYSTANDER[bool(modern)][i % 3]
                 v["actors"] = list(v["actors"]) + [dict(role=role, color="", pos="right" if str(a0.get("pos", "center")).endswith(("left", "center")) else "left", action="talk",
                                                        emotion="worried", facing="", scale=.95)]
                 out[i] = v
