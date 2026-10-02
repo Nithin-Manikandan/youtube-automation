@@ -202,6 +202,17 @@ def _icon(name, box):
         d.polygon([(cx, T + bh * .55), (cx - bw * .06, T + bh * .66), (cx + bw * .06, T + bh * .66)], fill=INK)
         for f in (-.15, -.05, .05, .15):
             d.line([(cx + bw * f, T + bh * .72), (cx + bw * f, B - bh * .04)], fill=INK, width=lw // 2)
+    elif name == "leech":
+        bw, bh = min(w, h * 1.5), min(h, w * .7)
+        cx0, T, B = cx, y1 - bh, y1
+        d.ellipse([cx0 - bw * .5, B - bh * .5, cx0 + bw * .5, B], fill=(72, 150, 96), outline=INK, width=lw)               # murky pond
+        d.ellipse([cx0 - bw * .36, B - bh * .4, cx0 + bw * .36, B - bh * .1], outline=(150, 210, 150), width=lw // 2)
+        pts = [(cx0 - bw * .22 + i * bw * .055, T + bh * .1 + math.sin(i * .75) * bh * .1 + (i * i) * bh * .0035) for i in range(10)]   # a fat leech
+        d.line(pts, fill=(36, 24, 26), width=int(bh * .2), joint="curve")
+        for p_ in (pts[0], pts[-1]):
+            d.ellipse([p_[0] - bh * .1, p_[1] - bh * .1, p_[0] + bh * .1, p_[1] + bh * .1], fill=(36, 24, 26))
+        d.line(pts, fill=(130, 40, 50), width=int(bh * .06), joint="curve")
+        d.ellipse([pts[-1][0] - bh * .03, pts[-1][1] - bh * .04, pts[-1][0] + bh * .03, pts[-1][1] + bh * .0], fill=(255, 255, 255))
     elif name in ("bed",):
         bw, bh = w, min(h, w * .6)
         L, R_, T, B = x0, x1, y1 - bh, y1
@@ -304,7 +315,7 @@ def render(text, recipe, out_path, variant=0):
     d = ImageDraw.Draw(img)
     _background(d, rnd, recipe.get("scene") if recipe.get("scene") in ("night", "gloom") else "day")
     w = 6 * K // 2 + 2
-    ICONS = {"toilet", "poop", "coins", "skull", "barrel", "bucket", "basket", "bed", "bell", "sack", "chest", "table", "stool"}
+    ICONS = {"leech", "toilet", "poop", "coins", "skull", "barrel", "bucket", "basket", "bed", "bell", "sack", "chest", "table", "stool"}
     objs = [o for o in (recipe.get("objects") or []) if o in props.DRAW or o in ICONS] or ["barrel"]
     gy = int(H * K * .90)
     hx = (0.27 if not flip else 0.73) * W * K

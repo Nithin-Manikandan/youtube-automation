@@ -662,12 +662,12 @@ def plan(job, pdir, settings, hint=None):
             top = [o for o, _ in Counter(o_["type"] for s_ in scenes for o_ in s_.get("objects", []) if o_["type"] in _compact).most_common(6)]
             pick = (top[k * 2:k * 2 + 3] or top[:3])[:3]
             tx_ = str(tr.get("text", "")).lower()
-            ic_ = ("toilet" if re.search(r"wip|bottom|toilet|stool|royal", tx_) else "skull" if re.search(r"\bsins?\b|death|dead|danger|die|body|bodies|grave|corpse", tx_) else
+            ic_ = ("leech" if re.search(r"leech|swamp|bath|blood|bite", tx_) else "toilet" if re.search(r"wip|bottom|toilet|stool|royal", tx_) else "skull" if re.search(r"\bsins?\b|death|dead|danger|die|body|bodies|grave|corpse", tx_) else
                    "coins" if re.search(r"paid|pay|rich|money|gold|coin|cash|wage", tx_) else "poop" if re.search(r"poop|waste|sewage|muck|dig|cesspit|gross|worst", tx_) else
                    "barrel" if re.search(r"pee|urine|vat|wash", tx_) else "bell" if re.search(r"bell|crier|knock|wake", tx_) else str(tr.get("icon") or "").lower())
-            if ic_ not in ("toilet", "poop", "coins", "skull", "bell", "bed", "barrel", "sack", "chest", "table"):
+            if ic_ not in ("leech", "toilet", "poop", "coins", "skull", "bell", "bed", "barrel", "sack", "chest", "table"):
                 ic_ = ["toilet", "poop", "skull"][k % 3]
-            if ic_ in ("toilet", "poop", "coins", "skull", "bell", "bed", "barrel", "sack", "chest", "table"):
+            if ic_ in ("leech", "toilet", "poop", "coins", "skull", "bell", "bed", "barrel", "sack", "chest", "table"):
                 pick = [ic_] + [o for o in pick if o != ic_][:1]
             tr = dict(tr, concept="fun", objects=pick, scene=("countryside", "city_day", "forest")[k % 3], role=("peasant", "citizen", "merchant")[k % 3],
                       emotion=("shock", "worried", "smile")[k % 3], action=("armscross", "facepalm", "shrug")[k % 3], mood="gold", badge="", backdrop="")
