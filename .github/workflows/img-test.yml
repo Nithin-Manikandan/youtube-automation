@@ -1,5 +1,8 @@
 name: Image test (CPU FLUX, no secrets)
 on:
+  push:
+    branches: [claude/youtube-automation-review-k9f3cu]
+    paths: [.github/workflows/img-test.yml]
   workflow_dispatch:
 permissions:
   contents: read
