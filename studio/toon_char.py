@@ -27,6 +27,9 @@ def draw(a, img, t, gy, scene, ctx):
     from . import stick as K
     SS = K.SS
     S = a.unit * 1.2
+    ent = min(1.0, t / 0.35)                                           # entrance pop: a quick overshoot so characters land with life
+    pop = 1.0 + 0.07 * math.sin(ent * math.pi) * (1 - ent) * 2 if ent < 1.0 else 1.0
+    S *= pop
     pose, xr, f, face = a.key_state(t)
     a._look_dx = 0.40 * f
     ex = a.extras(t, scene)
@@ -59,7 +62,8 @@ def draw(a, img, t, gy, scene, ctx):
     l1 = K.seg((0, 0), pose["l1"], Lb["thigh"] * S, f); l2 = K.seg(l1, pose["l1"] + pose["l2"], Lb["shin"] * S, f)
     m1 = K.seg((0, 0), pose["m1"], Lb["thigh"] * S, f); m2 = K.seg(m1, pose["m1"] + pose["m2"], Lb["shin"] * S, f)
     drop = max(l2[1], m2[1])
-    bob = math.sin(t * 2.4 + a.seed) * S * 0.006
+    mouth_ = a.extras(t, scene).get("mouth", 0.0)
+    bob = math.sin(t * 2.4 + a.seed) * S * 0.006 - mouth_ * S * 0.012      # a tiny bounce on every spoken syllable and a breath in between
     sway = math.sin(t * 0.9 + a.seed * 1.3) * S * 0.012
     hip = (x + sway, gy - drop - pose.get("lift", 0) * S + bob)
     tr = math.radians(pose["torso"])
