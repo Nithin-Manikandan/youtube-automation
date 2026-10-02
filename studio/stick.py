@@ -601,6 +601,8 @@ def _hills(d, W, H, gy, layer, off):
         pts.append((x * W * SS - off * layer.get("par", 0.2), y))
     pts.append((W * SS + 10, H * SS))
     d.polygon(pts, fill=layer["color"])
+    if INK_STYLE:                                                       # hand-inked horizon lines, like the drawn backgrounds this style comes from
+        d.line(pts[1:-1], fill=INK + (200,), width=7, joint="curve")
 
 
 def _sky(img_arr_h, W, H, top, bottom):
@@ -891,7 +893,7 @@ def render_frame(scene, t, W, H):
         far = np.asarray(img).copy()
         gcol = scene.get("ground_color", (176, 158, 120))
         img.paste(_ground(W, H, gy, gcol), (0, int(gy)))
-        d.line([(0, gy), (W * SS, gy)], fill=INK, width=5)
+        d.line([(0, gy), (W * SS, gy)], fill=INK, width=9 if INK_STYLE else 5)
         for o in scene.get("objects", []):
             draw_object(d, o, W, H, gy, t)
         if V2:
