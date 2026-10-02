@@ -127,6 +127,14 @@ class Actor:
         return pose_at(nm, tt, self.seed)
 
     def key_state(self, t):
+        """Pose with follow-through: forearms, lower legs and the head trail their parent by a few frames, so every move whips and settles."""
+        lag = self._key_state(t - 0.075)[0]
+        pose, x, facing, face = self._key_state(t)
+        for ch, k in (("a2", 0.55), ("b2", 0.55), ("l2", 0.35), ("m2", 0.35), ("head", 0.4)):
+            pose[ch] = pose[ch] * (1 - k) + lag[ch] * k
+        return pose, x, facing, face
+
+    def _key_state(self, t):
         ks = self.s["keys"]
         k0, k1 = ks[0], ks[-1]
         for a, b in zip(ks, ks[1:]):
