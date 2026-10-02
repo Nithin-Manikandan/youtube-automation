@@ -37,6 +37,7 @@ def generate(prompt, tries=4):
             d = json.load(urllib.request.urlopen(req, timeout=120))
             return Image.open(io.BytesIO(base64.b64decode(d["result"]["image"]))).convert("RGB")
         except urllib.error.HTTPError as e:
+            print("image error", e.code, e.read()[:200].decode(errors="replace"), flush=True)
             if e.code == 429 or e.code >= 500:
                 time.sleep(4 + 4 * k)
                 continue
