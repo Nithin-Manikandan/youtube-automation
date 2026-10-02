@@ -14,6 +14,10 @@ def _st(*stems):
 
 
 LEX = [
+    (_st("cough", "chok", "suffocat", "asphyx", "breath", "wheez", "gagg", "gasping$", "lungs$", "oxygen$", "carbon$", "co2$", "fumes$", "smoke$"), "cough", "worried", None),
+    (_st("cold$", "chill", "frigid", "icy$", "frost", "shiver", "bitter$", "arctic", "hypotherm"), "shiver", "worried", None),
+    (_st("sweat", "sweltering$", "humid", "scorching$", "stifling$", "overheat", "feverish"), "wipe", "worried", None),
+    (_st("switch", "button", "lever", "flip$", "flipped$", "flips$", "toggle", "dial$", "knob", "throttle", "controls$", "keypad", "pressed$", "pressing$"), "pick_up", None, None),
     (_st("scream", "shout", "yell", "roar", "bellow", "demand", "ordered$", "ordering$", "commanded$", "threaten", "furious", "rage$", "raged$", "snapped$", "bark", "argu", "blamed$", "accus", "betray", "refus", "insist", "defian", "protest"), "talk_angry", "angry", None),
     (_st("gasp", "froze$", "frozen$", "startl", "horrif", "stun", "shock", "astonish", "flinch", "recoil", "sudden", "abrupt", "alarm", "jolt", "unexpect", "ripped$", "tore$", "warning$"), "flinch", "shock", None),
     (_st("terrif", "tremble", "trembl", "panic", "terror", "afraid", "fear", "dread", "cower", "shiver", "freezing$", "frighten", "scared$", "nightmar", "danger", "deadl", "peril", "desperat", "trapped$", "stranded$", "helpless", "dying$", "lethal", "toxic", "poison"), "scared", "worried", None),
@@ -30,7 +34,7 @@ LEX = [
     (_st("fought$", "fight", "battl", "clash", "duel", "charged$", "charging$", "stabbed$", "slashed$", "swung$", "war$", "wars$", "warfare", "conquer", "invad", "siege", "stormed$", "raid"), "fight_burst", "angry", "hit"),
     (_st("push", "shov", "forced$", "forcing$", "rammed$", "heav", "pressed$", "pressing$", "propel", "thrust"), "push", None, None),
     (_st("pull", "haul", "drag", "tug", "yank", "towed$", "reeled$"), "pull", None, None),
-    (_st("lift", "picked$", "picking$", "carried$", "carrying$", "grab", "collect", "gather", "loaded$", "loading$", "clutch", "grasp", "seiz", "assembl", "repair"), "pick_up", None, None),
+    (_st("lift", "picked$", "picking$", "carried$", "carrying$", "grab", "collect", "gather", "loaded$", "loading$", "clutch", "grasp", "seiz", "assembl", "repair", "tape$", "taped$", "build$", "built$", "construct", "fix$", "fixed$", "mend", "weld", "connect", "install", "strap", "fasten", "improvis", "adapt", "jury"), "pick_up", None, None),
     (_st("stumbl", "tripped$", "lurch", "slipped$", "stagger", "sway", "wobbl", "tumbl"), "stumble", "shock", "shake"),
     (_st("died$", "dies$", "die$", "kill", "perish", "dead$", "collaps", "fell$", "fall$", "falling$", "fallen$", "plung", "sank$", "sunk$", "drown", "buried$"), "fall", "shock", "hit"),
     (_st("sat$", "seated$", "sitting$", "rested$", "resting$", "settled$", "slept$", "sleep", "exhaust", "weary"), "sit", None, None),
@@ -73,7 +77,7 @@ def extract(wins, n_actors=1):
                     break
                 last_t = a
                 k = len(acts)
-                if act in ("flinch", "scared", "cry", "duck", "cheer", "idle", "sit", "look_around", "think", "shrug"):
+                if act in ("flinch", "scared", "cry", "duck", "cheer", "idle", "sit", "look_around", "think", "shrug", "shiver"):
                     who = "all" if n_actors == 1 else ("reactor" if act in ("flinch", "scared", "cry") else "all")
                 else:
                     who = "agent"

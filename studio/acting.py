@@ -14,21 +14,21 @@ WALK_BY_EMOTION = {"sad": "walk_sad", "worried": "walk_careful", "shock": "walk_
 ACTION_CLIP = {"think": ("think", True), "point": ("point", True), "shrug": ("shrug", False), "cheer": ("happy", True), "scared": ("scared", False),
                "slump": ("slump", False), "crouch": ("duck", False), "demand": ("quarrel_a", True), "proud": ("talk_3", True),
                "look_around": ("look_around", True), "duck": ("duck", False), "dodge": ("duck", False), "wave": ("wave", False), "punch": ("punch", True),
-               "kick": ("kick", True), "push": ("talk_2", True), "pull": ("talk_2", True), "pick_up": ("talk_4", True), "stumble": ("stumble", False),
+               "kick": ("kick", True), "push": ("push", False), "pull": ("pull", False), "pick_up": ("reach", False), "stumble": ("stumble", False),
                "fall": ("fall", False), "get_up": ("talk_1", True), "cry": ("cry", True), "flinch": ("flinch", False), "sit": ("slump", False)}
 
 
-LEGACY = {"think": "think", "look_around": "rx:look", "flinch": "rx:flinch", "scared": "rx:cower", "duck": "rx:duck", "dodge": "rx:duck", "fall": "rx:slump", "stumble": "rx:stumble", "slump": "rx:slump", "cry": "mc:cry", "surprised": "rx:flinch", "sit_down": "rx:slump", "crouch": "rx:duck"}       # these two captures are crouches; the hand-posed versions read better
+LEGACY = {"think": "think", "look_around": "rx:look", "flinch": "rx:flinch", "scared": "rx:cower", "duck": "rx:duck", "dodge": "rx:duck", "fall": "rx:slump", "stumble": "rx:stumble", "slump": "rx:slump", "cry": "mc:cry", "surprised": "rx:flinch", "sit_down": "rx:slump", "crouch": "rx:duck", "push": "rx:push", "pull": "rx:pull", "reach": "rx:reach", "cough": "rx:cough", "shiver": "rx:shiver", "wipe": "rx:wipe"}       # these two captures are crouches; the hand-posed versions read better
 
 
 def _pn(clip):
     return LEGACY.get(clip) or "mc:" + clip
 
 
-BEND_ACTS = {"pull", "push", "pick_up", "duck", "dodge", "stumble", "fall", "sit", "crouch", "cry", "scared", "kick", "punch"}
+BEND_ACTS = {"cough", "pull", "push", "pick_up", "duck", "dodge", "stumble", "fall", "sit", "crouch", "cry", "scared", "kick", "punch"}
 
 
-RX_DUR = {"flinch": 2.0, "cower": 3.4, "duck": 1.7, "slump": None, "stumble": 1.3}
+RX_DUR = {"flinch": 2.0, "cower": 3.4, "duck": 1.7, "slump": None, "stumble": 1.3, "push": 2.2, "pull": 2.2, "reach": 2.0, "cough": 2.0, "shiver": 3.4, "wipe": 2.0}
 
 
 def _has(clip):
@@ -159,9 +159,10 @@ def _base_keys(a, dur, idx, n, pos_x, facing, other=None):
 
 
 BEAT_CLIP = {"flinch": "flinch", "scared": "scared", "cry": "cry", "cheer": "happy", "duck": "duck", "point": "point", "look_around": "look_around", "wave": "wave",
-             "shrug": "shrug", "think": "think", "punch": "punch", "kick": "kick", "fight_burst": "sword_1", "stumble": "stumble", "fall": "fall", "sit": "slump"}
+             "shrug": "shrug", "think": "think", "punch": "punch", "kick": "kick", "fight_burst": "sword_1", "stumble": "stumble", "fall": "fall", "sit": "slump",
+             "push": "push", "pull": "pull", "pick_up": "reach", "cough": "cough", "shiver": "shiver", "wipe": "wipe"}
 BEAT_LEN = {"flinch": 1.7, "scared": 2.6, "cry": 3.2, "cheer": 2.8, "duck": 2.2, "point": 2.2, "look_around": 2.6, "wave": 2.2, "shrug": 2.0, "think": 2.6, "punch": 2.0,
-            "kick": 2.0, "fight_burst": 2.4, "push": 2.4, "pull": 2.4, "pick_up": 2.4, "stumble": 1.8, "sit": 2.8, "idle": 2.2, "talk_angry": 2.8}
+            "kick": 2.0, "fight_burst": 2.4, "push": 2.4, "pull": 2.4, "pick_up": 2.4, "stumble": 1.8, "sit": 2.8, "idle": 2.2, "talk_angry": 2.8, "cough": 2.0, "shiver": 3.2, "wipe": 2.0}
 STATIC = {"talk", "stand", "think", "point", "shrug", "cheer", "scared", "slump", "crouch", "proud", "demand", "look_around", "cry", "sit", "wave"}
 
 
@@ -280,7 +281,7 @@ def _keys_for(a, dur, idx, n, pos_x, facing, other=None, beats=None):
         if act == "fall":
             ln = max(1.0, dur - ts + 1.0)                                   # a body that has fallen stays down for the rest of the scene
         ex_ = max(0.08, min(0.92, cur_x + (_outward(cur_x, n) if act in BEND_ACTS else 0.0)))
-        evs.append((ts, ts + ln, dict(x=ex_, pose=_pn(clip), face=emo, facing=face_other, speak=False, xf=0.25, ct0=ts - 0.05, loop=False if act in ("flinch", "fall", "stumble", "duck", "wave", "shrug", "pick_up", "sit") else True), cur_x, face_other))
+        evs.append((ts, ts + ln, dict(x=ex_, pose=_pn(clip), face=emo, facing=face_other, speak=False, xf=0.25, ct0=ts - 0.05, loop=False if act in ("flinch", "fall", "stumble", "duck", "wave", "shrug", "pick_up", "sit", "push", "pull", "cough", "shiver", "wipe") else True), cur_x, face_other))
         last_end = ts + ln
     if not evs:
         return base

@@ -15,6 +15,12 @@ SPEC = {
     "slump":   (dict(torso=24, head=26, a1=-5, a2=6, b1=-20, b2=6, l1=18, l2=-28, m1=-8, m2=-18), 8, 0.7, None, 6),
     "stumble": (dict(torso=24, head=-6, a1=70, a2=30, b1=-60, b2=30, l1=-26, l2=-10, m1=24, m2=-30), 22, 0.38, 0.35, 10),
     "cheer_up": (dict(torso=-6, head=-10, a1=156, a2=-8, b1=-156, b2=-8), 18, 0.4, 1.4, 8),
+    "push":    (dict(torso=11, head=-6, a1=88, a2=6, b1=78, b2=8, l1=26, l2=-6, m1=-16, m2=-10), 15, 0.55, 1.5, 8),
+    "pull":    (dict(torso=-12, head=-4, a1=64, a2=64, b1=54, b2=70, l1=-6, l2=-8, m1=22, m2=-12), 14, 0.6, 1.5, 8),
+    "reach":   (dict(torso=14, head=-8, a1=96, a2=26, b1=-14, b2=18, l1=16, l2=-12, m1=-8, m2=-10), 17, 0.5, 1.4, 8),
+    "cough":   (dict(torso=13, head=8, a1=58, a2=112, b1=-12, b2=14, l1=10, l2=-8, m1=-6, m2=-8), 22, 0.45, 1.3, 9),
+    "shiver":  (dict(torso=8, head=10, a1=34, a2=118, b1=-34, b2=118, l1=8, l2=-10, m1=-6, m2=-10), 16, 0.6, 2.8, 8),
+    "wipe":    (dict(torso=-4, head=8, a1=138, a2=52, b1=-8, b2=12, l1=6, l2=-6, m1=-4, m2=-6), 15, 0.55, 1.5, 8),
     "recoil":  (dict(torso=-10, head=-6, a1=84, a2=-30, b1=-70, b2=-30, l1=6, l2=-8, m1=-8, m2=-8), 24, 0.36, 0.6, 9),
 }
 
@@ -37,6 +43,13 @@ def sample(name, tt, seed=0.0):
     p = dict(base)
     for k, v in tgt.items():
         p[k] = base[k] + (v - base[k]) * w
+    if name == "cough" and w > 0.5:                                  # a few sharp jerks of the chest
+        p["torso"] += 5 * math.sin(tt * 26 + seed) * (1 - min(1.0, max(0.0, tt - 0.4)))
+        p["head"] += 3 * math.sin(tt * 26 + seed + 1)
+    if name == "shiver" and w > 0.5:                                 # the whole body trembles
+        p["torso"] += 2.0 * math.sin(tt * 42 + seed)
+        p["head"] += 2.4 * math.sin(tt * 38 + seed * 2)
+        p["l1"] += 2.0 * math.sin(tt * 44 + seed)
     if name in ("cower", "flinch") and w > 0.6:                      # shaking: the pose is never perfectly still
         p["head"] += 2.2 * math.sin(tt * 55 + seed)
         p["a1"] += 2.0 * math.sin(tt * 48 + seed * 2)
