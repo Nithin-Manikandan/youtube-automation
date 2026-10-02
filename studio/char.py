@@ -4,6 +4,7 @@ Everything is drawn flat on a small per-actor RGBA layer first; the outline, sha
 so hats, helmets, beards and held props all get the same treatment for free. The face is drawn last so shading never muddies it.
 """
 import math
+import zlib
 
 import cv2
 import numpy as np
@@ -11,6 +12,7 @@ from PIL import Image, ImageDraw
 
 INK = (27, 27, 32)
 SKIN_DARK = (214, 176, 142)
+DARK_BG = {"space", "capsule", "mission_control", "night", "underwater", "submarine_interior", "moon"}
 
 
 def _shade(c, k):
@@ -123,7 +125,7 @@ def draw_v2(a, img, t, gy, scene, ctx):
     sh = (hip[0] + up[0] * tl * 0.9, hip[1] + up[1] * tl * 0.9)
     hr = math.radians(pose["torso"] + pose["head"])
     hup = (math.sin(hr) * f, -math.cos(hr))
-    rad = Lb["head"] * S
+    rad = Lb["head"] * S * (1.2 if ctx.get("ink") else 1.0)
     head = (neck_base[0] + hup[0] * (Lb["neck"] * S + rad * 0.92), neck_base[1] + hup[1] * (Lb["neck"] * S + rad * 0.92))
     skin = a.s.get("skin", (247, 222, 190))
     tunic = a.s.get("tunic")
@@ -139,39 +141,46 @@ def draw_v2(a, img, t, gy, scene, ctx):
     if "cape" in props:
         flap = math.sin(t * 5 + a.seed) * S * 0.03
         d.polygon([sh, (sh[0] - f * S * 0.30 + flap, sh[1] + S * 0.42), (sh[0] - f * S * 0.05, sh[1] + S * 0.46)], fill=col)
-    far = 0.74
-    bk = 1.38 if "spacehelmet" in props else 1.0                       # a pressure suit is bulky: fatter torso, limbs, gloves
-    _tc = lambda d_, p_, q_, r1_, r2_, fill_: _tcap(d_, p_, q_, r1_ * bk, r2_ * bk, fill_)
-    if "spacehelmet" in props:                                          # life-support backpack behind the shoulders
-        bpk = (sh[0] - f * S * 0.085 - up[0] * S * 0.02, sh[1] + S * 0.10)
-        d.rounded_rectangle([bpk[0] - S * 0.05, bpk[1] - S * 0.11, bpk[0] + S * 0.05, bpk[1] + S * 0.11], radius=int(S * 0.03), fill=_shade(shirt, 0.82))
-    # far leg, far arm (darker so the body reads as having depth)
-    _tc(d, hip, add(hip, m1), S * 0.036, S * 0.027, _shade(pants, far)); _tc(d, add(hip, m1), add(hip, m2), S * 0.027, S * 0.021, _shade(pants, far))
-    d.line([add(hip, m2), (add(hip, m2)[0] + f * S * 0.07, add(hip, m2)[1])], fill=_shade(shoe, far), width=int(S * 0.045))
-    _tc(d, sh, b1, S * 0.026, S * 0.021, _shade(shirt, far)); _tc(d, b1, b2, S * 0.021, S * 0.017, _shade(shirt, far))
-    _hand(d, b2, wide[2] + wide[3], f, S * bk, _shade(shirt if bk > 1 else skin, far))
+    ink = bool(ctx.get("ink"))
+    lc = (236, 238, 240) if (ink and scene.get("bg_name", "") in DARK_BG and "spacehelmet" not in props) else INK   # light ink lines on dark sets
     shield_at = None
-    if "shield" in props:                                            # round shield strapped to the forearm, face to the viewer
-        sr = 0.105 * S
-        sc_ = ((b1[0] + b2[0]) / 2 + f * S * 0.03, (b1[1] + b2[1]) / 2 + S * 0.01)
-        d.ellipse([sc_[0] - sr, sc_[1] - sr, sc_[0] + sr, sc_[1] + sr], fill=col)
-        shield_at = (sc_, sr)
-    # near leg
-    _tc(d, hip, add(hip, l1), S * 0.038, S * 0.028, pants); _tc(d, add(hip, l1), add(hip, l2), S * 0.028, S * 0.022, pants)
-    foot = add(hip, l2)
-    d.line([foot, (foot[0] + f * S * 0.075, foot[1])], fill=shoe, width=int(S * 0.048))
-    d.ellipse([foot[0] + f * S * 0.045 - S * 0.03, foot[1] - S * 0.026, foot[0] + f * S * 0.045 + S * 0.03, foot[1] + S * 0.026], fill=shoe)
-    # torso (clothed, tapered), belt, collar
-    _tc(d, sh, hip, S * 0.072, S * 0.064, shirt)
-    nrm = (-up[1], up[0])
-    belt_a = (hip[0] - nrm[0] * S * 0.064 + up[0] * S * 0.012, hip[1] - nrm[1] * S * 0.064 + up[1] * S * 0.012)
-    belt_b = (hip[0] + nrm[0] * S * 0.064 + up[0] * S * 0.012, hip[1] + nrm[1] * S * 0.064 + up[1] * S * 0.012)
-    d.line([belt_a, belt_b], fill=(58, 42, 32), width=max(3, int(S * 0.016)))
-    # neck
-    _tcap(d, sh, add(neck_base, (hup[0] * S * 0.02, hup[1] * S * 0.02)), S * 0.026, S * 0.024, _shade(skin, 0.92))
-    # near arm over the torso
-    _tc(d, sh, a1, S * 0.028, S * 0.022, shirt); _tc(d, a1, a2, S * 0.022, S * 0.018, shirt)
-    _hand(d, a2, wide[0] + wide[1], f, S * bk, shirt if bk > 1 else skin)
+    if ink:
+        skin = (251, 251, 249)                                             # stick-figure style: white heads and hands, black ink lines
+        bk = 1.38 if "spacehelmet" in props else 1.0
+        shield_at = _ink_body(d, a, t, S, f, up, hip, sh, neck_base, hup, l1, l2, m1, m2, a1, a2, b1, b2, wide, props, shirt, col, bk, add, lc)
+    else:
+        far = 0.74
+        bk = 1.38 if "spacehelmet" in props else 1.0                       # a pressure suit is bulky: fatter torso, limbs, gloves
+        _tc = lambda d_, p_, q_, r1_, r2_, fill_: _tcap(d_, p_, q_, r1_ * bk, r2_ * bk, fill_)
+        if "spacehelmet" in props:                                          # life-support backpack behind the shoulders
+            bpk = (sh[0] - f * S * 0.085 - up[0] * S * 0.02, sh[1] + S * 0.10)
+            d.rounded_rectangle([bpk[0] - S * 0.05, bpk[1] - S * 0.11, bpk[0] + S * 0.05, bpk[1] + S * 0.11], radius=int(S * 0.03), fill=_shade(shirt, 0.82))
+        # far leg, far arm (darker so the body reads as having depth)
+        _tc(d, hip, add(hip, m1), S * 0.036, S * 0.027, _shade(pants, far)); _tc(d, add(hip, m1), add(hip, m2), S * 0.027, S * 0.021, _shade(pants, far))
+        d.line([add(hip, m2), (add(hip, m2)[0] + f * S * 0.07, add(hip, m2)[1])], fill=_shade(shoe, far), width=int(S * 0.045))
+        _tc(d, sh, b1, S * 0.026, S * 0.021, _shade(shirt, far)); _tc(d, b1, b2, S * 0.021, S * 0.017, _shade(shirt, far))
+        _hand(d, b2, wide[2] + wide[3], f, S * bk, _shade(shirt if bk > 1 else skin, far))
+        if "shield" in props:                                            # round shield strapped to the forearm, face to the viewer
+            sr = 0.105 * S
+            sc_ = ((b1[0] + b2[0]) / 2 + f * S * 0.03, (b1[1] + b2[1]) / 2 + S * 0.01)
+            d.ellipse([sc_[0] - sr, sc_[1] - sr, sc_[0] + sr, sc_[1] + sr], fill=col)
+            shield_at = (sc_, sr)
+        # near leg
+        _tc(d, hip, add(hip, l1), S * 0.038, S * 0.028, pants); _tc(d, add(hip, l1), add(hip, l2), S * 0.028, S * 0.022, pants)
+        foot = add(hip, l2)
+        d.line([foot, (foot[0] + f * S * 0.075, foot[1])], fill=shoe, width=int(S * 0.048))
+        d.ellipse([foot[0] + f * S * 0.045 - S * 0.03, foot[1] - S * 0.026, foot[0] + f * S * 0.045 + S * 0.03, foot[1] + S * 0.026], fill=shoe)
+        # torso (clothed, tapered), belt, collar
+        _tc(d, sh, hip, S * 0.072, S * 0.064, shirt)
+        nrm = (-up[1], up[0])
+        belt_a = (hip[0] - nrm[0] * S * 0.064 + up[0] * S * 0.012, hip[1] - nrm[1] * S * 0.064 + up[1] * S * 0.012)
+        belt_b = (hip[0] + nrm[0] * S * 0.064 + up[0] * S * 0.012, hip[1] + nrm[1] * S * 0.064 + up[1] * S * 0.012)
+        d.line([belt_a, belt_b], fill=(58, 42, 32), width=max(3, int(S * 0.016)))
+        # neck
+        _tcap(d, sh, add(neck_base, (hup[0] * S * 0.02, hup[1] * S * 0.02)), S * 0.026, S * 0.024, _shade(skin, 0.92))
+        # near arm over the torso
+        _tc(d, sh, a1, S * 0.028, S * 0.022, shirt); _tc(d, a1, a2, S * 0.022, S * 0.018, shirt)
+        _hand(d, a2, wide[0] + wide[1], f, S * bk, shirt if bk > 1 else skin)
     # head
     d.ellipse([head[0] - rad, head[1] - rad, head[0] + rad, head[1] + rad], fill=skin)
     lw = max(4, S * 0.042)
@@ -249,7 +258,7 @@ def draw_v2(a, img, t, gy, scene, ctx):
         d.polygon([pole, (pole[0] + f * S * .22, pole[1] + S * .06 + math.sin(t * 6) * S * .015), (pole[0], pole[1] + S * .13)], fill=col)
     # ---- derive outline / shading / shadow from the silhouette ------------------------------------
     light, rim = ctx["light"], ctx["rim"]
-    arr_c, (cx0, cy0) = _post(np.asarray(L), S, light, rim, max(3, S * 0.0075))
+    arr_c, (cx0, cy0) = _post_ink(np.asarray(L), S, light, rim, max(3, S * 0.0072), lc) if ink else _post(np.asarray(L), S, light, rim, max(3, S * 0.0075))
     arr = np.zeros((bh, bw, 4), np.uint8)
     arr[cy0:cy0 + arr_c.shape[0], cx0:cx0 + arr_c.shape[1]] = arr_c
     Lp = Image.fromarray(arr, "RGBA")
@@ -262,7 +271,7 @@ def draw_v2(a, img, t, gy, scene, ctx):
         d2.rectangle([head[0] - rad * .9, head[1] + rad * 1.05, head[0] + rad * .9, head[1] + rad * 1.4], fill=(214, 218, 222), outline=INK, width=max(2, int(S * 0.012)))
     if "spacehelmet" in props:                                       # chest control box with indicator lights, and a mission patch on the arm
         cc = (sh[0] - up[0] * S * 0.085 + f * S * 0.03, sh[1] - up[1] * S * 0.085)
-        d2.rounded_rectangle([cc[0] - S * 0.05, cc[1] - S * 0.035, cc[0] + S * 0.05, cc[1] + S * 0.035], radius=int(S * 0.012), fill=(52, 58, 66), outline=INK, width=max(2, int(S * 0.006)))
+        d2.rounded_rectangle([cc[0] - S * 0.05, cc[1] - S * 0.035, cc[0] + S * 0.05, cc[1] + S * 0.035], radius=int(S * 0.012), fill=(shirt if ink else (52, 58, 66)), outline=INK, width=max(2, int(S * 0.006)))
         for k_, c_ in enumerate(((120, 230, 130), (255, 190, 60), (255, 80, 70))):
             d2.ellipse([cc[0] - S * 0.036 + k_ * S * 0.032, cc[1] - S * 0.012, cc[0] - S * 0.022 + k_ * S * 0.032, cc[1] + S * 0.002], fill=c_)
         d2.rectangle([cc[0] - S * 0.034, cc[1] + S * 0.01, cc[0] + S * 0.034, cc[1] + S * 0.022], fill=(30, 34, 40))
@@ -273,10 +282,10 @@ def draw_v2(a, img, t, gy, scene, ctx):
         d2.line([scx, scy - sr * .86, scx, scy + sr * .86], fill=_shade(col, 0.62), width=max(3, int(S * 0.010)))
         d2.ellipse([scx - sr * .26, scy - sr * .26, scx + sr * .26, scy + sr * .26], fill=(206, 176, 84), outline=INK, width=max(2, int(S * 0.006)))
         d2.ellipse([scx - sr * .12 - sr * .06, scy - sr * .16, scx - sr * .02, scy - sr * .06], fill=(250, 236, 170))
-    _face(d2, a, K, head, rad, f, face, ex, S, t, skin, props)
+    _face(d2, a, K, head, rad, f, face, ex, S, t, skin, props, ink)
     # ---- cast shadow on the ground, then composite ------------------------------------------------
     A = arr[..., 3]
-    shadow = _cast_shadow(A, light, S, gl, bh, bw)
+    shadow = _ink_shadow(S, x, gl, bh, bw) if ink else _cast_shadow(A, light, S, gl, bh, bw)
     if img.mode == "RGBA":                                             # a transparent layer (thumbnails): composite properly with clipping
         if shadow is not None and ctx.get("shadow", True):
             sh_im = Image.new("RGBA", Lp.size, (10, 10, 24, 0))
@@ -287,6 +296,88 @@ def draw_v2(a, img, t, gy, scene, ctx):
     if shadow is not None:
         img.paste((10, 10, 24), (int(ox), int(oy)), shadow)
     img.paste(Lp.convert("RGB"), (int(ox), int(oy)), Lp.split()[3])
+
+
+def _post_ink(L, S, light, rim, lw_px, ring_col=INK):
+    """Outline only: every ink-style figure is a flat white/black drawing with a clean line round the whole silhouette."""
+    h, w = L.shape[:2]
+    ys, xs = np.nonzero(L[..., 3] > 8)
+    if len(xs) == 0:
+        return L[:1, :1] * 0, (0, 0)
+    m = int(lw_px * 3 + 4)
+    x0, x1 = max(0, xs.min() - m), min(w, xs.max() + m + 1)
+    y0, y1 = max(0, ys.min() - m), min(h, ys.max() + m + 1)
+    Lc = L[y0:y1, x0:x1]
+    A8 = Lc[..., 3]
+    k = int(max(2, lw_px))
+    dil = cv2.dilate(A8, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * k + 1, 2 * k + 1)))
+    res = np.empty_like(Lc)
+    body = (A8.astype(np.float32) / 255.0)[..., None]
+    ring = np.clip((dil.astype(np.float32) - A8.astype(np.float32)) / 255.0, 0, 1)[..., None]
+    res[..., :3] = np.clip(Lc[..., :3] * body + np.array(ring_col, np.float32) * ring, 0, 255).astype(np.uint8)
+    res[..., 3] = dil
+    return res, (x0, y0)
+
+
+def _ink_shadow(S, x, gl, bh, bw):
+    sm = np.zeros((bh, bw), np.uint8)
+    cv2.ellipse(sm, (int(x), int(gl)), (int(S * 0.20), max(2, int(S * 0.028))), 0, 0, 360, 255, -1)
+    sm = cv2.GaussianBlur(sm, (0, 0), max(2.0, S * 0.012))
+    return Image.fromarray((sm.astype(np.float32) * 0.30).astype(np.uint8), "L")
+
+
+def _ink_body(d, a, t, S, f, up, hip, sh, neck_base, hup, l1, l2, m1, m2, a1, a2, b1, b2, wide, props, shirt, col, bk, add, lc=INK):
+    """Stick-figure body: constant-width ink lines for legs, spine and arms, small white fists, a coloured scarf. The line boils a little every 1/8 s, like hand-drawn animation."""
+    fr = int(t * 8)
+    amp = S * 0.0032
+
+    def jt(key):
+        h_ = zlib.crc32(("%s|%s|%d" % (a.seed, key, fr)).encode())
+        return (((h_ & 0xFFFF) / 32767.5 - 1.0) * amp, (((h_ >> 16) & 0xFFFF) / 32767.5 - 1.0) * amp)
+
+    def J(p, key):
+        j = jt(key)
+        return (p[0] + j[0], p[1] + j[1])
+
+    suit = "spacehelmet" in props
+    w0 = S * (0.0065 if not suit else 0.05)
+    fill = lc if not suit else (226, 230, 236)
+
+    def ln(pts, w=None, key="", c=None):
+        w = w or w0
+        c = c or fill
+        pts = [J(p, key + str(i)) for i, p in enumerate(pts)]
+        d.line(pts, fill=c, width=int(w), joint="curve")
+        for p in pts:
+            d.ellipse([p[0] - w / 2, p[1] - w / 2, p[0] + w / 2, p[1] + w / 2], fill=c)
+
+    if suit:                                                         # backpack behind the shoulders, in the character's colour
+        bpk = (sh[0] - f * S * 0.085 - up[0] * S * 0.02, sh[1] + S * 0.10)
+        d.rounded_rectangle([bpk[0] - S * 0.05, bpk[1] - S * 0.11, bpk[0] + S * 0.05, bpk[1] + S * 0.11], radius=int(S * 0.03), fill=_shade(shirt, 0.9))
+    shield_at = None
+    ln([sh, b1, b2], key="b")                                       # far arm
+    ln([hip, add(hip, m1), add(hip, m2)], key="m")                  # far leg
+    if "shield" in props:
+        sr = 0.105 * S
+        sc_ = ((b1[0] + b2[0]) / 2 + f * S * 0.03, (b1[1] + b2[1]) / 2 + S * 0.01)
+        d.ellipse([sc_[0] - sr, sc_[1] - sr, sc_[0] + sr, sc_[1] + sr], fill=col)
+        shield_at = (sc_, sr)
+    ln([hip, add(hip, l1), add(hip, l2)], key="l")                  # near leg
+    for ft in (add(hip, m2), add(hip, l2)):                         # feet: a short line forward
+        ln([ft, (ft[0] + f * S * 0.062, ft[1])], key="ft%d" % int(ft[0]))
+    ln([hip, sh, add(neck_base, (hup[0] * S * 0.02, hup[1] * S * 0.02))], w=w0 * (1.0 if not suit else 1.6), key="t")
+    ln([sh, a1, a2], key="a")                                       # near arm
+    nrm = (-up[1], up[0])
+    nb = neck_base                                                  # scarf in the role colour: the only colour on a plain stick figure
+    tail = (nb[0] - f * S * 0.075 + math.sin(t * 5 + a.seed) * S * 0.012, nb[1] + S * 0.06)
+    if not suit:
+        d.polygon([(nb[0] + nrm[0] * S * 0.036, nb[1] + nrm[1] * S * 0.036 + S * 0.01), (nb[0] - nrm[0] * S * 0.036, nb[1] - nrm[1] * S * 0.036 + S * 0.01), tail], fill=shirt)
+        d.ellipse([nb[0] - S * 0.04, nb[1] - S * 0.012, nb[0] + S * 0.04, nb[1] + S * 0.024], fill=shirt)
+    hr_ = S * 0.034 * bk
+    for hp in (b2, a2):
+        hp = J(hp, "h")
+        d.ellipse([hp[0] - hr_, hp[1] - hr_, hp[0] + hr_, hp[1] + hr_], fill=(240, 242, 244) if suit else (251, 251, 249))
+    return shield_at
 
 
 def _blit(img, Lp, ox, oy):
@@ -323,7 +414,7 @@ def _cast_shadow(A, light, S, gl, bh, bw):
     return Image.fromarray(sm, "L")
 
 
-def _face(d, a, K, head, rad, f, face, ex, S, t, skin, props):
+def _face(d, a, K, head, rad, f, face, ex, S, t, skin, props, ink=False):
     lw = max(4, S * 0.042)
     look = ex.get("look", (0.35 * f, 0.0))                             # (dx, dy) in eye radii, signed to world x
     blink = ex.get("blink", 0.0)                                       # 0 open .. 1 shut
@@ -335,14 +426,27 @@ def _face(d, a, K, head, rad, f, face, ex, S, t, skin, props):
     far = 0
     # nose: a small rounded bump on the facing side
     nx, ny = head[0] + f * rad * 1.0, head[1] + rad * 0.12
-    d.ellipse([nx - rad * .13, ny - rad * .11, nx + rad * .13, ny + rad * .13], fill=(236, 190, 152), outline=(150, 100, 80), width=max(1, int(S * 0.004)))
+    if not ink:
+      d.ellipse([nx - rad * .13, ny - rad * .11, nx + rad * .13, ny + rad * .13], fill=(236, 190, 152), outline=(150, 100, 80), width=max(1, int(S * 0.004)))
     # cheeks
-    if face == "smile":
+    if face == "smile" and not ink:
         for cx_ in (head[0] + f * rad * 0.52,):
             d.ellipse([cx_ - rad * .2, head[1] + rad * .16, cx_ + rad * .2, head[1] + rad * .38], fill=(244, 170, 160, 120))
     lid_base = {"worried": 0.12, "sad": 0.24, "angry": 0.14, "smile": 0.08, "shock": 0.0}.get(face, 0.0)
     lid = max(lid_base, blink)
-    for i_, (ex_, ey_) in enumerate(eyes):
+    if ink:                                                              # two plain black eyes with a pinprick of light; a blink is a line
+        for i_, (ex_, ey_) in enumerate(eyes):
+            erx, ery = rad * (0.115 if i_ == 0 else 0.10) * big, rad * 0.17 * big
+            ox_, oy_ = look[0] * rad * 0.045, ey_ * 0 + look[1] * rad * 0.04
+            sq_ = max(lid, 0.0)
+            ery2 = max(ery * (1 - 0.92 * sq_), rad * 0.018)
+            d.ellipse([ex_ + ox_ - erx, ey_ + oy_ - ery2, ex_ + ox_ + erx, ey_ + oy_ + ery2], fill=INK)
+            if sq_ < 0.5:
+                d.ellipse([ex_ + ox_ - erx * .15, ey_ + oy_ - ery2 * .65, ex_ + ox_ + erx * .55, ey_ + oy_ - ery2 * .15], fill=(255, 255, 255))
+        eyes_done = True
+    else:
+        eyes_done = False
+    for i_, (ex_, ey_) in enumerate(eyes if not eyes_done else []):
         erx, ery = er_x * big, er_y * big
         if i_ == 1:
             erx *= 0.88

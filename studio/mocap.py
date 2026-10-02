@@ -26,6 +26,12 @@ def _load():
                 a = z[k].astype(np.float32)
                 for c in (0, 2, 4, 6, 8):                                   # absolute angles: unwrap so interpolation never spins the long way round
                     a[:, c] = np.degrees(np.unwrap(np.radians(a[:, c])))
+                for c in (1, 3, 5, 7, 9):                                   # relative joint angles: wrap to +-180 so interpolation never spins through zero
+                    a[:, c] = (a[:, c] + 180.0) % 360.0 - 180.0
+                a[:, 3] = np.clip(np.abs(a[:, 3]), 0.0, 150.0)              # elbows only fold one way: a projected capture bending into the screen reads as a backwards, broken arm
+                a[:, 5] = np.clip(np.abs(a[:, 5]), 0.0, 150.0)
+                a[:, 7] = np.clip(a[:, 7], -150.0, 3.0)                     # knees only fold backwards
+                a[:, 9] = np.clip(a[:, 9], -150.0, 3.0)
                 _LIB[k] = (a, meta[k])
     return _LIB
 

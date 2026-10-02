@@ -16,6 +16,7 @@ PAPER, INK = (244, 238, 224), (27, 27, 32)
 GOLD, RED, BLUE, PURPLE, GREY = (226, 176, 40), (196, 57, 43), (47, 99, 176), (122, 59, 140), (150, 146, 138)
 SS = 2  # supersampling for smooth lines
 import os
+INK_STYLE = os.environ.get("STICK_STYLE", "ink") == "ink"           # stick-figure look (white heads, ink lines); STICK_STYLE=shaded keeps the shaded cartoon bodies
 V2 = os.environ.get("STICK_V1") != "1"       # character renderer v2 (shaded, outlined, expressive); STICK_V1=1 keeps the old flat one
 
 
@@ -132,6 +133,10 @@ class Actor:
         pose, x, facing, face = self._key_state(t)
         for ch, k in (("a2", 0.55), ("b2", 0.55), ("l2", 0.35), ("m2", 0.35), ("head", 0.4)):
             pose[ch] = pose[ch] * (1 - k) + lag[ch] * k
+        for ch in ("a2", "b2"):                                       # elbows fold one way and knees the other: no hyper-extended, backwards-bending limbs from any source
+            pose[ch] = min(abs(pose[ch]), 155.0)
+        for ch in ("l2", "m2"):
+            pose[ch] = min(pose[ch], 3.0)
         if self.s.get("float"):                                       # weightless: drifting off the floor, legs trailing loosely, a slow tumble-sway
             ph = t * 0.55 + self.seed * 1.7
             pose["lift"] = pose.get("lift", 0) + 0.085 + 0.03 * math.sin(ph)
@@ -892,7 +897,7 @@ def render_frame(scene, t, W, H):
         if V2:
             from . import char
             lt, rim = char.light_for(scene)
-            ctx = {"light": lt, "rim": rim}
+            ctx = {"light": lt, "rim": rim, "ink": INK_STYLE}
             for a in sorted(scene["_actors"], key=lambda a: a.s.get("z", 0)):
                 char.draw_v2(a, img, t, gy, scene, ctx)
         else:
