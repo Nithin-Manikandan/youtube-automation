@@ -446,10 +446,6 @@ def render_segment(args):
             fr = np.mean([stick.render_frame(sc, max(0, t + d), W, H).astype(np.float32) for d in (-0.006, 0, 0.006)], axis=0).astype(np.uint8)
         else:
             fr = stick.render_frame(sc, t, W, H).copy()
-        if not first and t < 0.2:                                      # whip-in: a quick horizontal smear as the new scene lands
-            k = 1 + int(70 * (1 - t / 0.2) ** 2)
-            if k > 2:
-                fr = cv2.blur(fr, (k, 1))
         caps.overlay(fr, t0 + t)
         f = 1.0
         if first:

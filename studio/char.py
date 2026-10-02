@@ -394,9 +394,15 @@ def _ink_body(d, a, t, S, f, up, hip, sh, neck_base, hup, l1, l2, m1, m2, a1, a2
         d.polygon([(nb[0] + nrm[0] * S * 0.036, nb[1] + nrm[1] * S * 0.036 + S * 0.01), (nb[0] - nrm[0] * S * 0.036, nb[1] - nrm[1] * S * 0.036 + S * 0.01), tail], fill=shirt)
         d.ellipse([nb[0] - S * 0.04, nb[1] - S * 0.012, nb[0] + S * 0.04, nb[1] + S * 0.024], fill=shirt)
     hr_ = S * 0.034 * bk
-    for hp in (b2, a2):
+    for hp, (e0, e1) in ((b2, (b1, b2)), (a2, (a1, a2))):
         hp = J(hp, "h")
-        d.ellipse([hp[0] - hr_, hp[1] - hr_, hp[0] + hr_, hp[1] + hr_], fill=(240, 242, 244) if suit else (251, 251, 249))
+        fc = (240, 242, 244) if suit else (251, 251, 249)
+        ax_, ay_ = hp[0] - e0[0], hp[1] - e0[1]                      # forearm direction: the hand is a mitten pointing along it, with a thumb on top
+        an = math.hypot(ax_, ay_) or 1.0
+        ux, uy = ax_ / an, ay_ / an
+        d.ellipse([hp[0] + ux * hr_ * .35 - hr_ * 1.08, hp[1] + uy * hr_ * .35 - hr_ * .92, hp[0] + ux * hr_ * .35 + hr_ * 1.08, hp[1] + uy * hr_ * .35 + hr_ * .92], fill=fc, outline=lc, width=max(2, int(S * 0.0045)))
+        tx, ty = hp[0] + (-uy) * hr_ * .78 + ux * hr_ * .2, hp[1] + ux * hr_ * .78 + uy * hr_ * .2
+        d.ellipse([tx - hr_ * .42, ty - hr_ * .42, tx + hr_ * .42, ty + hr_ * .42], fill=fc, outline=lc, width=max(2, int(S * 0.004)))
     return shield_at
 
 
