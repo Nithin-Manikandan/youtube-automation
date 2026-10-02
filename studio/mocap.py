@@ -72,7 +72,7 @@ def sample(name, tt, loop=None, boost=None):
         row[0] = min(row[0], 24.0)
         row[1] = max(-30.0, min(row[1], 30.0))
     if boost is None:
-        boost = 1.55 if name in GESTURE else 1.15
+        boost = 2.1 if name in GESTURE else 1.15
     if boost != 1.0 and m["kind"] != "cycle":                                # cartoon exaggeration of the upper body around the clip's mean pose; legs stay planted
         mean = a.mean(axis=0)
         row = row.copy()

@@ -172,6 +172,8 @@ def enrich(visual, narration, modern, anchor=None, story_has_sub=True, domain=No
                 a_["role"] = "merchant"
             elif r_ in ("soldier", "warrior", "knight", "general", "rebel", "pirate") and not fight:
                 a_["role"] = "worker"
+            elif r_ == "scholar" and not re.search(r"\b(scholar|doctors?|physicians?|books?|scrolls?|read|reading|wrote|writing|law|laws|history|historians?|professors?|teach\w*|school|medical)\b", text):
+                a_["role"] = "citizen"
             elif r_ == "priest" and not re.search(r"\b(priest|church|vicar|clergy|funeral|prayer|sin|sins|heaven)\b", text):
                 a_["role"] = "scholar"
     emo = None                                                                 # faces follow what is being said, whatever the script writer picked
@@ -284,6 +286,8 @@ def enrich(visual, narration, modern, anchor=None, story_has_sub=True, domain=No
         v["actors"] = []
     v["objects"] = objs[:3]
     scenery = {"seascape", "interior", "pipes", "column", "tree", "cloud", "torch", "smoke", "house", "ash_cloud", "fire", "building"}
+    if EVERYDAY["on"] and not v.get("actors") and bg != "underwater":                # entertainment scenes are always about a person doing something
+        v["actors"] = [dict(role="citizen", color="", pos="center", action="talk", emotion="neutral", facing="", scale=1.0)]
     if not v.get("actors") and not [o for o in v["objects"] if o not in scenery] and bg != "underwater":
         v["actors"] = [dict(role="president" if modern else "citizen", color="", pos="center", action="talk", emotion="worried", facing="", scale=1.0)]   # never an empty stage
     if bg == "submarine_interior" and len(v.get("actors") or []) < 2:           # an interior scene is about the people in it
