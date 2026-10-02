@@ -391,9 +391,7 @@ def scene_events(sc, t0, prev=None):
     if "wave" in objs:
         ev.append((t0, "AMB_waves", 1.0, 0.0, dur + 0.4))
         ev.append((t0 + 1.2, "thunder", 0.6, 0.0, 0))
-    if sc.get("_still"):                                                        # illustrated-stills scenes: a soft cut whoosh, plus sounds keyed to what the narrator says
-        if not (prev is None or kind_of(prev) != kind_of(sc) or prev.get("chapter") != sc.get("chapter")):
-            ev.append((max(0.0, t0 - 0.08), "whoosh", 0.22, 0.0, 0))
+    if sc.get("_still"):                                                        # illustrated-stills scenes: sounds keyed to what the narrator says
         KEY = (("clink", r"^(armou?r|metal|clank\w*|clink\w*|steel|iron|coins?|gold|silver|paid|pay|bucket|pot|pots|helmet|plate\w*)$", 0.5),
                ("thump", r"^(fell|fall|falls|dropped|drop|crash\w*|slam\w*|boom|stuck|thud\w*|splash\w*|plop\w*|kicked|hit)$", 0.6),
                ("applause", r"^(cheer\w*|applaud\w*|celebrat\w*|won|victory|triumph\w*)$", 0.35),
