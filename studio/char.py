@@ -184,7 +184,13 @@ def draw_v2(a, img, t, gy, scene, ctx):
     # head
     d.ellipse([head[0] - rad, head[1] - rad, head[0] + rad, head[1] + rad], fill=skin)
     lw = max(4, S * 0.042)
-    if "beard" in props:
+    if "beard" in props and ink:                                     # chin beard that follows the jaw, plus a moustache; the face stays clear above it
+        hrc = a.s.get("hair", (70, 48, 30))
+        bcol = hrc if sum(hrc) < 420 else (150, 150, 146)
+        bx = head[0] + f * rad * 0.30
+        d.polygon([(bx - rad * 0.62, head[1] + rad * 0.62), (bx + rad * 0.62, head[1] + rad * 0.62), (bx + rad * 0.40, head[1] + rad * 1.15), (bx + rad * 0.06, head[1] + rad * 1.72), (bx - rad * 0.36, head[1] + rad * 1.2)], fill=bcol)   # pointed chin beard
+        d.arc([bx - rad * 0.50, head[1] + rad * 0.18, bx + rad * 0.50, head[1] + rad * 0.62], 200, 340, fill=bcol, width=max(4, int(rad * 0.14)))               # drooping moustache
+    elif "beard" in props:
         hrc = a.s.get("hair", (70, 48, 30))
         bcol = hrc if sum(hrc) < 420 else (150, 150, 146)
         d.pieslice([head[0] - rad * .98, head[1] - rad * .35, head[0] + rad * .98, head[1] + rad * 1.3], 5, 175, fill=bcol)
@@ -206,7 +212,19 @@ def draw_v2(a, img, t, gy, scene, ctx):
         w, h = rad * 0.9, rad * 0.75
         d.polygon([(cx - w, cy), (cx - w, cy - h), (cx - w / 2, cy - h / 2), (cx, cy - h * 1.1), (cx + w / 2, cy - h / 2), (cx + w, cy - h), (cx + w, cy)], fill=K.GOLD)
     if "sword" in props:                                             # a tapered steel blade with a cross-guard, grip and pommel
-        tip = add(hand, K.seg((0, 0), dirv, 0.40 * S, f))
+        def _clear(ang):                                             # does a blade at this angle stay out of the wielder's own head?
+            tp = add(hand, K.seg((0, 0), ang, 0.40 * S, f))
+            vx, vy = tp[0] - hand[0], tp[1] - hand[1]
+            ll = vx * vx + vy * vy or 1.0
+            u_ = max(0.0, min(1.0, ((head[0] - hand[0]) * vx + (head[1] - hand[1]) * vy) / ll))
+            return math.hypot(hand[0] + vx * u_ - head[0], hand[1] + vy * u_ - head[1]) > rad * 1.22
+        sw_ang = dirv
+        if not _clear(sw_ang):
+            for dlt in (12, -12, 24, -24, 36, -36, 48, -48, 60, -60, 80, -80, 100, -100):
+                if _clear(dirv + dlt):
+                    sw_ang = dirv + dlt
+                    break
+        tip = add(hand, K.seg((0, 0), sw_ang, 0.40 * S, f))
         ux, uy = tip[0] - hand[0], tip[1] - hand[1]
         un = math.hypot(ux, uy) or 1.0
         ux, uy = ux / un, uy / un
@@ -473,7 +491,7 @@ def _face(d, a, K, head, rad, f, face, ex, S, t, skin, props, ink=False):
         arch = rad * (0.06 if face in ("smile", "shock") else 0.0)
         d.line([(ex_ - rad * .21, by - lift + din), (ex_, by - lift - arch), (ex_ + rad * .21, by - lift - din)], fill=(34, 26, 22), width=bw, joint="curve")
     # mouth
-    bearded = "beard" in props
+    bearded = "beard" in props and not ink
     mx, my = head[0] + f * rad * 0.46, head[1] + rad * (0.76 if bearded else 0.56)
     mw = max(4, int(S * 0.016))
     MC = (238, 168, 156) if bearded else INK
