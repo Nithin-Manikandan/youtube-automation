@@ -148,11 +148,11 @@ def frame(path, t, dur, W, H, seed=0):
 
 
 def thumbnail(text, scene_prompt, out_path, variant=0, accent=(255, 226, 40)):
-    """A clickable thumbnail in the same illustrated style as the video: one drawn picture with a huge expressive face plus chunky headline text."""
+    """A clickable thumbnail in the same illustrated style as the video: a clear drawing on the left, a bold colour panel with huge text on the right."""
     from PIL import ImageDraw, ImageFont
-    emo = ("wide-eyed shocked face with mouth open", "disgusted grimace holding his nose", "huge surprised grin with raised eyebrows")[variant % 3]
-    p = (f"{STYLE}. Close-up thumbnail composition: ONE stick figure with a very large round white head filling the left half, {emo}, messy brown hair, "
-         f"plus the key funny object or place of the story on the right: {scene_prompt}. Bold simple shapes, high contrast, bright warm colours.")
+    emo = ("wide-eyed shocked face with mouth open and sweat drops", "desperate squirming face, eyes squeezed shut", "huge panicked face with raised eyebrows")[variant % 3]
+    p = (f"{STYLE}. Thumbnail drawing, medium shot showing one character from the knees up with plenty of space around him, big expressive face: {emo}. "
+         f"Scene: {scene_prompt}. Bold simple shapes, high contrast, bright warm colours, clean uncluttered background.")
     img = None
     for k in range(3):
         img = generate(p)
@@ -161,35 +161,28 @@ def thumbnail(text, scene_prompt, out_path, variant=0, accent=(255, 226, 40)):
     if img is None:
         return None
     W, H = 1280, 720
-    a = np.asarray(img)
-    S = a.shape[0]
-    hh = int(S * 9 / 16)
-    y0 = int(S * 0.20)
-    crop = Image.fromarray(a[y0:y0 + hh, :]).resize((W, H), Image.LANCZOS)
+    PW = 600                                                            # text panel width
+    canvas = Image.new("RGB", (W, H), (235, 72, 52))
+    art = img.crop((0, 0, img.width, int(img.height * 0.93))).resize((H, H), Image.LANCZOS)
+    canvas.paste(art, (0, 0))
+    d = ImageDraw.Draw(canvas)
+    d.rectangle([H - 6, 0, H + 6, H], fill=(20, 16, 22))
     FONT = pathlib.Path(__file__).resolve().parent.parent / "assets/fonts/BigShoulders-Bold.ttf"
     words = [w for w in text.upper().split() if w][:3]
-    lines, cur = [], ""
-    for w in words:
-        if cur and len(cur) + len(w) < 8:
-            cur += " " + w
-        else:
-            if cur:
-                lines.append(cur)
-            cur = w
-    lines.append(cur)
-    d = ImageDraw.Draw(crop)
-    size = 300
-    while size > 80:
+    lines = [w for w in words]
+    size = 260
+    while size > 70:
         f = ImageFont.truetype(str(FONT), size)
-        if max(d.textlength(l, font=f) for l in lines) <= W * 0.56 and size * .92 * len(lines) <= H * 0.62:
+        if max(d.textlength(l, font=f) for l in lines) <= PW - 60 and size * .96 * len(lines) <= H - 80:
             break
-        size -= 8
-    y = 24
+        size -= 6
+    total = size * .96 * len(lines)
+    y = (H - total) / 2 - size * .04
     for i, l in enumerate(lines):
         tw = d.textlength(l, font=f)
-        x = W - 36 - tw
-        d.text((x + 8, y + 10), l, font=f, fill=(0, 0, 0), stroke_width=16, stroke_fill=(0, 0, 0))
-        d.text((x, y), l, font=f, fill=accent if i == len(lines) - 1 else (255, 255, 255), stroke_width=13, stroke_fill=(20, 16, 22))
-        y += size * .92
-    crop.save(out_path, "JPEG", quality=94)
+        x = H + 6 + (W - H - 6 - tw) / 2
+        d.text((x + 6, y + 8), l, font=f, fill=(0, 0, 0), stroke_width=12, stroke_fill=(0, 0, 0))
+        d.text((x, y), l, font=f, fill=accent if i == len(lines) - 1 else (255, 255, 255), stroke_width=11, stroke_fill=(20, 16, 22))
+        y += size * .96
+    canvas.save(out_path, "JPEG", quality=94)
     return out_path

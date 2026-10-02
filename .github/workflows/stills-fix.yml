@@ -2,7 +2,7 @@ name: Fix stills
 on:
   push:
     branches: [claude/youtube-automation-review-k9f3cu]
-    paths: [.github/workflows/stills-fix.yml, tools/fix_stills.json, tools/fix_stills.py, tools/thumbs.json]
+    paths: [.github/workflows/stills-fix.yml, tools/fix_stills.json, tools/fix_stills.py, tools/thumbs.json, tools/mode.txt]
   workflow_dispatch:
 permissions:
   contents: read
@@ -20,7 +20,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: plan
-          run-id: 37059491799
+          run-id: 37062938561
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: output/auto
       - run: python tools/fix_stills.py
