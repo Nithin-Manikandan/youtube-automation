@@ -89,6 +89,14 @@ def extract(wins, n_actors=1):
                 if ev:
                     events.append((a, ev))
                 break
+    if wins and len(acts) < 2:                                              # nobody just stands there: gesture at the narrator's pauses when no verb gave the actors anything to do
+        cyc = ["point", "shrug", "think", "point", "shrug"]
+        gaps = [(a2, wins[i + 1][1] - a2) for i, (_, _, a2) in enumerate(wins[:-1]) if wins[i + 1][1] - a2 > 0.18 and a2 > 1.0]
+        for tg, _ in gaps:
+            if len(acts) >= 3 or any(abs(tg - b["t"]) < 2.4 for b in acts):
+                continue
+            k = len(acts)
+            acts.append(dict(t=tg + 0.05, action=cyc[k % len(cyc)], emotion=None, who="agent" if n_actors > 1 else "all", k=k, word="pause"))
     for t, kind in events:                                                  # a loud event makes everyone flinch, if nothing else is happening just then
         if kind in ("boom", "hit", "shake") and len(acts) < MAX_BEATS and all(abs(b["t"] - t) > 1.2 for b in acts):
             acts.append(dict(t=t, action="flinch", emotion="shock", who="all", k=len(acts), word=kind))
