@@ -7,6 +7,10 @@ on:
       hint:
         description: "Optional topic hint (blank = the AI picks)"
         required: false
+      plan_run_id:
+        description: "Optional: reuse the script/voice/music from this earlier plan_only run (its number) and just draw and assemble it"
+        required: false
+        default: ""
       plan_only:
         description: "true = only write the script and plan (fast); download plan.pkl and render a few scenes locally to check them"
         required: false
@@ -14,6 +18,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   plan:
@@ -26,7 +31,16 @@ jobs:
           python-version: "3.11"
           cache: pip
       - run: pip install -r requirements.txt
+      - name: Reuse an earlier plan
+        if: github.event.inputs.plan_run_id != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: plan
+          run-id: ${{ github.event.inputs.plan_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: output/auto
       - name: Topic, script, fact-check, narration, music and sound effects, thumbnails
+        if: github.event.inputs.plan_run_id == ''
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
