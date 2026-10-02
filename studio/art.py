@@ -513,7 +513,8 @@ def spacecraft(d, o, x, S, gy, t, WS):
 
 def planet(d, o, x, S, gy, t, WS):
     kind = o.get("kind", "earth")
-    cx, cy, r = WS * (.84 if o.get("side", 1) > 0 else .16), S * .22, S * .30 * o.get("scale", 1)
+    r = S * .30 * o.get("scale", 1)
+    cx, cy = WS * (.84 if o.get("side", 1) > 0 else .16), max(S * .22, r * 1.08)          # the whole globe stays inside the picture so no straight cut shows when the camera moves
     from . import space
     space.paste_sprite(d, space.planet_sprite(kind, r, t), cx, cy)
 

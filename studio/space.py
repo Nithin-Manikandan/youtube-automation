@@ -37,9 +37,9 @@ def _fbm(h, w, seed, octaves=5, base=4):
 
 def _earth_tex():
     if "earth" not in _TEX:
-        h, w = 256, 512
-        land = _fbm(h, w, 7, 5, 3)
-        cloud = _fbm(h, w, 21, 5, 4)
+        h, w = 512, 1024
+        land = _fbm(h, w, 7, 7, 3)
+        cloud = _fbm(h, w, 21, 7, 4)
         lat = np.abs(np.linspace(-1, 1, h))[:, None]
         _TEX["earth"] = (land, cloud, lat)
     return _TEX["earth"]
@@ -103,10 +103,10 @@ def _planet_sprite(kind, r, t):
         col = np.stack([g, g, g * 1.03], -1)
     else:
         land, cloud, latt = _earth_tex()
-        mx = ((lon / (2 * math.pi)) % 1.0 * 511).astype(np.float32)
-        my = ((lat / math.pi + .5) * 255).astype(np.float32)
+        mx = ((lon / (2 * math.pi)) % 1.0 * 1023).astype(np.float32)
+        my = ((lat / math.pi + .5) * 511).astype(np.float32)
         ld = cv2.remap(land, mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_WRAP)
-        cl = cv2.remap(cloud, mx + 60, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_WRAP)
+        cl = cv2.remap(cloud, mx + 120, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_WRAP)
         lt = np.abs(lat / (math.pi / 2))
         ocean = np.stack([np.full_like(ld, 18), 78 + 40 * (1 - lt), 160 + 40 * (1 - lt)], -1)
         landc = np.stack([86 + 70 * ld, 128 + 40 * ld, 62 + 20 * ld], -1)
@@ -181,7 +181,7 @@ def _spacecraft_sprite(L, R, roll, venting=False):
     ow = max(3, int(R * .06))
     P = lambda pts: [(cx + px * L, cy + py * R) for px, py in pts]
     cyl = [(-.5, -.8), (.15, -.8), (.15, .8), (-.5, .8)]
-    _gpoly(sp, P(cyl), [(0, (252, 246, 226)), (.35, (226, 214, 184)), (.75, (166, 154, 132)), (1, (96, 90, 84))], None)
+    _gpoly(sp, P(cyl), [(0, (250, 250, 248)), (.3, (222, 226, 232)), (.7, (150, 158, 172)), (1, (70, 78, 98))], None)
     ov = Image.new("RGBA", sp.size, (0, 0, 0, 0))
     dr = ImageDraw.Draw(ov)
     for k in range(9):                                                         # panel seams wrap round the cylinder as it rolls
@@ -191,22 +191,30 @@ def _spacecraft_sprite(L, R, roll, venting=False):
             continue
         yy = .8 * math.sin(ph)
         hh = .06 * c_ + .01
-        dr.polygon(P([(-.5, yy - hh), (.15, yy - hh), (.15, yy + hh), (-.5, yy + hh)]), fill=(120, 110, 96, 70))
+        dr.line(P([(-.5, yy), (.15, yy)]), fill=(96, 104, 120, 90), width=max(2, int(R * .035 * c_)))
     for k in range(3):
-        dr.line(P([(-.26 + k * .22, -.8), (-.26 + k * .22, .8)]), fill=(120, 110, 96, 150), width=2)
+        dr.line(P([(-.26 + k * .22, -.8), (-.26 + k * .22, .8)]), fill=(96, 104, 120, 150), width=2)
     dr.line(P([(-.49, -.7), (.14, -.7)]), fill=(255, 255, 255, 160), width=max(3, int(R * .05)))   # specular streak
+    dr.polygon(P([(-.5, -.8), (-.42, -.8), (-.42, .8), (-.5, .8)]), fill=(204, 160, 70, 150))            # gold thermal foil at the aft end
+    for k in range(14):
+        yy = -.74 + k * .114
+        dr.ellipse([cx + .12 * L - 2, cy + yy * R - 2, cx + .12 * L + 2, cy + yy * R + 2], fill=(90, 96, 110, 160))
+    rim = Image.new("RGBA", sp.size, (0, 0, 0, 0))
+    ImageDraw.Draw(rim).polygon(P(cyl), fill=(110, 170, 255, 0))
+    dr.line(P([(-.5, .74), (.14, .74)]), fill=(120, 180, 255, 120), width=max(3, int(R * .05)))          # blue bounce light from Earth on the shadow side
     sp.alpha_composite(ov)
     dr = ImageDraw.Draw(sp)
     dr.line(list(P(cyl)) + [P(cyl)[0]], fill=INK, width=ow, joint="curve")
     cone = [(.15, -.8), (.50, -.38), (.50, .38), (.15, .8)]
-    _gpoly(sp, P(cone), [(0, (236, 240, 248)), (.4, (196, 202, 214)), (1, (104, 110, 124))], INK, ow)
+    _gpoly(sp, P(cone), [(0, (250, 252, 255)), (.4, (214, 220, 232)), (1, (110, 118, 140))], INK, ow)
     dr.polygon(P([(.15, -.8), (.19, -.8), (.19, .8), (.15, .8)]), fill=(52, 44, 42))                     # heat-shield ring
     for k in range(3):                                                                                   # windows with a glint
         wx = .27 + k * .065
         _gpoly(sp, P([(wx, -.13), (wx + .035, -.13), (wx + .035, .13), (wx, .13)]), [(0, (110, 160, 220)), (1, (24, 40, 80))], INK, 2)
         dr.line(P([(wx + .008, -.1), (wx + .008, -.02)]), fill=(255, 255, 255, 220), width=2)
     _gpoly(sp, P([(.5, -.05), (.64, -.05), (.64, .05), (.5, .05)]), [(0, (220, 222, 228)), (1, (110, 112, 120))], INK, 2)
-    _gpoly(sp, P([(-.5, -.3), (-.68, -.5), (-.68, .5), (-.5, .3)]), [(0, (150, 152, 160)), (.5, (96, 98, 106)), (1, (50, 52, 60))], INK, ow)
+    _gpoly(sp, P([(-.5, -.3), (-.72, -.52), (-.72, .52), (-.5, .3)]), [(0, (190, 192, 200)), (.5, (110, 112, 122)), (1, (50, 52, 60))], INK, ow)
+    _gpoly(sp, P([(-.5, -.18), (-.68, -.34), (-.68, .34), (-.5, .18)]), [(0, (30, 28, 34)), (1, (12, 12, 16))], None)
     for y0_, y1_ in ((-1.0, -.8), (.8, 1.0)):                                                            # RCS quads
         _gpoly(sp, P([(-.2, y0_), (-.1, y0_), (-.1, y1_), (-.2, y1_)]), [(0, (190, 190, 196)), (1, (110, 110, 118))], INK, 2)
     dr.line(P([(-.12, -.8), (-.12, -1.35)]), fill=INK, width=3)                                          # antenna mast and dish

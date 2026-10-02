@@ -299,6 +299,8 @@ def build_stage(v, dur, rnd, seed=0, wins=None):
     if pan:
         scene["focus_to"] = (.5 + pan[1], .6)
     scene["blur"] = "fight" in [a["action"] for a in v["actors"]] or "run" in " ".join(a["action"] for a in v["actors"])
+    if v["background"] == "space":                                       # open space has no floor: push the ground line off the picture
+        scene["ground"] = 1.0
     from . import stick
     scene["_wins"] = wins or []
     stick.make_shots(scene, rnd)

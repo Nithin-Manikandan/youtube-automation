@@ -829,6 +829,9 @@ def _camera(scene, t, u, fx0, fx1):
             if e <= t < e + 0.35:
                 punch = (1 - (t - e) / 0.35)
                 z *= 1 + 0.09 * punch
+    if z > 1.0:                                           # never look past the edge of the drawn picture (a flat cut through a planet or sky)
+        cx = min(max(cx, 0.5 / z), 1 - 0.5 / z)
+        cy = min(max(cy, 0.5 / z), 1 - 0.5 / z)
     for sh_ in scene.get("shake", []):
         if sh_["t"] <= t <= sh_["t"] + sh_.get("dur", 0.4):
             k = 1 - (t - sh_["t"]) / sh_.get("dur", 0.4)
