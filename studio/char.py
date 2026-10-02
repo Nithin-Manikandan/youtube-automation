@@ -184,7 +184,9 @@ def draw_v2(a, img, t, gy, scene, ctx):
     # head
     d.ellipse([head[0] - rad, head[1] - rad, head[0] + rad, head[1] + rad], fill=skin)
     lw = max(4, S * 0.042)
-    if "beard" in props and ink:                                     # chin beard that follows the jaw, plus a moustache; the face stays clear above it
+    if "beard" in props and ink:
+        pass                                                         # beards are switched off in the stick-figure style for now
+    elif False:                                     # chin beard that follows the jaw, plus a moustache; the face stays clear above it
         hrc = a.s.get("hair", (70, 48, 30))
         bcol = hrc if sum(hrc) < 420 else (150, 150, 146)
         bx = head[0] + f * rad * 0.30
@@ -248,7 +250,7 @@ def draw_v2(a, img, t, gy, scene, ctx):
         ux, uy = ux / un, uy / un
         tipp = (p1[0] + ux * S * 0.085, p1[1] + uy * S * 0.085)
         d.polygon([(p1[0] - uy * S * 0.022, p1[1] + ux * S * 0.022), tipp, (p1[0] + uy * S * 0.022, p1[1] - ux * S * 0.022)], fill=(206, 212, 224))   # steel head
-    if "scroll" in props:                                            # a rolled parchment held in the fist, with curled ends and lines of script
+    if "scroll" in props and math.hypot(hand[0] - head[0], hand[1] - head[1]) > rad * 2.3:     # not while the hand is up at the face (it would hide it)                                            # a rolled parchment held in the fist, with curled ends and lines of script
         sw_, sh_ = S * .045, S * .075
         d.rounded_rectangle([hand[0] - sw_, hand[1] - sh_, hand[0] + sw_, hand[1] + sh_], radius=int(S * .02), fill=(238, 222, 176))
         for yy_ in (-.045, -.015, .015, .045):
@@ -258,7 +260,7 @@ def draw_v2(a, img, t, gy, scene, ctx):
         _hand(d, hand, dirv, f, S, skin)
     if "hardhat" in props:
         d.pieslice([head[0] - rad * 1.1, head[1] - rad * 1.25, head[0] + rad * 1.1, head[1] + rad * .15], 180, 360, fill=(246, 200, 40))
-        d.rectangle([head[0] - rad * 1.3, head[1] - rad * .18, head[0] + rad * 1.3, head[1] - rad * .02], fill=(226, 176, 28))
+        d.rectangle([head[0] - rad * 1.3, head[1] - rad * .66, head[0] + rad * 1.3, head[1] - rad * .50], fill=(226, 176, 28))
     if "navycap" in props:
         d.rectangle([head[0] - rad * 1.0, head[1] - rad * 1.12, head[0] + rad * 1.0, head[1] - rad * 0.52], fill=(242, 242, 238))
         d.rectangle([head[0] - rad * 1.0, head[1] - rad * 0.62, head[0] + rad * 1.0, head[1] - rad * 0.52], fill=(30, 40, 70))
