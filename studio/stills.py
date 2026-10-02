@@ -119,32 +119,48 @@ def draw_all(pdir, jobs, workers=3):
 _CACHE = {}
 
 
-def _img(path):
+def _composite(path, W=1920, H=1080):
+    """The whole square picture centred in a 16:9 frame; the side bars are a blurred, slightly darkened extension of the same art (no cropping)."""
+    import cv2
     if path not in _CACHE:
         _CACHE.clear()
-        _CACHE[path] = np.asarray(Image.open(path).convert("RGB"))
+        im = Image.open(path).convert("RGB")
+        a = np.asarray(im)
+        bg = cv2.resize(a, (W, W), interpolation=cv2.INTER_AREA)[(W - H) // 2:(W - H) // 2 + H]
+        bg = cv2.GaussianBlur(bg, (0, 0), 90)
+        mean = bg.reshape(-1, 3).mean(axis=0)
+        bg = (bg.astype(np.float32) * 0.45 + mean * 0.55).astype(np.uint8)        # calm, low-contrast side bars in the picture's own paper colour
+        fg = cv2.resize(a, (H, H), interpolation=cv2.INTER_AREA).astype(np.float32)
+        x0 = (W - H) // 2
+        mask = np.ones((H, H), np.float32)
+        f = 36                                                            # feather the picture's left and right edges into the blurred bars
+        ramp = np.linspace(0, 1, f, dtype=np.float32)
+        mask[:, :f] *= ramp[None, :]
+        mask[:, -f:] *= ramp[::-1][None, :]
+        out = bg.astype(np.float32)
+        out[:, x0:x0 + H] = out[:, x0:x0 + H] * (1 - mask[..., None]) + fg * mask[..., None]
+        _CACHE[path] = out.astype(np.uint8)
     return _CACHE[path]
 
 
 def frame(path, t, dur, W, H, seed=0):
-    """Slow push-in with a gentle drift across the square picture, 16:9 window."""
-    a = _img(path)
-    S = a.shape[0]
+    """Slow push-in with a gentle drift over the whole picture."""
+    import cv2
+    a = _composite(path)
+    CH, CW = a.shape[:2]
     u = min(1.0, max(0.0, t / max(dur, 1e-6)))
     e = u * u * (3 - 2 * u)
     rnd = random.Random(seed)
-    z0, z1 = (1.0, 1.16) if rnd.random() < .6 else (1.16, 1.0)
+    z0, z1 = (1.0, 1.10) if rnd.random() < .6 else (1.10, 1.0)
     z = z0 + (z1 - z0) * e
-    ww = S / z
+    ww = CW / z
     hh = ww * H / W
-    dx, dy = rnd.choice([-1, 1]) * 0.05 * S, rnd.choice([-1, 1]) * 0.04 * S
-    cx = S / 2 + dx * (e - .5)
-    cy = S * 0.42 + dy * (e - .5) * 0.5
-    x0 = max(0, min(S - ww, cx - ww / 2))
-    y0 = max(0, min(S - hh, cy - hh / 2))
+    cx = CW / 2 + rnd.choice([-1, 1]) * 0.03 * CW * (e - .5)
+    cy = CH / 2 + rnd.choice([-1, 1]) * 0.03 * CH * (e - .5)
+    x0 = max(0, min(CW - ww, cx - ww / 2))
+    y0 = max(0, min(CH - hh, cy - hh / 2))
     M = np.float32([[W / ww, 0, -x0 * W / ww], [0, H / hh, -y0 * H / hh]])
-    import cv2
-    return cv2.warpAffine(a, M, (W, H), flags=cv2.INTER_LANCZOS4, borderMode=cv2.BORDER_REPLICATE)
+    return cv2.warpAffine(a, M, (W, H), flags=cv2.INTER_AREA if z < 1.01 else cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
 
 
 def thumbnail(text, scene_prompt, out_path, variant=0, accent=(255, 226, 40)):
