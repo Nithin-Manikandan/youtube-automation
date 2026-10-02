@@ -71,4 +71,11 @@ def sample(name, tt, loop=None, boost=None):
         mean = a.mean(axis=0)
         row = row.copy()
         row[:6] = mean[:6] + (row[:6] - mean[:6]) * boost
+    if name in GESTURE:
+        row = row.copy()                                                     # stand tall: capture actors relax into bent knees, a sitting hip or a forward lean that reads as hunched on a cartoon
+        mean = a.mean(axis=0)
+        row[6] = 4 + (row[6] - 4) * 0.35; row[8] = -4 + (row[8] + 4) * 0.35
+        row[7] *= 0.3; row[9] *= 0.3
+        row[0] -= 0.75 * max(mean[0] - 2.0, 0.0)
+        row[1] -= 0.5 * mean[1]
     return dict(zip(KEYS, [float(v) for v in row]))

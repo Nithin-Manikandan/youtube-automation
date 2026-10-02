@@ -140,11 +140,16 @@ def draw_v2(a, img, t, gy, scene, ctx):
         flap = math.sin(t * 5 + a.seed) * S * 0.03
         d.polygon([sh, (sh[0] - f * S * 0.30 + flap, sh[1] + S * 0.42), (sh[0] - f * S * 0.05, sh[1] + S * 0.46)], fill=col)
     far = 0.74
+    bk = 1.38 if "spacehelmet" in props else 1.0                       # a pressure suit is bulky: fatter torso, limbs, gloves
+    _tc = lambda d_, p_, q_, r1_, r2_, fill_: _tcap(d_, p_, q_, r1_ * bk, r2_ * bk, fill_)
+    if "spacehelmet" in props:                                          # life-support backpack behind the shoulders
+        bpk = (sh[0] - f * S * 0.085 - up[0] * S * 0.02, sh[1] + S * 0.10)
+        d.rounded_rectangle([bpk[0] - S * 0.05, bpk[1] - S * 0.11, bpk[0] + S * 0.05, bpk[1] + S * 0.11], radius=int(S * 0.03), fill=_shade(shirt, 0.82))
     # far leg, far arm (darker so the body reads as having depth)
-    _tcap(d, hip, add(hip, m1), S * 0.036, S * 0.027, _shade(pants, far)); _tcap(d, add(hip, m1), add(hip, m2), S * 0.027, S * 0.021, _shade(pants, far))
+    _tc(d, hip, add(hip, m1), S * 0.036, S * 0.027, _shade(pants, far)); _tc(d, add(hip, m1), add(hip, m2), S * 0.027, S * 0.021, _shade(pants, far))
     d.line([add(hip, m2), (add(hip, m2)[0] + f * S * 0.07, add(hip, m2)[1])], fill=_shade(shoe, far), width=int(S * 0.045))
-    _tcap(d, sh, b1, S * 0.026, S * 0.021, _shade(shirt, far)); _tcap(d, b1, b2, S * 0.021, S * 0.017, _shade(shirt, far))
-    _hand(d, b2, wide[2] + wide[3], f, S, _shade(skin, far))
+    _tc(d, sh, b1, S * 0.026, S * 0.021, _shade(shirt, far)); _tc(d, b1, b2, S * 0.021, S * 0.017, _shade(shirt, far))
+    _hand(d, b2, wide[2] + wide[3], f, S * bk, _shade(shirt if bk > 1 else skin, far))
     shield_at = None
     if "shield" in props:                                            # round shield strapped to the forearm, face to the viewer
         sr = 0.105 * S
@@ -152,12 +157,12 @@ def draw_v2(a, img, t, gy, scene, ctx):
         d.ellipse([sc_[0] - sr, sc_[1] - sr, sc_[0] + sr, sc_[1] + sr], fill=col)
         shield_at = (sc_, sr)
     # near leg
-    _tcap(d, hip, add(hip, l1), S * 0.038, S * 0.028, pants); _tcap(d, add(hip, l1), add(hip, l2), S * 0.028, S * 0.022, pants)
+    _tc(d, hip, add(hip, l1), S * 0.038, S * 0.028, pants); _tc(d, add(hip, l1), add(hip, l2), S * 0.028, S * 0.022, pants)
     foot = add(hip, l2)
     d.line([foot, (foot[0] + f * S * 0.075, foot[1])], fill=shoe, width=int(S * 0.048))
     d.ellipse([foot[0] + f * S * 0.045 - S * 0.03, foot[1] - S * 0.026, foot[0] + f * S * 0.045 + S * 0.03, foot[1] + S * 0.026], fill=shoe)
     # torso (clothed, tapered), belt, collar
-    _tcap(d, sh, hip, S * 0.072, S * 0.064, shirt)
+    _tc(d, sh, hip, S * 0.072, S * 0.064, shirt)
     nrm = (-up[1], up[0])
     belt_a = (hip[0] - nrm[0] * S * 0.064 + up[0] * S * 0.012, hip[1] - nrm[1] * S * 0.064 + up[1] * S * 0.012)
     belt_b = (hip[0] + nrm[0] * S * 0.064 + up[0] * S * 0.012, hip[1] + nrm[1] * S * 0.064 + up[1] * S * 0.012)
@@ -165,8 +170,8 @@ def draw_v2(a, img, t, gy, scene, ctx):
     # neck
     _tcap(d, sh, add(neck_base, (hup[0] * S * 0.02, hup[1] * S * 0.02)), S * 0.026, S * 0.024, _shade(skin, 0.92))
     # near arm over the torso
-    _tcap(d, sh, a1, S * 0.028, S * 0.022, shirt); _tcap(d, a1, a2, S * 0.022, S * 0.018, shirt)
-    _hand(d, a2, wide[0] + wide[1], f, S, skin)
+    _tc(d, sh, a1, S * 0.028, S * 0.022, shirt); _tc(d, a1, a2, S * 0.022, S * 0.018, shirt)
+    _hand(d, a2, wide[0] + wide[1], f, S * bk, shirt if bk > 1 else skin)
     # head
     d.ellipse([head[0] - rad, head[1] - rad, head[0] + rad, head[1] + rad], fill=skin)
     lw = max(4, S * 0.042)
@@ -249,6 +254,12 @@ def draw_v2(a, img, t, gy, scene, ctx):
         d2.ellipse([head[0] - hr_, head[1] - hr_, head[0] + hr_, head[1] + hr_], outline=(236, 242, 248), width=max(4, int(S * 0.03)))
         d2.arc([head[0] - hr_ * .8, head[1] - hr_ * .8, head[0] + hr_ * .8, head[1] + hr_ * .8], 200, 260, fill=(255, 255, 255, 200), width=max(3, int(S * 0.02)))
         d2.rectangle([head[0] - rad * .9, head[1] + rad * 1.05, head[0] + rad * .9, head[1] + rad * 1.4], fill=(214, 218, 222), outline=INK, width=max(2, int(S * 0.012)))
+    if "spacehelmet" in props:                                       # chest control box with indicator lights, and a mission patch on the arm
+        cc = (sh[0] - up[0] * S * 0.085 + f * S * 0.03, sh[1] - up[1] * S * 0.085)
+        d2.rounded_rectangle([cc[0] - S * 0.05, cc[1] - S * 0.035, cc[0] + S * 0.05, cc[1] + S * 0.035], radius=int(S * 0.012), fill=(52, 58, 66), outline=INK, width=max(2, int(S * 0.006)))
+        for k_, c_ in enumerate(((120, 230, 130), (255, 190, 60), (255, 80, 70))):
+            d2.ellipse([cc[0] - S * 0.036 + k_ * S * 0.032, cc[1] - S * 0.012, cc[0] - S * 0.022 + k_ * S * 0.032, cc[1] + S * 0.002], fill=c_)
+        d2.rectangle([cc[0] - S * 0.034, cc[1] + S * 0.01, cc[0] + S * 0.034, cc[1] + S * 0.022], fill=(30, 34, 40))
     if shield_at:                                                    # rim, boss and straps on top of the shaded disc
         (scx, scy), sr = shield_at
         d2.ellipse([scx - sr * .86, scy - sr * .86, scx + sr * .86, scy + sr * .86], outline=_shade(col, 0.55), width=max(3, int(S * 0.012)))
