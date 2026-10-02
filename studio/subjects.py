@@ -162,6 +162,18 @@ def enrich(visual, narration, modern, anchor=None, story_has_sub=True, domain=No
         v["background"] = "night" if re.search(r"\b(night|dark|torch|candle|underground|cellar|pit|sewer|vault|midnight)\b", text) else ("palace" if re.search(r"\b(council|court|official|authorit|magistrate|mayor|parliament)\b", text) else "city_day")
         if v["background"] != "space":
             v["objects"] = [o for o in v.get("objects", []) if o not in ("spacecraft", "planet", "capsule_interior", "mission_control")]
+    emo = None                                                                 # faces follow what is being said, whatever the script writer picked
+    if re.search(r"\b(gross|disgust\w*|stench|stink\w*|smell\w*|reek\w*|vomit\w*|sewage|waste|filth\w*|poop|pee|urine|excrement|rotten|rot|slime|muck|corpses?|puke)\b", text):
+        emo = "worried"
+    if re.search(r"\b(died|dead|death|dying|suffocat\w*|poison\w*|deadly|danger\w*|collaps\w*|explod\w*|fire|trapped|scream\w*|shock\w*|sudden\w*|horrif\w*)\b", text):
+        emo = "shock"
+    if re.search(r"\b(paid|pay|wages?|rich|wealth\w*|fortune|gold|silver|coins?|salary|pension|promotion|power|won|win|winner|survived|celebrat\w*|funny|hilarious|laugh\w*|lucky|best)\b", text) and emo is None:
+        emo = "smile"
+    if re.search(r"\b(angry|furious|rage|banned|outcasts?|shunned|hated|punish\w*|fined|arrest\w*|robbery|stole|steal\w*)\b", text) and emo is None:
+        emo = "angry"
+    if emo:
+        for a_ in v.get("actors", []):
+            a_["emotion"] = emo
     objs = list(v.get("objects", []))
     fx = list(v.get("effects", []))
     bg = v.get("background")

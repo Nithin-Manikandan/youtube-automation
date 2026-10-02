@@ -161,6 +161,47 @@ def _icon(name, box):
         d.ellipse([cx - bw * .22, T + bh * .17, cx + bw * .22, T + bh * .4], fill=INK)
         for f in (.12, .3, .5, .7, .88):
             d.ellipse([L + bw * f - 7 * K, T + bh * .66 - 7 * K, L + bw * f + 7 * K, T + bh * .66 + 7 * K], fill=(250, 214, 80))
+    elif name == "toilet":
+        bw, bh = min(w, h * .95), min(h, w * 1.05)
+        L, R_, T, B = cx - bw / 2, cx + bw / 2, y1 - bh, y1
+        d.rounded_rectangle([L + bw * .08, T, R_ - bw * .08, T + bh * .46], radius=int(bh * .06), fill=(246, 248, 252), outline=INK, width=lw)          # cistern
+        d.rectangle([R_ - bw * .3, T + bh * .06, R_ - bw * .2, T + bh * .12], fill=(190, 200, 214), outline=INK, width=lw // 2)
+        d.ellipse([L, T + bh * .42, R_, T + bh * .64], fill=(246, 248, 252), outline=INK, width=lw)                                                   # seat rim
+        d.ellipse([L + bw * .12, T + bh * .46, R_ - bw * .12, T + bh * .6], fill=(70, 60, 56), outline=INK, width=lw // 2)
+        d.polygon([(L + bw * .14, T + bh * .56), (R_ - bw * .14, T + bh * .56), (R_ - bw * .22, B - bh * .02), (L + bw * .22, B - bh * .02)], fill=(236, 240, 246), outline=INK)
+        d.line([(L + bw * .14, T + bh * .56), (L + bw * .22, B - bh * .02), (R_ - bw * .22, B - bh * .02), (R_ - bw * .14, T + bh * .56)], fill=INK, width=lw, joint="curve")
+    elif name == "poop":
+        bw, bh = min(w, h * 1.05), min(h, w * .95)
+        T, B = y1 - bh, y1
+        for k, (f, ww) in enumerate(((0.0, .96), (.3, .72), (.58, .48))):
+            top, bot = B - bh * (f + .38), B - bh * f
+            d.ellipse([cx - bw * ww / 2, top, cx + bw * ww / 2, bot], fill=(124, 78, 40), outline=INK, width=lw)
+        d.polygon([(cx - bw * .08, T + bh * .06), (cx + bw * .12, T + bh * .26), (cx - bw * .12, T + bh * .3)], fill=(124, 78, 40), outline=INK)
+        for sx in (-1, 1):
+            ex = cx + sx * bw * .13
+            d.ellipse([ex - bw * .07, B - bh * .5, ex + bw * .07, B - bh * .3], fill=(255, 255, 255), outline=INK, width=lw // 2)
+            d.ellipse([ex - bw * .025, B - bh * .44, ex + bw * .025, B - bh * .36], fill=INK)
+        d.arc([cx - bw * .14, B - bh * .34, cx + bw * .14, B - bh * .14], 20, 160, fill=INK, width=lw // 2)
+    elif name == "coins":
+        bw, bh = min(w, h * 1.1), min(h, w * .9)
+        T, B = y1 - bh, y1
+        for row, (n, yy) in enumerate(((4, .74), (3, .5), (2, .26))):
+            for i in range(n):
+                px = cx + (i - (n - 1) / 2) * bw * .24
+                py = B - bh * (1 - yy) * 1.0 - bh * .12
+                d.ellipse([px - bw * .14, py - bh * .13, px + bw * .14, py + bh * .13], fill=(252, 208, 40), outline=INK, width=lw)
+                d.ellipse([px - bw * .08, py - bh * .07, px + bw * .08, py + bh * .07], outline=(200, 150, 20), width=lw // 2)
+        d.text((cx - bw * .08, T + bh * .02), "$", font=ImageFont.truetype(FONT, int(bh * .34)), fill=(60, 170, 70), stroke_width=lw // 2, stroke_fill=INK)
+    elif name == "skull":
+        bw, bh = min(w, h), min(h, w)
+        T, B = y1 - bh, y1
+        d.ellipse([cx - bw * .46, T, cx + bw * .46, T + bh * .72], fill=(246, 244, 236), outline=INK, width=lw)
+        d.rounded_rectangle([cx - bw * .26, T + bh * .6, cx + bw * .26, B], radius=int(bh * .06), fill=(246, 244, 236), outline=INK, width=lw)
+        for sx in (-1, 1):
+            d.ellipse([cx + sx * bw * .2 - bw * .13, T + bh * .26, cx + sx * bw * .2 + bw * .13, T + bh * .56], fill=INK)
+        d.polygon([(cx, T + bh * .55), (cx - bw * .06, T + bh * .66), (cx + bw * .06, T + bh * .66)], fill=INK)
+        for f in (-.15, -.05, .05, .15):
+            d.line([(cx + bw * f, T + bh * .72), (cx + bw * f, B - bh * .04)], fill=INK, width=lw // 2)
     elif name in ("bed",):
         bw, bh = w, min(h, w * .6)
         L, R_, T, B = x0, x1, y1 - bh, y1
@@ -243,7 +284,7 @@ def _headline(img, text, flip, w):
     size = 330 * K
     while size > 60 * K:
         f = ImageFont.truetype(FONT, int(size))
-        if max(d.textlength(l, font=f) for l in lines) <= zone_w and size * .92 * len(lines) <= H * K * .50:
+        if max(d.textlength(l, font=f) for l in lines) <= zone_w and size * .92 * len(lines) <= H * K * .44:
             break
         size -= 6 * K
     f = ImageFont.truetype(FONT, int(size))
@@ -263,16 +304,20 @@ def render(text, recipe, out_path, variant=0):
     d = ImageDraw.Draw(img)
     _background(d, rnd, recipe.get("scene") if recipe.get("scene") in ("night", "gloom") else "day")
     w = 6 * K // 2 + 2
-    objs = [o for o in (recipe.get("objects") or []) if o in props.DRAW] or ["pit"]
+    ICONS = {"toilet", "poop", "coins", "skull", "barrel", "bucket", "basket", "bed", "bell", "sack", "chest", "table", "stool"}
+    objs = [o for o in (recipe.get("objects") or []) if o in props.DRAW or o in ICONS] or ["barrel"]
     gy = int(H * K * .90)
     hx = (0.27 if not flip else 0.73) * W * K
     big_x = (0.70 if not flip else 0.30) * W * K
     # the story's key prop sits under the headline on the side away from the face; a second one smaller beside the face
     bx0, bx1 = ((0.50, 0.99) if not flip else (0.01, 0.50))
-    _big_prop(img, objs[0], (bx0 * W * K, H * K * .54, bx1 * W * K, H * K * .985))
+    _big_prop(img, objs[0], (bx0 * W * K, H * K * .52, bx1 * W * K, H * K * .985))
     if len(objs) > 1:
         sx0, sx1 = ((0.20, 0.42) if not flip else (0.58, 0.80))
         _big_prop(img, objs[1], (sx0 * W * K, H * K * .74, sx1 * W * K, H * K * .97))
+    dd = ImageDraw.Draw(img)
+    ax = (0.62 if not flip else 0.38) * W * K
+    pts = [(ax - 34 * K, H * K * .50), (ax + 34 * K, H * K * .50), (ax + 34 * K, H * K * .56), (ax + 70 * K, H * K * .56), (ax, H * K * .66), (ax - 70 * K, H * K * .56), (ax - 34 * K, H * K * .56)] if False else None
     emotion = recipe.get("emotion", "shock")
     look = ((.8 if not flip else -.8), .25)
     _hero(img, recipe.get("role", "citizen"), emotion, hx, H * K * .46, H * K * .31, 1 if not flip else -1, look, variant, w)

@@ -376,7 +376,7 @@ def make_metadata(topic, outline, chapters, text):
                 "thumbs": [{"text": "ROME FELL", "mood": "fire", "role": "emperor", "color": "purple", "action": "scared", "emotion": "shock", "badge": "476 AD", "concept": "subject", "backdrop": "castle", "enemy_role": "warrior"},
                            {"text": "WHY IT COLLAPSED", "mood": "blood", "role": "king", "color": "purple", "action": "shrug", "emotion": "worried", "badge": "476", "concept": "ruin", "objects": ["castle", "tower", "column"]},
                            {"text": "NO ONE NOTICED", "mood": "ice", "role": "soldier", "color": "blue", "action": "sword_up", "emotion": "angry", "concept": "versus", "enemy_role": "warrior", "enemy_color": "red"}]}
-    fun_meta = "\nENTERTAINMENT-HISTORY STYLE: write titles as curiosity QUESTIONS (honest ones: never claim something the video cannot prove, e.g. do not say people 'fought for' jobs) (e.g. 'What Were the Worst Jobs in History?', 'Would You Take the Worst Job in History?'). Thumbnails: 2 words max, the second often ending in a question mark; ONE big face with an extreme comic reaction (shock, disgust, delight) on a bright colourful background; the first thumbnail uses concept subject with the story's key everyday object as backdrop.\n" if FUN["on"] else ""
+    fun_meta = "\nENTERTAINMENT-HISTORY STYLE: write titles as curiosity QUESTIONS (honest ones: never claim something the video cannot prove, e.g. do not say people 'fought for' jobs) (e.g. 'What Were the Worst Jobs in History?', 'Would You Take the Worst Job in History?'). Thumbnail TEXT: 2-3 short words a ten-year-old instantly understands and that make you feel something (gross, shocking, money, danger): e.g. 'WORST JOB EVER?', 'PAID TO WIPE?', 'EATS SINS?', 'SMELLS WORST'. NEVER use job names, jargon or old words (no 'stool', 'fuller', 'groom', 'gong'). Also give each thumb an \"icon\" that everyone recognises, one of: toilet, poop, coins, skull, bell, bed, barrel, sack, chest, table (toilet/poop for waste jobs, coins for pay, skull for death/danger). ONE big face with an extreme comic reaction (shock, disgust, delight) on a bright colourful background; the first thumbnail uses concept subject with the story's key everyday object as backdrop.\n" if FUN["on"] else ""
     prompt = f"""Create the YouTube click package for a history video. It must earn the click, honestly.{fun_meta}
 TOPIC: {topic}
 CHAPTERS: {json.dumps([c['title'] for c in chapters])}
@@ -656,6 +656,9 @@ def plan(job, pdir, settings, hint=None):
             _compact = {"barrel", "bucket", "sack", "chest", "bed", "stool", "bell", "basket", "table", "cart", "stall"}
             top = [o for o, _ in Counter(o_["type"] for s_ in scenes for o_ in s_.get("objects", []) if o_["type"] in _compact).most_common(6)]
             pick = (top[k * 2:k * 2 + 3] or top[:3])[:3]
+            ic_ = str(tr.get("icon") or "").lower()
+            if ic_ in ("toilet", "poop", "coins", "skull", "bell", "bed", "barrel", "sack", "chest", "table"):
+                pick = [ic_] + [o for o in pick if o != ic_][:1]
             tr = dict(tr, concept="fun", objects=pick, scene=("countryside", "city_day", "forest")[k % 3], role=("peasant", "citizen", "merchant")[k % 3],
                       emotion=("shock", "worried", "smile")[k % 3], action=("armscross", "facepalm", "shrug")[k % 3], mood="gold", badge="", backdrop="")
             tr["text"] = " ".join(str(tr.get("text", topic)).split()[:3])
