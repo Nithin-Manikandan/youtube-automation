@@ -53,6 +53,8 @@ jobs:
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CF_ACCOUNT_ID_2: ${{ secrets.CF_ACCOUNT_ID_2 }}
           CF_API_TOKEN_2: ${{ secrets.CF_API_TOKEN_2 }}
+          CF_ACCOUNT_ID_3: ${{ secrets.CF_ACCOUNT_ID_3 }}
+          CF_API_TOKEN_3: ${{ secrets.CF_API_TOKEN_3 }}
           STUDIO_STILLS: ${{ github.event.inputs.stills == 'true' && '1' || '0' }}
         run: python -m studio.run_auto --phase plan --hint "$HINT" --out output/auto
       - uses: actions/upload-artifact@v4

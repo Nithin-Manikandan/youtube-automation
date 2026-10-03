@@ -28,7 +28,7 @@ def enabled():
 
 def _accounts():
     """Cloudflare accounts to use in order; when one has used its daily free allowance the next one takes over."""
-    acc = [(os.environ.get("CF_ACCOUNT_ID"), os.environ.get("CF_API_TOKEN")), (os.environ.get("CF_ACCOUNT_ID_2"), os.environ.get("CF_API_TOKEN_2"))]
+    acc = [(os.environ.get("CF_ACCOUNT_ID" + sfx), os.environ.get("CF_API_TOKEN" + sfx)) for sfx in ("", "_2", "_3")]
     return [(a, t) for a, t in acc if a and t]
 
 
