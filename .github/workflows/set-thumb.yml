@@ -1,0 +1,17 @@
+name: Set thumbnail
+on:
+  push:
+    branches: [claude/youtube-automation-review-k9f3cu]
+    paths: [tools/set_thumb.json]
+permissions:
+  contents: read
+jobs:
+  set:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install -q requests && python tools/set_thumb.py
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}

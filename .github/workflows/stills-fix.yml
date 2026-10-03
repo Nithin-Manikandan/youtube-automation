@@ -29,6 +29,30 @@ jobs:
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CF_ACCOUNT_ID_2: ${{ secrets.CF_ACCOUNT_ID_2 }}
           CF_API_TOKEN_2: ${{ secrets.CF_API_TOKEN_2 }}
+      - name: Small copy of the thumbnails
+        run: mkdir -p tb && cp output/auto/out/thumb*.jpg tb/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: thumbonly
+          path: tb/*
+      - name: Put thumbnail 1 on the live video
+        if: hashFiles('tools/set_thumb.json') != ''
+        run: |
+          pip install -q requests
+          python - <<'PY'
+          import json, sys, requests, shutil
+          sys.path.insert(0, '.')
+          from pipeline.upload import _access_token
+          cfg = json.load(open('tools/set_thumb.json'))
+          shutil.copy('output/auto/out/thumb1.jpg', 'tb/final.jpg')
+          r = requests.post(f"https://www.googleapis.com/upload/youtube/v3/thumbnails/set?videoId={cfg['video_id']}", headers={'Authorization': 'Bearer ' + _access_token(), 'Content-Type': 'image/jpeg'}, data=open('tb/final.jpg', 'rb').read(), timeout=120)
+          print('THUMBNAIL', r.status_code, r.text[:200])
+          sys.exit(0 if r.status_code == 200 else 1)
+          PY
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
       - uses: actions/upload-artifact@v4
         with:
           name: plan
