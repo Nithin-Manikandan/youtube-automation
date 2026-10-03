@@ -190,68 +190,87 @@ def _cutout(img):
     return Image.fromarray(rgba, "RGBA")
 
 
-def thumbnail(text, scene_prompt, out_path, variant=0, accent=(255, 240, 30), arrow=False):
-    """Professional-style thumbnail: sticker-outlined cutout of one funny subject on a saturated sunburst, huge outlined hook text, a red circle on the funny detail."""
+def generate_wide(prompt, w=1280, h=720, tries=3):
+    """A wide 16:9 background picture from Cloudflare's SDXL-Lightning (it accepts any size, unlike FLUX)."""
+    for acct, tok in _accounts():
+        if acct in _DEAD:
+            continue
+        url = f"https://api.cloudflare.com/client/v4/accounts/{acct}/ai/run/@cf/bytedance/stable-diffusion-xl-lightning"
+        for k in range(tries):
+            try:
+                body = json.dumps({"prompt": prompt, "width": w, "height": h, "num_steps": 8, "guidance": 2}).encode()
+                req = urllib.request.Request(url, body, {"Authorization": f"Bearer {tok}", "Content-Type": "application/json"})
+                raw = urllib.request.urlopen(req, timeout=150).read()
+                try:
+                    raw = base64.b64decode(json.loads(raw)["result"]["image"])
+                except Exception:
+                    pass
+                return Image.open(io.BytesIO(raw)).convert("RGB")
+            except urllib.error.HTTPError as e:
+                msg = e.read()[:300].decode(errors="replace")
+                if e.code == 429 and "daily free allocation" in msg:
+                    _DEAD.add(acct)
+                    break
+                time.sleep(3)
+            except Exception:
+                time.sleep(3)
+    return None
+
+
+def thumbnail(text, scene_prompt, out_path, variant=0, accent=(255, 240, 30), arrow=False, background=""):
+    """Channel-style thumbnail: a detailed wide scene behind, one funny stick-figure subject standing in it, and the hook across the top in big outlined text."""
     import cv2
-    from PIL import ImageDraw, ImageFilter, ImageFont
-    p = (f"{STYLE}. ONE single character shown from the waist up, huge and centred, an extremely exaggerated funny expression (eyes huge, mouth wide open, sweat drops), "
-         f"{scene_prompt}. Drawn on a completely plain pure white background with nothing else in the picture, no ground, no shadow, no other people, no objects except the ones named. Bold thick outlines, bright saturated colours.")
+    from PIL import ImageDraw, ImageEnhance, ImageFilter, ImageFont
+    W, H = 1280, 720
+    bgp = (f"flat colour hand-drawn cartoon illustration, thin black ink outlines, warm bright colours, detailed background scene only, {background}, "
+           "absolutely no people, no characters, no text, the upper fifth of the picture is calm open sky or ceiling, wide cinematic composition")
+    bg = generate_wide(bgp, W, H)
+    p = (f"{STYLE}. ONE single character shown full body, large and centred, an extremely exaggerated funny expression (eyes huge, mouth wide open, sweat drops), "
+         f"{scene_prompt}. Drawn on a completely plain pure white background with nothing else in the picture, no ground, no shadow, no other people. Bold thick outlines, bright colours.")
     img = None
     for k in range(3):
         img = generate(p)
         if img is not None:
             break
-    if img is None:
+    if img is None or bg is None:
         return None
-    img = img.crop((0, 0, img.width, int(img.height * 0.93)))
-    cut = _cutout(img)
-    W, H = 1280, 720
-    palette = [((255, 214, 10), (255, 120, 0)), ((255, 72, 72), (190, 0, 60)), ((40, 200, 255), (20, 90, 230))][variant % 3]
-    yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
-    cx, cy = W * 0.68, H * 0.52
-    r = np.sqrt((xx - cx) ** 2 + (yy - cy) ** 2) / (W * 0.75)
-    ang = np.arctan2(yy - cy, xx - cx)
-    rays = 0.5 + 0.5 * np.sign(np.sin(ang * 12))
-    t = np.clip(r, 0, 1)[..., None]
-    bg = np.array(palette[0], np.float32) * (1 - t) + np.array(palette[1], np.float32) * t
-    bg = bg * (0.88 + 0.12 * rays[..., None])
-    canvas = Image.fromarray(np.clip(bg, 0, 255).astype(np.uint8)).convert("RGBA")
-    # subject: scale to fill the right two thirds, add a thick white sticker outline and a thin black outer line
+    bg = ImageEnhance.Color(bg).enhance(1.25)
+    bg = ImageEnhance.Contrast(bg).enhance(1.08)
+    canvas = bg.convert("RGBA")
+    cut = _cutout(img.crop((0, 0, img.width, int(img.height * 0.93))))
     bb = cut.getbbox()
     cut = cut.crop(bb)
-    k = min(H * 0.98 / cut.height, W * 0.66 / cut.width)
+    k = min(H * 0.80 / cut.height, W * 0.46 / cut.width)
     cut = cut.resize((int(cut.width * k), int(cut.height * k)), Image.LANCZOS)
     al = np.asarray(cut.split()[3])
-    white = cv2.dilate(al, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (31, 31)))
-    black = cv2.dilate(al, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (47, 47)))
-    px, py = int(W - cut.width - W * 0.02), int(H - cut.height + H * 0.01)
-    pad = 30
-    layer = Image.new("RGBA", (cut.width + 2 * pad, cut.height + 2 * pad), (0, 0, 0, 0))
-    def put(mask, color):
-        m = Image.fromarray(np.pad(mask, pad)).convert("L")
-        solid = Image.new("RGBA", layer.size, color)
-        layer.paste(solid, (0, 0), m)
-    put(black, (18, 12, 20, 255)); put(white, (255, 255, 255, 255))
-    sh = Image.new("RGBA", layer.size, (0, 0, 0, 0))
-    sh.paste(Image.new("RGBA", layer.size, (0, 0, 0, 140)), (0, 0), Image.fromarray(np.pad(black, pad)).convert("L").filter(ImageFilter.GaussianBlur(10)))
-    canvas.alpha_composite(sh, (px - pad + 10, py - pad + 14))
-    canvas.alpha_composite(layer, (px - pad, py - pad))
+    edge = cv2.dilate(al, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9)))
+    px, py = int(W * (0.60 if variant % 2 == 0 else 0.30) - cut.width / 2), int(H - cut.height - H * 0.02)
+    sh = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+    ell = Image.new("L", canvas.size, 0)
+    ImageDraw.Draw(ell).ellipse([px - 10, py + cut.height - 30, px + cut.width + 10, py + cut.height + 24], fill=130)
+    sh.paste(Image.new("RGBA", canvas.size, (0, 0, 0, 255)), (0, 0), ell.filter(ImageFilter.GaussianBlur(14)))
+    canvas.alpha_composite(sh)
+    ol = Image.new("RGBA", cut.size, (18, 12, 20, 255)); ol.putalpha(Image.fromarray(edge))
+    canvas.alpha_composite(ol, (px, py))
     canvas.alpha_composite(cut, (px, py))
     d = ImageDraw.Draw(canvas)
     FONT = pathlib.Path(__file__).resolve().parent.parent / "assets/fonts/BigShoulders-Bold.ttf"
-    lines = [w for w in text.upper().split() if w][:4]
-    size = 330
-    while size > 80:
+    words = [w for w in text.upper().split() if w][:4]
+    size = 260
+    while size > 90:
         f = ImageFont.truetype(str(FONT), size)
-        if max(d.textlength(l, font=f) for l in lines) <= W * 0.44 and size * .92 * len(lines) <= H * 0.9:
+        if d.textlength(" ".join(words), font=f) <= W * 0.94:
             break
         size -= 6
-    y = (H - size * .92 * len(lines)) / 2 - size * .03
-    cols = [(255, 255, 255), accent, (255, 255, 255), accent]
-    for i, l in enumerate(lines):
-        x = 28
-        d.text((x + 10, y + 12), l, font=f, fill=(0, 0, 0), stroke_width=20, stroke_fill=(0, 0, 0))
-        d.text((x, y), l, font=f, fill=cols[i % 4] if len(lines) > 1 else accent, stroke_width=17, stroke_fill=(18, 12, 20))
-        y += size * .92
+    tw = d.textlength(" ".join(words), font=f)
+    x, y = (W - tw) / 2, 14
+    # first part white, the last word yellow, like the reference channels
+    head, last = (" ".join(words[:-1]) + " ") if len(words) > 1 else "", words[-1]
+    d.text((x + 8, y + 10), head + last, font=f, fill=(0, 0, 0), stroke_width=16, stroke_fill=(0, 0, 0))
+    d.text((x, y), head, font=f, fill=(255, 255, 255), stroke_width=14, stroke_fill=(18, 12, 20))
+    d.text((x + d.textlength(head, font=f), y), last, font=f, fill=accent, stroke_width=14, stroke_fill=(18, 12, 20))
+    if arrow:
+        pts = [(int(W * 0.30), int(H * 0.62)), (int(W * 0.36), int(H * 0.50)), (int(W * 0.44), int(H * 0.44))]
+        d.line(pts, fill=(18, 12, 20), width=20, joint="curve"); d.line(pts, fill=(255, 255, 255), width=11, joint="curve")
     canvas.convert("RGB").save(out_path, "JPEG", quality=95)
     return out_path

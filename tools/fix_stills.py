@@ -27,5 +27,5 @@ if MODE != "thumbs":
 out = pathlib.Path("output/auto/out"); out.mkdir(parents=True, exist_ok=True)
 T = json.load(open("tools/thumbs.json"))
 for k, t in enumerate(T):
-    r = stills.thumbnail(t["text"], t["art"], out / f"thumb{k + 1}.jpg", k)
+    r = stills.thumbnail(t["text"], t["art"], out / f"thumb{k + 1}.jpg", k, background=t.get("bg", ""))
     print("thumb", k + 1, "ok" if r else "FAILED")
