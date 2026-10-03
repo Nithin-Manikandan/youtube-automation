@@ -42,20 +42,10 @@ class Scene:
 
     def frame(self, t):
         u = ease(t / max(self.dur, 1e-6))
-        # background layer: slow push-in with parallax drift
+        # background layer: slow push-in with a parallax drift (the 18% margin lets the window move without showing edges)
         zb = 1.0 + 0.07 * u
         bh, bw = self.bg.shape[:2]
-        sx = W / (bw / 1.18) * 1.0
-        vw, vh = W / zb * (bw / (W * 1.18)) * 1.18 / 1.18, H / zb
-        cx = bw / 2 + (u - 0.5) * bw * 0.03
-        cy = bh / 2
-        x0, y0 = cx - W / zb / 1.0 * (bw / (W * 1.18)) / 2 * 1.18 / 1.18, cy - H / zb * (bw / (W * 1.18)) / 2 * 1.18 / 1.18
-        sc = zb * W * 1.0 / (W / (bw / (W * 1.18)) * 1.0) if False else None
-        M = cv2.getRotationMatrix2D((cx, cy), 0, 1.0)
-        scale = zb * (W / bw) * 1.18 * 0.5 + 0
-        # direct, simple crop-and-scale: window of size (W,H)/zb' inside the big background
-        win_w = bw / 1.18 / zb
-        win_h = bh / 1.18 / zb
+        win_w, win_h = bw / 1.18 / zb, bh / 1.18 / zb
         x0 = max(0, min(bw - win_w, bw / 2 - win_w / 2 + (u - 0.5) * bw * 0.035))
         y0 = max(0, min(bh - win_h, bh / 2 - win_h / 2))
         Mx = np.float32([[W / win_w, 0, -x0 * W / win_w], [0, H / win_h, -y0 * H / win_h]])
@@ -81,7 +71,6 @@ class Scene:
             gy = H * 1.0 + hop                                                  # feet line at the bottom edge
             M = cv2.getRotationMatrix2D((w0 / 2, h0), tilt, 1.0)
             M[0, 0] *= sxs; M[0, 1] *= sxs; M[1, 0] *= sy; M[1, 1] *= sy
-            M[0, 2] += gx - w0 / 2 * 1.0 - (sxs - 1) * 0 ; M[1, 2] += gy - h0
             M[0, 2] = gx - (M[0, 0] * (w0 / 2) + M[0, 1] * h0) + (w0 / 2) * 0
             M[1, 2] = gy - (M[1, 0] * (w0 / 2) + M[1, 1] * h0)
             warped = cv2.warpAffine(arr, M, (W, H), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=(0, 0, 0, 0))
@@ -94,10 +83,7 @@ class Scene:
         for (px, py, sp, r) in self.dust:
             x = (px * W + t * 14 * sp) % W
             y = (py * H - t * 9 * sp) % H
-            al = 0.25 * (0.5 + 0.5 * math.sin(t * sp * 2 + px * 9))
             cv2.circle(out, (int(x), int(y)), int(r), (255, 244, 220), -1)
-            out_alpha = 1
-        out = out * (1 - 0.0)
         # gentle vignette
         vig = 1 - 0.18 * (((xx - W / 2) / (W * 0.62)) ** 2 + ((yy - H / 2) / (H * 0.62)) ** 2)
         out *= np.clip(vig, 0.7, 1)[..., None]
