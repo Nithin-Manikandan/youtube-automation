@@ -92,7 +92,7 @@ class Look:
         self.tunic, self.pants, self.hair, self.fur, self.hat, self.seed, self.scarf, self.outfit = tunic, pants, hair, fur, hat, seed, scarf, outfit
 
 
-HOST = dict(tunic=(38, 96, 108), pants=(44, 58, 94), hair=(110, 70, 42), seed=11, scarf=(214, 62, 52), outfit="host")        # the channel's host: same look in every video
+HOST = dict(tunic=(38, 96, 108), pants=(44, 58, 94), hair=(110, 70, 42), seed=11, scarf=None, outfit="host")        # the channel's host: same look in every video
 
 
 def _dark(c, k=.62):
