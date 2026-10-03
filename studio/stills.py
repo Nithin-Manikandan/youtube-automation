@@ -370,14 +370,14 @@ def host_thumbnail(text, background, out_path, mood="shock", mouth="D", pose="sh
     tile = puppet.draw_character(p, look, big, 1900, 2300, 950, 2200)
     bb = tile.getbbox()
     face_top = bb[1]
-    crop = tile.crop((bb[0], bb[1], bb[2], bb[1] + int((bb[3] - bb[1]) * 0.60)))            # head, shoulders and chest: the face is the hook
-    k = H * 1.06 / crop.height
+    crop = tile.crop((300, bb[1], 1600, bb[1] + int((bb[3] - bb[1]) * 0.62)))               # head, shoulders and chest around the head's centre: the face is the hook
+    k = H * 0.97 / crop.height
     crop = crop.resize((int(crop.width * k), int(crop.height * k)), Image.LANCZOS)
     import cv2
     al = np.asarray(crop.split()[3])
     edge = cv2.dilate(al, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (11, 11)))
     px = int(W * (0.27 if side == "left" else 0.73) - crop.width / 2)
-    py = int(H - crop.height + H * 0.06)
+    py = int(H - crop.height + H * 0.02)
     ol = Image.new("RGBA", crop.size, (18, 12, 20, 255)); ol.putalpha(Image.fromarray(edge))
     canvas.alpha_composite(ol, (px, py)); canvas.alpha_composite(crop, (px, py))
     d = ImageDraw.Draw(canvas)
