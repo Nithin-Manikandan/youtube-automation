@@ -370,8 +370,8 @@ def host_thumbnail(text, background, out_path, mood="shock", mouth="D", pose="sh
     tile = puppet.draw_character(p, look, big, 1900, 2300, 950, 2200)
     bb = tile.getbbox()
     face_top = bb[1]
-    crop = tile.crop((300, bb[1], 1600, bb[1] + int((bb[3] - bb[1]) * 0.62)))               # head, shoulders and chest around the head's centre: the face is the hook
-    k = H * 0.86 / crop.height
+    crop = tile.crop((120, bb[1], 1600, bb[1] + int((bb[3] - bb[1]) * 0.62)))               # head, shoulders and chest around the head's centre: the face is the hook
+    k = min(H * 0.86 / crop.height, (W * 0.60) / crop.width)
     crop = crop.resize((int(crop.width * k), int(crop.height * k)), Image.LANCZOS)
     import cv2
     al = np.asarray(crop.split()[3])

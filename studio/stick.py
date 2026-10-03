@@ -797,26 +797,36 @@ def render_card(scene, t, W, H):
         x0 = ((k * 137 + t * 40 * (1 + k % 3)) % (W + 400)) - 200
         d.polygon([(x0, 0), (x0 + 90, 0), (x0 - 160, H), (x0 - 250, H)], fill=(255, 255, 255, 6 if dark else 10))
     ink = (244, 240, 230) if dark else INK
+    pup = (os.environ.get("STUDIO_PUPPET") == "1" or os.environ.get("STUDIO_CARD") == "paper") and not dark
+    CXM = W * 0.35 if pup else W * 0.5                               # puppet cards: text on the left, the host on the right, never overlapping
+    FIT = W * 0.60 if pup else W * 0.96
     u = smooth(t / 0.45)
     big = c.get("big", "")
     if big:
-        f_ = font(int(H * (0.20 if len(big) < 14 else 0.13) * (0.9 + 0.1 * u)))
+        sz_ = int(H * (0.20 if len(big) < 14 else 0.13) * (0.9 + 0.1 * u))
+        f_ = font(sz_)
         w = d.textlength(big, font=f_)
+        while w > FIT and sz_ > 30:
+            sz_ -= 4; f_ = font(sz_); w = d.textlength(big, font=f_)
         y = H * (0.10 if c.get("bullets") else 0.34)
-        d.text(((W - w) / 2 + 4, y + 5), big, font=f_, fill=(0, 0, 0, int(90 * u)))
-        d.text(((W - w) / 2, y), big, font=f_, fill=ink + (int(255 * u),))
+        d.text(((CXM - w / 2) + 4, y + 5), big, font=f_, fill=(0, 0, 0, int(90 * u)))
+        d.text(((CXM - w / 2), y), big, font=f_, fill=ink + (int(255 * u),))
         ub = smooth((t - 0.2) / 0.6)
-        d.line([((W - w) / 2, y + H * 0.215), ((W - w) / 2 + w * ub, y + H * 0.215)], fill=GOLD + (255,), width=max(5, H // 90))
+        d.line([((CXM - w / 2), y + H * 0.215), ((CXM - w / 2) + w * ub, y + H * 0.215)], fill=GOLD + (255,), width=max(5, H // 90))
     if c.get("small"):
         f2 = font(int(H * 0.06))
         a = smooth((t - 0.6) / 0.5)
         w2 = d.textlength(c["small"], font=f2)
-        d.text(((W - w2) / 2, H * (0.36 if c.get("bullets") else 0.62)), c["small"], font=f2, fill=ink + (int(235 * a),))
+        while w2 > FIT and f2.size > 20:
+            f2 = font(f2.size - 3); w2 = d.textlength(c["small"], font=f2)
+        d.text(((CXM - w2 / 2), H * (0.36 if c.get("bullets") else 0.62)), c["small"], font=f2, fill=ink + (int(235 * a),))
     for i, b in enumerate(c.get("bullets", [])):
         a = smooth((t - 0.8 - i * 0.7) / 0.4)
         f3 = font(int(H * 0.055))
-        x0, y0 = W * 0.22 + (1 - a) * W * 0.12, H * (0.50 + i * 0.095)          # bullets slide in from the right
+        x0, y0 = (W * 0.12 if pup else W * 0.22) + (1 - a) * W * 0.12, H * (0.50 + i * 0.095)          # bullets slide in from the right
         d.ellipse([x0 - 40, y0 + 14, x0 - 22, y0 + 32], fill=GOLD + (int(255 * a),))
+        while d.textlength(b, font=f3) > (W * 0.56 if pup else W * 0.7) and f3.size > 22:
+            f3 = font(f3.size - 2)
         d.text((x0, y0), b, font=f3, fill=ink + (int(240 * a),))
     if not dark and (os.environ.get("STUDIO_PUPPET") == "1" or os.environ.get("STUDIO_CARD") == "paper"):
         from . import puppet
