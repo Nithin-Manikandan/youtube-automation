@@ -208,6 +208,7 @@ def generate_wide(prompt, w=1280, h=720, tries=3):
                 return Image.open(io.BytesIO(raw)).convert("RGB")
             except urllib.error.HTTPError as e:
                 msg = e.read()[:300].decode(errors="replace")
+                print("wide image error", e.code, msg[:140], flush=True)
                 if e.code == 429 and "daily free allocation" in msg:
                     _DEAD.add(acct)
                     break
