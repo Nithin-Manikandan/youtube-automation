@@ -311,7 +311,7 @@ def bg_prompts(llm, topic, narrations):
         chunk = narrations[b0:b0 + 16]
         q = (f"You are the background artist of a funny cartoon history channel. VIDEO TOPIC: {topic}.\n"
              "For each numbered voiceover line write ONE plain sentence describing only the PLACE where it happens (era-correct building, room, field or street, key props, time of day, light). "
-             "No people, no text, no signs. Keep consecutive lines in the same place if the story stays there.\n"
+             "No people, no text, no signs. Match the line literally: if it talks about the sea, a ship, a beach, a plank or a flag, show the ship deck, open sea or beach (outdoors, bright sky), not a room. Vary the places across lines; only repeat a place when the story stays there.\n"
              + "\n".join(f"{b0 + i}: {t}" for i, t in enumerate(chunk)) + '\nReturn JSON: {"scenes": [{"i": 0, "place": "..."}]}')
         try:
             d = llm(q, 0.4)

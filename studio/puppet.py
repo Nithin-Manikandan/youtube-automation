@@ -254,14 +254,16 @@ def draw_character(pose, look, u, W, H, ox, oy):
     elif hat == "helmet":
         d.pieslice([head[0] - R * 1.06, head[1] - R * 1.08, head[0] + R * 1.06, head[1] + R * .15], 180, 360, fill=(150, 156, 168), outline=INK, width=lw)
         d.line([head[0], head[1] - R * 1.05, head[0], head[1] - R * .1], fill=INK, width=lw)
-    elif hat == "pirate":                                                   # tricorn: a wide black brim sweeping up, a skull and crossbones badge
-        d.polygon([(head[0] - R * 1.3, head[1] - R * .52), (head[0] - R * .9, head[1] - R * 1.2), (head[0] - R * .2, head[1] - R * 1.34), (head[0] + R * .2, head[1] - R * 1.34),
-                   (head[0] + R * .9, head[1] - R * 1.2), (head[0] + R * 1.3, head[1] - R * .52), (head[0] + R * .7, head[1] - R * .66), (head[0] - R * .7, head[1] - R * .66)], fill=(38, 34, 44), outline=INK)
-        d.line([head[0] - R * 1.3, head[1] - R * .52, head[0] + R * 1.3, head[1] - R * .52], fill=INK, width=lw)
-        sx_, sy_ = head[0], head[1] - R * .96
-        d.ellipse([sx_ - R * .14, sy_ - R * .16, sx_ + R * .14, sy_ + R * .06], fill=(240, 240, 236))
-        d.line([sx_ - R * .22, sy_ + R * .08, sx_ + R * .22, sy_ - R * .20], fill=(240, 240, 236), width=max(2, lw))
-        d.line([sx_ - R * .22, sy_ - R * .20, sx_ + R * .22, sy_ + R * .08], fill=(240, 240, 236), width=max(2, lw))
+    elif hat == "pirate":                                                   # tricorn: three upturned brims forming a peak, a gold trim and a skull badge
+        top = head[1] - R * 1.42
+        d.polygon([(head[0] - R * 1.34, head[1] - R * .50), (head[0] - R * 1.05, head[1] - R * .98), (head[0] - R * .5, head[1] - R * 1.30), (head[0], top),
+                   (head[0] + R * .5, head[1] - R * 1.30), (head[0] + R * 1.05, head[1] - R * .98), (head[0] + R * 1.34, head[1] - R * .50),
+                   (head[0] + R * .75, head[1] - R * .68), (head[0] - R * .75, head[1] - R * .68)], fill=(38, 34, 44), outline=INK)
+        d.line([head[0] - R * 1.34, head[1] - R * .50, head[0] - R * .75, head[1] - R * .68, head[0] + R * .75, head[1] - R * .68, head[0] + R * 1.34, head[1] - R * .50], fill=(220, 178, 52), width=max(2, lw + 1), joint="curve")
+        sx_, sy_ = head[0], head[1] - R * 1.0
+        d.ellipse([sx_ - R * .15, sy_ - R * .17, sx_ + R * .15, sy_ + R * .07], fill=(240, 240, 236))
+        d.line([sx_ - R * .24, sy_ + R * .09, sx_ + R * .24, sy_ - R * .21], fill=(240, 240, 236), width=max(2, lw))
+        d.line([sx_ - R * .24, sy_ - R * .21, sx_ + R * .24, sy_ + R * .09], fill=(240, 240, 236), width=max(2, lw))
     elif hat == "cap":
         d.pieslice([head[0] - R * 1.0, head[1] - R * 1.12, head[0] + R * 1.0, head[1] - R * .02], 180, 360, fill=(52, 70, 120), outline=INK, width=lw)
         d.rectangle([head[0] - R * .1, head[1] - R * .22, head[0] + R * 1.3 * f, head[1] - R * .06], fill=(52, 70, 120), outline=INK, width=lw)
@@ -298,6 +300,10 @@ POSES = {   # hand-designed key poses (degrees from straight down; positive = to
     "facepalm": dict(torso=7, head=14, a1=116, a2=128, b1=-10, b2=12, l1=2, l2=0, m1=-2, m2=0),
     "cheer":   dict(torso=-6, head=-6, a1=152, a2=-10, b1=-152, b2=-10, l1=4, l2=0, m1=-4, m2=0, hand_a=1, hand_b=1),
     "think":   dict(torso=3, head=8, a1=62, a2=126, b1=-8, b2=12, l1=2, l2=0, m1=-2, m2=0),
+    "open":    dict(torso=-1, head=2, a1=52, a2=58, b1=-52, b2=58, l1=3, l2=0, m1=-3, m2=0, hand_a=1, hand_b=1),
+    "count":   dict(torso=1, head=-2, a1=96, a2=-78, b1=-6, b2=10, l1=3, l2=0, m1=-3, m2=0, hand_a=2),
+    "lean":    dict(torso=7, head=6, a1=40, a2=30, b1=-30, b2=26, l1=7, l2=0, m1=-7, m2=0, hand_a=1),
+    "smug":    dict(torso=-4, head=-4, a1=24, a2=96, b1=-24, b2=96, l1=3, l2=0, m1=-3, m2=0),
     "cower":   dict(torso=12, head=14, a1=110, a2=-92, b1=-100, b2=-92, l1=14, l2=-16, m1=-4, m2=-14),
 }
 

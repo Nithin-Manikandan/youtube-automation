@@ -56,8 +56,12 @@ def mouth_cues(words, who=None):
     return cues
 
 
+TALK_CYCLE = ["explain", "open", "explain2", "count", "lean", "explain", "smug", "open", "point", "explain2"]
+
+
 def _timeline(keys, dur):
-    tl, last, flip = [], None, 0
+    """Director pose names -> puppet poses. Talking beats walk through a varied cycle of gestures so nobody keeps repeating one move, and 'point' is saved for real pointing."""
+    tl, last, n = [], None, 0
     for k in keys:
         nm = str(k["pose"])
         target = None
@@ -65,19 +69,29 @@ def _timeline(keys, dur):
             if re.search(pat, nm):
                 target = name
                 break
-        if target is None:                                                  # talking/explaining poses alternate between two gestures so the hands keep moving
-            flip += 1
-            target = "explain" if flip % 2 else "explain2"
+        if target == "point" and not re.search(r"point", nm):               # fight/push/demand clips are not pointing
+            target = None
+        if target is None:
+            target = TALK_CYCLE[(n + int(k["t"] * 3)) % len(TALK_CYCLE)]
+            n += 1
         if target != last or nm.startswith(("mc:talk", "mc:explain")):
-            tl.append((float(k["t"]), target))
-            last = target
+            tl.append((float(k["t"]), target)); last = target
     if not tl:
         tl = [(0.0, "idle")]
     out, prev_t = [], -9
-    for t, n in tl:                                                         # no two key poses closer than 0.45 s
-        if t - prev_t >= 0.45 or not out:
-            out.append((t, n)); prev_t = t
-    return [(0.0, "idle")] + out if out[0][0] > 0.2 else out
+    for t, nme in tl:
+        if t - prev_t >= 0.9 or not out:                                    # hold each gesture at least a second
+            out.append((t, nme)); prev_t = t
+    # keep him gesturing: if a gap is long, drop a fresh gesture in
+    full, c = [], 1
+    for i, (t, nme) in enumerate(out):
+        full.append((t, nme))
+        nxt = out[i + 1][0] if i + 1 < len(out) else dur
+        gap = nxt - t
+        while gap > 2.6:
+            t += 2.2; gap -= 2.2
+            full.append((t, TALK_CYCLE[(len(full) + c) % len(TALK_CYCLE)])); c += 1
+    return [(0.0, "idle")] + full if full[0][0] > 0.2 else full
 
 
 def _unify(a):

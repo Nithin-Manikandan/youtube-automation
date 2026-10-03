@@ -94,6 +94,8 @@ jobs:
           name: plan
           path: output/auto
       - name: Draw this machine's share of the scenes
+        env:
+          STUDIO_PUPPET: ${{ github.event.inputs.puppet == 'true' && '1' || '0' }}
         run: python -m studio.run_auto --phase render --shard ${{ matrix.shard }} --shards 8 --out output/auto
       - uses: actions/upload-artifact@v4
         with:
