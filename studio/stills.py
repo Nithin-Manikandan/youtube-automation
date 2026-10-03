@@ -163,11 +163,11 @@ def frame(path, t, dur, W, H, seed=0):
     return cv2.warpAffine(a, M, (W, H), flags=cv2.INTER_AREA if z < 1.01 else cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
 
 
-def thumbnail(text, scene_prompt, out_path, variant=0, accent=(255, 226, 40), arrow=True):
+def thumbnail(text, scene_prompt, out_path, variant=0, accent=(255, 226, 40), arrow=False):
     """Full-bleed illustrated thumbnail: one huge funny subject on the right, big outlined text on the left, punched-up colour and contrast, a hand-drawn arrow."""
     from PIL import ImageDraw, ImageEnhance, ImageFilter, ImageFont
     p = (f"{STYLE}. YouTube thumbnail illustration: ONE single large subject, close-up, filling the right two thirds of the picture, a very funny exaggerated expression, "
-         f"a plain simple pale background with lots of empty space on the left third. {scene_prompt}. Bold simple shapes, thick outlines, bright high-contrast warm colours.")
+         f"a plain simple pale background; the subject is placed entirely in the RIGHT half of the picture and the LEFT 45 percent of the picture is completely empty background. {scene_prompt}. Bold simple shapes, thick outlines, bright high-contrast warm colours.")
     img = None
     for k in range(3):
         img = generate(p)
@@ -193,11 +193,11 @@ def thumbnail(text, scene_prompt, out_path, variant=0, accent=(255, 226, 40), ar
     crop = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
     d = ImageDraw.Draw(crop)
     FONT = pathlib.Path(__file__).resolve().parent.parent / "assets/fonts/BigShoulders-Bold.ttf"
-    lines = [w for w in text.upper().split() if w][:3]
+    lines = [w for w in text.upper().split() if w][:4]
     size = 300
     while size > 80:
         f = ImageFont.truetype(str(FONT), size)
-        if max(d.textlength(l, font=f) for l in lines) <= W * 0.50 and size * .93 * len(lines) <= H * 0.82:
+        if max(d.textlength(l, font=f) for l in lines) <= W * 0.46 and size * .93 * len(lines) <= H * 0.92:
             break
         size -= 6
     total = size * .93 * len(lines)
