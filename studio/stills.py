@@ -227,24 +227,29 @@ def thumbnail(text, scene_prompt, out_path, variant=0, accent=(255, 240, 30), ar
     bg = generate_wide(bgp, W, H)
     p = (f"{STYLE}. ONE single character shown full body, large and centred, an extremely exaggerated funny expression (eyes huge, mouth wide open, sweat drops), "
          f"{scene_prompt}. Drawn on a completely plain pure white background with nothing else in the picture, no ground, no shadow, no other people. Bold thick outlines, bright colours.")
-    img = None
-    for k in range(3):
-        img = generate(p)
-        if img is not None:
+    cands = []
+    for k in range(4):                                                   # draw a few and keep the one with ONE person: the narrowest cutout
+        im_ = generate(p)
+        if im_ is None:
+            continue
+        c_ = _cutout(im_.crop((0, 0, im_.width, int(im_.height * 0.93))))
+        b_ = c_.getbbox()
+        if b_:
+            cands.append(((b_[2] - b_[0]) / max(1, b_[3] - b_[1]), c_.crop(b_)))
+        if len(cands) >= 3:
             break
-    if img is None or bg is None:
+    if not cands or bg is None:
         return None
+    cut_pre = min(cands, key=lambda c: c[0])[1]
     bg = ImageEnhance.Color(bg).enhance(1.25)
     bg = ImageEnhance.Contrast(bg).enhance(1.08)
     canvas = bg.convert("RGBA")
-    cut = _cutout(img.crop((0, 0, img.width, int(img.height * 0.93))))
-    bb = cut.getbbox()
-    cut = cut.crop(bb)
-    k = min(H * 0.97 / cut.height, W * 0.62 / cut.width)
+    cut = cut_pre
+    k = min(H * 0.70 / cut.height, W * 0.50 / cut.width)
     cut = cut.resize((int(cut.width * k), int(cut.height * k)), Image.LANCZOS)
     al = np.asarray(cut.split()[3])
     edge = cv2.dilate(al, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9)))
-    px, py = int(W * 0.60 - cut.width / 2), int(H - cut.height - H * 0.01)
+    px, py = int(W * 0.60 - cut.width / 2), int(H - cut.height - H * 0.0)
     sh = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
     ell = Image.new("L", canvas.size, 0)
     ImageDraw.Draw(ell).ellipse([px - 10, py + cut.height - 30, px + cut.width + 10, py + cut.height + 24], fill=130)
