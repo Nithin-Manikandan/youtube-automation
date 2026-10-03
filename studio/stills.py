@@ -276,3 +276,28 @@ def thumbnail(text, scene_prompt, out_path, variant=0, accent=(255, 240, 30), ar
         y += size * .94
     canvas.convert("RGB").save(out_path, "JPEG", quality=95)
     return out_path
+
+
+def make_layers(bg_prompt, char_prompt, out_dir, name):
+    """Two separate pictures for a layered scene: a wide background (no people) and one character cut out on transparency. Saves PNGs and returns their paths."""
+    import cv2
+    bg = generate_wide(f"flat colour hand-drawn cartoon illustration, thin black ink outlines, warm bright colours, detailed background scene only, {bg_prompt}, absolutely no people, no characters, no text", 1280, 720)
+    p = (f"{STYLE}. ONE single character shown full body, large and centred, {char_prompt}. Drawn on a completely plain pure white background with nothing else in the picture, no ground, no shadow, no other people. Bold thick outlines, bright colours.")
+    cands = []
+    for k in range(4):
+        im_ = generate(p)
+        if im_ is None:
+            continue
+        c_ = _cutout(im_.crop((0, 0, im_.width, int(im_.height * 0.93))))
+        b_ = c_.getbbox()
+        if b_:
+            cands.append(((b_[2] - b_[0]) / max(1, b_[3] - b_[1]), c_.crop(b_)))
+        if len(cands) >= 3:
+            break
+    if bg is None or not cands:
+        return None
+    cut = min(cands, key=lambda c: c[0])[1]
+    out_dir = pathlib.Path(out_dir); out_dir.mkdir(parents=True, exist_ok=True)
+    bg.save(out_dir / f"{name}_bg.jpg", quality=93)
+    cut.save(out_dir / f"{name}_char.png")
+    return out_dir / f"{name}_bg.jpg", out_dir / f"{name}_char.png"
