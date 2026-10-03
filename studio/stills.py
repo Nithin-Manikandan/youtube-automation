@@ -218,17 +218,17 @@ def generate_wide(prompt, w=1280, h=720, tries=3):
 
 
 def thumbnail(text, scene_prompt, out_path, variant=0, accent=(255, 240, 30), arrow=False, background=""):
-    """Channel-style thumbnail: a detailed wide scene behind, one funny stick-figure subject standing in it, and the hook across the top in big outlined text."""
+    """Channel-style thumbnail: ONE huge funny face/character on one side, a calm softly blurred background, a short hook in big outlined text on the other side."""
     import cv2
     from PIL import ImageDraw, ImageEnhance, ImageFilter, ImageFont
     W, H = 1280, 720
-    bgp = (f"flat colour hand-drawn cartoon illustration, thin black ink outlines, warm bright colours, detailed background scene only, {background}, "
-           "absolutely no people, no characters, no text, the upper fifth of the picture is calm open sky or ceiling, wide cinematic composition")
+    bgp = (f"flat colour hand-drawn cartoon illustration, thin black ink outlines, warm bright colours, simple scene only, {background}, "
+           "absolutely no people, no characters, no text, very simple and uncluttered")
     bg = generate_wide(bgp, W, H)
-    p = (f"{STYLE}. ONE single character shown full body, large and centred, an extremely exaggerated funny expression (eyes huge, mouth wide open, sweat drops), "
+    p = (f"{STYLE}. Big close-up, shown from the chest up, ONE single character with a gigantic head, an extremely exaggerated funny expression (huge round eyes, wide open mouth, sweat drops), "
          f"{scene_prompt}. Drawn on a completely plain pure white background with nothing else in the picture, no ground, no shadow, no other people. Bold thick outlines, bright colours.")
     cands = []
-    for k in range(4):                                                   # draw a few and keep the one with ONE person: the narrowest cutout
+    for k in range(4):
         im_ = generate(p)
         if im_ is None:
             continue
@@ -240,42 +240,39 @@ def thumbnail(text, scene_prompt, out_path, variant=0, accent=(255, 240, 30), ar
             break
     if not cands or bg is None:
         return None
-    cut_pre = min(cands, key=lambda c: c[0])[1]
-    bg = ImageEnhance.Color(bg).enhance(1.25)
-    bg = ImageEnhance.Contrast(bg).enhance(1.08)
+    cut = min(cands, key=lambda c: c[0])[1]
+    # calm background: strong blur, lifted and slightly desaturated so the subject and text pop
+    bg = bg.filter(ImageFilter.GaussianBlur(14))
+    bg = ImageEnhance.Color(bg).enhance(0.9)
+    bg = ImageEnhance.Brightness(bg).enhance(1.12)
     canvas = bg.convert("RGBA")
-    cut = cut_pre
-    k = min(H * 0.70 / cut.height, W * 0.50 / cut.width)
+    k = max(H * 1.02 / cut.height, 0.1)
+    k = min(k, W * 0.56 / cut.width)
     cut = cut.resize((int(cut.width * k), int(cut.height * k)), Image.LANCZOS)
     al = np.asarray(cut.split()[3])
     edge = cv2.dilate(al, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9)))
-    px, py = int(W * 0.60 - cut.width / 2), int(H - cut.height - H * 0.0)
-    sh = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
-    ell = Image.new("L", canvas.size, 0)
-    ImageDraw.Draw(ell).ellipse([px - 10, py + cut.height - 30, px + cut.width + 10, py + cut.height + 24], fill=130)
-    sh.paste(Image.new("RGBA", canvas.size, (0, 0, 0, 255)), (0, 0), ell.filter(ImageFilter.GaussianBlur(14)))
-    canvas.alpha_composite(sh)
+    px, py = int(W * 0.30 - cut.width / 2), int(H - cut.height + H * 0.04)
     ol = Image.new("RGBA", cut.size, (18, 12, 20, 255)); ol.putalpha(Image.fromarray(edge))
     canvas.alpha_composite(ol, (px, py))
     canvas.alpha_composite(cut, (px, py))
     d = ImageDraw.Draw(canvas)
     FONT = pathlib.Path(__file__).resolve().parent.parent / "assets/fonts/BigShoulders-Bold.ttf"
-    words = [w for w in text.upper().split() if w][:4]
-    size = 260
-    while size > 90:
+    lines = [w for w in text.upper().replace(" IN ", " IN\n").split("\n")][:3] if "\n" in text.upper().replace(" IN ", " IN\n") else [text.upper()]
+    if len(lines) == 1:
+        ws = lines[0].split()
+        lines = [" ".join(ws[:len(ws) // 2 or 1]), " ".join(ws[len(ws) // 2 or 1:])] if len(ws) > 1 else ws
+    size = 300
+    while size > 80:
         f = ImageFont.truetype(str(FONT), size)
-        if d.textlength(" ".join(words), font=f) <= W * 0.94:
+        if max(d.textlength(l, font=f) for l in lines) <= W * 0.50 and size * .94 * len(lines) <= H * 0.70:
             break
         size -= 6
-    tw = d.textlength(" ".join(words), font=f)
-    x, y = (W - tw) / 2, 14
-    # first part white, the last word yellow, like the reference channels
-    head, last = (" ".join(words[:-1]) + " ") if len(words) > 1 else "", words[-1]
-    d.text((x + 8, y + 10), head + last, font=f, fill=(0, 0, 0), stroke_width=16, stroke_fill=(0, 0, 0))
-    d.text((x, y), head, font=f, fill=(255, 255, 255), stroke_width=14, stroke_fill=(18, 12, 20))
-    d.text((x + d.textlength(head, font=f), y), last, font=f, fill=accent, stroke_width=14, stroke_fill=(18, 12, 20))
-    if arrow:
-        pts = [(int(W * 0.30), int(H * 0.62)), (int(W * 0.36), int(H * 0.50)), (int(W * 0.44), int(H * 0.44))]
-        d.line(pts, fill=(18, 12, 20), width=20, joint="curve"); d.line(pts, fill=(255, 255, 255), width=11, joint="curve")
+    y = H * 0.10
+    for i, l in enumerate(lines):
+        tw = d.textlength(l, font=f)
+        x = W - 30 - tw
+        d.text((x + 9, y + 11), l, font=f, fill=(0, 0, 0), stroke_width=18, stroke_fill=(0, 0, 0))
+        d.text((x, y), l, font=f, fill=accent if i == len(lines) - 1 else (255, 255, 255), stroke_width=15, stroke_fill=(18, 12, 20))
+        y += size * .94
     canvas.convert("RGB").save(out_path, "JPEG", quality=95)
     return out_path
