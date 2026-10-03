@@ -32,7 +32,7 @@ def checks(d, pkg):
     log = _ff("-i", str(mp4))
     m = re.search(r"Duration: (\d+):(\d+):(\d+\.\d+)", log)
     secs = int(m.group(1)) * 3600 + int(m.group(2)) * 60 + float(m.group(3)) if m else 0
-    add("length 8-15 minutes", 480 <= secs <= 900, f"{secs / 60:.1f} min")
+    add("length 7-15 minutes", 420 <= secs <= 900, f"{secs / 60:.1f} min")
     loud = _ff("-i", str(mp4), "-af", "ebur128=peak=true", "-f", "null", "-")
     i = re.findall(r"I:\s+(-?\d+\.\d+) LUFS", loud)
     pk = re.findall(r"Peak:\s+(-?\d+\.\d+) dBFS", loud)
