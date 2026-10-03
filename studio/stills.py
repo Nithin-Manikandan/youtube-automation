@@ -349,3 +349,52 @@ def draw_backgrounds(pdir, jobs, workers=3):
                 for i in idxs:
                     res[i] = fn
     return res
+
+
+def host_thumbnail(text, background, out_path, mood="shock", mouth="D", pose="shock", hat=None, accent=(255, 240, 30), side="left"):
+    """Thumbnail starring the channel host, drawn by the puppet rig at poster size over a calm, softly blurred painted background, with the hook in huge outlined text."""
+    from PIL import ImageDraw, ImageEnhance, ImageFilter, ImageFont
+    from . import puppet
+    W, H = 1280, 720
+    bg = generate_wide(f"flat colour hand-drawn cartoon illustration, thin black ink outlines, warm bright colours, simple scene only, {background}, "
+                       "absolutely no people, no characters, no text, very simple and uncluttered", W, H)
+    if bg is None:
+        return None
+    bg = bg.filter(ImageFilter.GaussianBlur(7))
+    bg = ImageEnhance.Color(bg).enhance(1.15)
+    bg = ImageEnhance.Brightness(bg).enhance(1.08)
+    canvas = bg.convert("RGBA")
+    look = puppet.Look(**{**puppet.HOST, "hat": hat})
+    p = {**puppet.POSES["idle"], **puppet.POSES.get(pose, {}), "facing": 1, "mouth": mouth, "mood": mood, "t": 0.0}
+    big = 2300
+    tile = puppet.draw_character(p, look, big, 1900, 2300, 950, 2200)
+    bb = tile.getbbox()
+    face_top = bb[1]
+    crop = tile.crop((bb[0], bb[1], bb[2], bb[1] + int((bb[3] - bb[1]) * 0.60)))            # head, shoulders and chest: the face is the hook
+    k = H * 1.06 / crop.height
+    crop = crop.resize((int(crop.width * k), int(crop.height * k)), Image.LANCZOS)
+    import cv2
+    al = np.asarray(crop.split()[3])
+    edge = cv2.dilate(al, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (11, 11)))
+    px = int(W * (0.27 if side == "left" else 0.73) - crop.width / 2)
+    py = int(H - crop.height + H * 0.06)
+    ol = Image.new("RGBA", crop.size, (18, 12, 20, 255)); ol.putalpha(Image.fromarray(edge))
+    canvas.alpha_composite(ol, (px, py)); canvas.alpha_composite(crop, (px, py))
+    d = ImageDraw.Draw(canvas)
+    FONT = pathlib.Path(__file__).resolve().parent.parent / "assets/fonts/BigShoulders-Bold.ttf"
+    lines = text.upper().split("|")
+    size = 330
+    while size > 90:
+        f = ImageFont.truetype(str(FONT), size)
+        if max(d.textlength(l, font=f) for l in lines) <= W * 0.50 and size * .93 * len(lines) <= H * 0.86:
+            break
+        size -= 6
+    y = (H - size * .93 * len(lines)) / 2
+    for i, l in enumerate(lines):
+        tw = d.textlength(l, font=f)
+        x = (W - 28 - tw) if side == "left" else 28
+        d.text((x + 10, y + 12), l, font=f, fill=(0, 0, 0), stroke_width=20, stroke_fill=(0, 0, 0))
+        d.text((x, y), l, font=f, fill=accent if i == len(lines) - 1 else (255, 255, 255), stroke_width=17, stroke_fill=(18, 12, 20))
+        y += size * .93
+    canvas.convert("RGB").save(out_path, "JPEG", quality=95)
+    return out_path

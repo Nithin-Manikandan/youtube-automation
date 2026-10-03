@@ -254,6 +254,13 @@ def draw_character(pose, look, u, W, H, ox, oy):
     elif hat == "helmet":
         d.pieslice([head[0] - R * 1.06, head[1] - R * 1.08, head[0] + R * 1.06, head[1] + R * .15], 180, 360, fill=(150, 156, 168), outline=INK, width=lw)
         d.line([head[0], head[1] - R * 1.05, head[0], head[1] - R * .1], fill=INK, width=lw)
+    elif hat == "pirate":
+        d.pieslice([head[0] - R * 1.22, head[1] - R * 1.18, head[0] + R * 1.22, head[1] - R * .08], 180, 360, fill=(38, 34, 44), outline=INK, width=lw)
+        d.polygon([(head[0] - R * 1.34, head[1] - R * .22), (head[0] + R * 1.34, head[1] - R * .22), (head[0] + R * 1.18, head[1] - R * .02), (head[0] - R * 1.18, head[1] - R * .02)], fill=(38, 34, 44), outline=INK)
+        sx_, sy_ = head[0], head[1] - R * .58
+        d.ellipse([sx_ - R * .17, sy_ - R * .17, sx_ + R * .17, sy_ + R * .07], fill=(240, 240, 236))
+        d.line([sx_ - R * .26, sy_ + R * .10, sx_ + R * .26, sy_ - R * .22], fill=(240, 240, 236), width=max(2, lw))
+        d.line([sx_ - R * .26, sy_ - R * .22, sx_ + R * .26, sy_ + R * .10], fill=(240, 240, 236), width=max(2, lw))
     elif hat == "cap":
         d.pieslice([head[0] - R * 1.0, head[1] - R * 1.12, head[0] + R * 1.0, head[1] - R * .02], 180, 360, fill=(52, 70, 120), outline=INK, width=lw)
         d.rectangle([head[0] - R * .1, head[1] - R * .22, head[0] + R * 1.3 * f, head[1] - R * .06], fill=(52, 70, 120), outline=INK, width=lw)
