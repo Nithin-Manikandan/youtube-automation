@@ -597,7 +597,7 @@ def plan(job, pdir, settings, hint=None):
 
     _stage(job, 4)
     v = settings
-    cfg = {"voice": {"name": v.get("voice", "en-US-AndrewMultilingualNeural"), "rate": v.get("rate", "+5%"), "pitch": v.get("pitch", "+0Hz")}}
+    cfg = {"voice": {"name": v.get("voice", "en-US-AndrewMultilingualNeural"), "rate": v.get("rate", "+16%"), "pitch": v.get("pitch", "+0Hz")}}
 
     def _speak(i):
         text = scripts[i][1]["narration"].strip()

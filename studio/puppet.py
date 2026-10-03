@@ -88,8 +88,11 @@ def draw_hand(d, x, y, ang, shape, u, flip=1, w=3):
 
 # ----------------------------------------------------------------------------------- the character ---------------------------------------------------
 class Look:
-    def __init__(self, tunic=(150, 100, 60), pants=(110, 80, 56), hair=(96, 62, 40), fur=True, hat=None, seed=0):
-        self.tunic, self.pants, self.hair, self.fur, self.hat, self.seed = tunic, pants, hair, fur, hat, seed
+    def __init__(self, tunic=(150, 100, 60), pants=(110, 80, 56), hair=(96, 62, 40), fur=True, hat=None, seed=0, scarf=None):
+        self.tunic, self.pants, self.hair, self.fur, self.hat, self.seed, self.scarf = tunic, pants, hair, fur, hat, seed, scarf
+
+
+HOST = dict(tunic=(176, 112, 62), hair=(110, 70, 42), seed=11, scarf=(214, 62, 52))        # the channel's host: same look in every video
 
 
 def _dark(c, k=.62):
@@ -173,18 +176,31 @@ def draw_character(pose, look, u, W, H, ox, oy):
     # near leg and arm
     _limb(d, hipA, l1, l2, limb); foot(l2)
     _limb(d, shA, a1, a2, limb); draw_hand(d, a2[0], a2[1], pose.get("a1", 8) + pose.get("a2", 10), pose.get("hand_a", 0), U, f, lw)
+    if look.scarf:                                                          # the host's red scarf, with a tail that flutters
+        sc_ = look.scarf
+        nb = (neck[0], neck[1] + U * .01)
+        d.polygon([(nb[0] - U * .085, nb[1] - U * .01), (nb[0] + U * .085, nb[1] - U * .01), (nb[0] + U * .075, nb[1] + U * .045), (nb[0] - U * .075, nb[1] + U * .045)], fill=sc_, outline=INK)
+        fl = math.sin(pose.get('t', 0) * 4) * U * .012
+        d.polygon([(nb[0] - f * U * .04, nb[1] + U * .03), (nb[0] - f * U * .13 + fl, nb[1] + U * .13), (nb[0] - f * U * .05 + fl, nb[1] + U * .15), (nb[0] + f * U * .01, nb[1] + U * .04)], fill=sc_, outline=INK)
     # head: big white circle with messy hair, the face shifts with the head turn
     d.line([neck, head], fill=INK, width=limb)
     d.ellipse([head[0] - R, head[1] - R, head[0] + R, head[1] + R], fill=SKIN, outline=INK, width=lw)
     turn = max(-1.0, min(1.0, pose.get("turn", 0.0))) * f
     hc = look.hair
     rng = np.random.default_rng(look.seed)
-    tuft = []
-    for i in range(11):
-        a = math.radians(212 + 116 * i / 10 + turn * -6)
-        rr = R * (1.26 + 0.16 * math.sin(i * 2.3 + look.seed) if i % 2 else 0.97)
-        tuft.append((head[0] + math.cos(a) * rr + turn * R * .08, head[1] + math.sin(a) * rr))
-    d.polygon(tuft, fill=hc); d.line(tuft, fill=INK, width=lw, joint="curve")
+    outer = []                                                               # messy hair: one soft, wavy mass over the crown with a few strand lines
+    ang = list(range(204, 337, 5))
+    for k, a_ in enumerate(ang):
+        rr = R * (1.10 + 0.10 * math.sin(k * 1.9 + look.seed) + (0.07 if k % 3 == 1 else 0.0))
+        aa = math.radians(a_ + turn * -4)
+        outer.append((head[0] + math.cos(aa) * rr + turn * R * .05, head[1] + math.sin(aa) * rr))
+    inner = [(head[0] + math.cos(math.radians(a_ + turn * -4)) * R * .99, head[1] + math.sin(math.radians(a_ + turn * -4)) * R * .99) for a_ in ang[::-1]]
+    d.polygon(outer + inner, fill=hc)
+    d.line(outer, fill=INK, width=lw, joint="curve")
+    for k in (4, 9, 14, 19):
+        if k < len(outer):
+            ox_, oy_ = outer[k]
+            d.line([head[0] + (ox_ - head[0]) * .84, head[1] + (oy_ - head[1]) * .84, ox_, oy_], fill=_dark(hc, .55), width=max(2, lw - 1))
     d.arc([head[0] - R, head[1] - R, head[0] + R, head[1] + R], 205, 335, fill=INK, width=lw)
     hat = look.hat
     if hat == "crown":

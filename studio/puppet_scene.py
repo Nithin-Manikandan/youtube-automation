@@ -80,10 +80,21 @@ def _timeline(keys, dur):
     return [(0.0, "idle")] + out if out[0][0] > 0.2 else out
 
 
+def _unify(a):
+    """One palette for every background: tame the saturation extremes and wash everything with the same warm paper tone so scenes feel like one show."""
+    x = a.astype(np.float32)
+    g = x.mean(axis=2, keepdims=True)
+    x = g + (x - g) * 0.82                                                  # calmer colour
+    x = (x - 128) * 0.95 + 128 + 4                                         # slightly softer contrast
+    paper = np.array([250, 232, 200], np.float32)
+    x = x * 0.88 + paper * 0.12                                            # warm paper wash
+    return np.clip(x, 0, 255).astype(np.uint8)
+
+
 class PuppetScene:
     def __init__(self, scene, bg_path, words, dur, seed=0):
         self.dur, self.seed = dur, seed
-        self.bg = np.asarray(Image.open(bg_path).convert("RGB").resize((int(W * 1.16), int(H * 1.16)), Image.LANCZOS))
+        self.bg = _unify(np.asarray(Image.open(bg_path).convert("RGB").resize((int(W * 1.16), int(H * 1.16)), Image.LANCZOS)))
         self.actors = []
         specs = scene.get("actors", [])
         if len(specs) >= 2:                                                  # keep people from standing inside each other: spread the first two apart
@@ -114,12 +125,12 @@ class PuppetScene:
             props = sp.get("props", [])
             hat = next((HATS[p] for p in props if p in HATS), None)
             tun = tuple(int(v) for v in (sp.get("tunic") or sp.get("color") or (150, 100, 60))[:3])
-            look = puppet.Look(tunic=tun, hair=tuple(sp.get("hair", (96, 62, 40))), hat=hat, seed=ai * 5 + seed)
+            look = puppet.Look(**puppet.HOST) if ai == 0 else puppet.Look(tunic=tun, hair=tuple(sp.get("hair", (96, 62, 40))), hat=hat, seed=ai * 5 + seed)
             xf = float(keys[0]["x"])
             xf = min(0.84, max(0.16, xf))
             xf = self._xs.get(ai, xf)
             facing = keys[0].get("facing", 1)
-            a_ = puppet.Actor(look, _timeline(keys, dur), mouth_cues(mine), x_frac=xf, scale=0.80 if len(specs) < 3 else 0.7, facing=facing, seed=ai * 3 + seed, mood_track=moods or None)
+            a_ = puppet.Actor(look, _timeline(keys, dur), mouth_cues(mine), x_frac=xf, scale=0.82 if len(specs) < 2 else 0.78 if len(specs) < 3 else 0.68, facing=facing, seed=ai * 3 + seed, mood_track=moods or None)
             self.actors.append(a_)
 
     def frame(self, t):

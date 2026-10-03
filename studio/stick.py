@@ -786,7 +786,9 @@ def _ground(W, H, gy, gcol):
 def render_card(scene, t, W, H):
     c = scene["card"]
     dark = c.get("dark", True)
-    top, bot = ((16, 18, 26), (40, 38, 52)) if dark else ((240, 232, 214), (226, 214, 188))
+    if os.environ.get("STUDIO_PUPPET") == "1" or os.environ.get("STUDIO_CARD") == "paper":
+        dark = False                                                 # puppet shows use warm paper cards with the host beside the text
+    top, bot = ((16, 18, 26), (40, 38, 52)) if dark else ((248, 236, 208), (236, 218, 180))
     g = np.linspace(0, 1, H)[:, None, None]
     arr = (np.array(top) * (1 - g) + np.array(bot) * g).astype(np.uint8).repeat(W, axis=1)
     pil = Image.fromarray(arr)
@@ -816,6 +818,13 @@ def render_card(scene, t, W, H):
         x0, y0 = W * 0.22 + (1 - a) * W * 0.12, H * (0.50 + i * 0.095)          # bullets slide in from the right
         d.ellipse([x0 - 40, y0 + 14, x0 - 22, y0 + 32], fill=GOLD + (int(255 * a),))
         d.text((x0, y0), b, font=f3, fill=ink + (int(240 * a),))
+    if not dark and (os.environ.get("STUDIO_PUPPET") == "1" or os.environ.get("STUDIO_CARD") == "paper"):
+        from . import puppet
+        host = puppet.Actor(puppet.Look(**puppet.HOST), [(0.0, "idle"), (0.5, "point"), (2.2, "explain")], [], x_frac=0.5, scale=0.84, seed=11)
+        tile, tx, ty = host.render(t, 8.0, int(W * .30), int(H * .98))
+        base = pil.convert("RGBA")
+        base.alpha_composite(tile, (int(W * 0.70 + tx), int(H * 0.00 + ty)))
+        pil = base.convert("RGB")
     return _grade(np.asarray(pil), W, H, t)
 
 
