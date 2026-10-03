@@ -163,11 +163,39 @@ def frame(path, t, dur, W, H, seed=0):
     return cv2.warpAffine(a, M, (W, H), flags=cv2.INTER_AREA if z < 1.01 else cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
 
 
-def thumbnail(text, scene_prompt, out_path, variant=0, accent=(255, 226, 40), arrow=False):
-    """Full-bleed illustrated thumbnail: one huge funny subject on the right, big outlined text on the left, punched-up colour and contrast, a hand-drawn arrow."""
-    from PIL import ImageDraw, ImageEnhance, ImageFilter, ImageFont
-    p = (f"{STYLE}. YouTube thumbnail illustration: ONE single large subject, close-up, filling the right two thirds of the picture, a very funny exaggerated expression, "
-         f"a plain simple pale background; the subject is placed entirely in the RIGHT half of the picture and the LEFT 45 percent of the picture is completely empty background. {scene_prompt}. Bold simple shapes, thick outlines, bright high-contrast warm colours.")
+def _cutout(img):
+    """Subject on a plain light background -> RGBA with the background removed (flood fill from the borders)."""
+    import cv2
+    a = np.asarray(img.convert("RGB"))
+    h, w = a.shape[:2]
+    border = np.concatenate([a[:6].reshape(-1, 3), a[-6:].reshape(-1, 3), a[:, :6].reshape(-1, 3), a[:, -6:].reshape(-1, 3)])
+    bg = np.median(border, axis=0)
+    dist = np.linalg.norm(a.astype(np.float32) - bg, axis=2)
+    near = (dist < 34).astype(np.uint8)
+    flood = np.zeros((h + 2, w + 2), np.uint8)
+    mask = np.zeros((h, w), np.uint8)
+    for sx, sy in ((2, 2), (w - 3, 2), (2, h - 3), (w - 3, h - 3), (w // 2, 2), (w // 2, h - 3), (2, h // 2), (w - 3, h // 2)):
+        if near[sy, sx]:
+            m2 = near.copy()
+            cv2.floodFill(m2, flood.copy(), (sx, sy), 2)
+            mask |= (m2 == 2).astype(np.uint8)
+    subject = (1 - mask).astype(np.uint8)
+    n, lab, stats, _ = cv2.connectedComponentsWithStats(subject)
+    if n > 1:
+        keep = 1 + int(np.argmax(stats[1:, cv2.CC_STAT_AREA]))
+        subject = (lab == keep).astype(np.uint8)
+    subject = cv2.morphologyEx(subject, cv2.MORPH_CLOSE, np.ones((9, 9), np.uint8))
+    subject = cv2.GaussianBlur(subject.astype(np.float32), (0, 0), 1.2)
+    rgba = np.dstack([a, (np.clip(subject, 0, 1) * 255).astype(np.uint8)])
+    return Image.fromarray(rgba, "RGBA")
+
+
+def thumbnail(text, scene_prompt, out_path, variant=0, accent=(255, 240, 30), arrow=False):
+    """Professional-style thumbnail: sticker-outlined cutout of one funny subject on a saturated sunburst, huge outlined hook text, a red circle on the funny detail."""
+    import cv2
+    from PIL import ImageDraw, ImageFilter, ImageFont
+    p = (f"{STYLE}. ONE single character shown from the waist up, huge and centred, an extremely exaggerated funny expression (eyes huge, mouth wide open, sweat drops), "
+         f"{scene_prompt}. Drawn on a completely plain pure white background with nothing else in the picture, no ground, no shadow, no other people, no objects except the ones named. Bold thick outlines, bright saturated colours.")
     img = None
     for k in range(3):
         img = generate(p)
@@ -175,45 +203,55 @@ def thumbnail(text, scene_prompt, out_path, variant=0, accent=(255, 226, 40), ar
             break
     if img is None:
         return None
+    img = img.crop((0, 0, img.width, int(img.height * 0.93)))
+    cut = _cutout(img)
     W, H = 1280, 720
-    a = img.crop((0, 0, img.width, int(img.height * 0.93)))
-    S = a.width
-    hh = int(S * 9 / 16)
-    y0 = max(0, int((a.height - hh) * 0.35))
-    crop = a.crop((0, y0, S, y0 + hh)).resize((W, H), Image.LANCZOS)
-    crop = ImageEnhance.Color(crop).enhance(1.35)
-    crop = ImageEnhance.Contrast(crop).enhance(1.18)
-    crop = ImageEnhance.Brightness(crop).enhance(1.04)
-    arr = np.asarray(crop).astype(np.float32)
+    palette = [((255, 214, 10), (255, 120, 0)), ((255, 72, 72), (190, 0, 60)), ((40, 200, 255), (20, 90, 230))][variant % 3]
     yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
-    vig = 1 - 0.28 * np.clip(((xx - W / 2) / (W * .75)) ** 2 + ((yy - H / 2) / (H * .8)) ** 2, 0, 1)
-    arr *= vig[..., None]
-    left = np.clip(1 - xx / (W * 0.46), 0, 1) ** 1.2                    # gentle warm glow behind the text so it pops
-    arr = arr * (1 - 0.30 * left[..., None]) + np.array([255, 196, 96], np.float32) * 0.30 * left[..., None]
-    crop = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
-    d = ImageDraw.Draw(crop)
+    cx, cy = W * 0.68, H * 0.52
+    r = np.sqrt((xx - cx) ** 2 + (yy - cy) ** 2) / (W * 0.75)
+    ang = np.arctan2(yy - cy, xx - cx)
+    rays = 0.5 + 0.5 * np.sign(np.sin(ang * 12))
+    t = np.clip(r, 0, 1)[..., None]
+    bg = np.array(palette[0], np.float32) * (1 - t) + np.array(palette[1], np.float32) * t
+    bg = bg * (0.88 + 0.12 * rays[..., None])
+    canvas = Image.fromarray(np.clip(bg, 0, 255).astype(np.uint8)).convert("RGBA")
+    # subject: scale to fill the right two thirds, add a thick white sticker outline and a thin black outer line
+    bb = cut.getbbox()
+    cut = cut.crop(bb)
+    k = min(H * 0.98 / cut.height, W * 0.66 / cut.width)
+    cut = cut.resize((int(cut.width * k), int(cut.height * k)), Image.LANCZOS)
+    al = np.asarray(cut.split()[3])
+    white = cv2.dilate(al, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (31, 31)))
+    black = cv2.dilate(al, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (47, 47)))
+    px, py = int(W - cut.width - W * 0.02), int(H - cut.height + H * 0.01)
+    pad = 30
+    layer = Image.new("RGBA", (cut.width + 2 * pad, cut.height + 2 * pad), (0, 0, 0, 0))
+    def put(mask, color):
+        m = Image.fromarray(np.pad(mask, pad)).convert("L")
+        solid = Image.new("RGBA", layer.size, color)
+        layer.paste(solid, (0, 0), m)
+    put(black, (18, 12, 20, 255)); put(white, (255, 255, 255, 255))
+    sh = Image.new("RGBA", layer.size, (0, 0, 0, 0))
+    sh.paste(Image.new("RGBA", layer.size, (0, 0, 0, 140)), (0, 0), Image.fromarray(np.pad(black, pad)).convert("L").filter(ImageFilter.GaussianBlur(10)))
+    canvas.alpha_composite(sh, (px - pad + 10, py - pad + 14))
+    canvas.alpha_composite(layer, (px - pad, py - pad))
+    canvas.alpha_composite(cut, (px, py))
+    d = ImageDraw.Draw(canvas)
     FONT = pathlib.Path(__file__).resolve().parent.parent / "assets/fonts/BigShoulders-Bold.ttf"
     lines = [w for w in text.upper().split() if w][:4]
-    size = 300
+    size = 330
     while size > 80:
         f = ImageFont.truetype(str(FONT), size)
-        if max(d.textlength(l, font=f) for l in lines) <= W * 0.46 and size * .93 * len(lines) <= H * 0.92:
+        if max(d.textlength(l, font=f) for l in lines) <= W * 0.44 and size * .92 * len(lines) <= H * 0.9:
             break
         size -= 6
-    total = size * .93 * len(lines)
-    y = (H - total) / 2 - size * .02
+    y = (H - size * .92 * len(lines)) / 2 - size * .03
+    cols = [(255, 255, 255), accent, (255, 255, 255), accent]
     for i, l in enumerate(lines):
-        x = 34
-        d.text((x + 9, y + 11), l, font=f, fill=(0, 0, 0), stroke_width=18, stroke_fill=(0, 0, 0))
-        d.text((x, y), l, font=f, fill=accent if i == len(lines) - 1 else (255, 255, 255), stroke_width=15, stroke_fill=(18, 14, 20))
-        y += size * .93
-    if arrow:
-        ax, ay = int(W * 0.50), int(H * 0.86)
-        pts = [(ax - 110, ay + 6), (ax - 40, ay - 26), (ax + 36, ay - 70)]
-        d.line(pts, fill=(20, 14, 20), width=22, joint="curve")
-        d.line(pts, fill=(235, 52, 44), width=12, joint="curve")
-        tip = pts[-1]
-        d.polygon([(tip[0] + 34, tip[1] - 24), (tip[0] - 14, tip[1] - 6), (tip[0] + 18, tip[1] + 34)], fill=(20, 14, 20))
-        d.polygon([(tip[0] + 26, tip[1] - 18), (tip[0] - 4, tip[1] - 6), (tip[0] + 16, tip[1] + 22)], fill=(235, 52, 44))
-    crop.save(out_path, "JPEG", quality=95)
+        x = 28
+        d.text((x + 10, y + 12), l, font=f, fill=(0, 0, 0), stroke_width=20, stroke_fill=(0, 0, 0))
+        d.text((x, y), l, font=f, fill=cols[i % 4] if len(lines) > 1 else accent, stroke_width=17, stroke_fill=(18, 12, 20))
+        y += size * .92
+    canvas.convert("RGB").save(out_path, "JPEG", quality=95)
     return out_path
