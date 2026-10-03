@@ -435,7 +435,11 @@ def render_segment(args):
     sc, t0, words, path, first, last = args
     sc["_wins"] = [(w[0], w[1] - t0, w[2] - t0) for w in words if t0 - 0.2 <= w[1] <= t0 + sc["duration"]]      # when each word is spoken, for lip-sync
     still = sc.get("_still_path")
-    if not still:
+    pup = None
+    if sc.get("_bg_path"):
+        from . import puppet_scene
+        pup = puppet_scene.PuppetScene(sc, sc["_bg_path"], [(w[0], w[1], w[2]) for w in sc["_wins"]], sc["duration"], seed=int(sc.get("_t0", 0)) % 97)
+    elif not still:
         stick.prepare(sc, W, H)
     caps = DocCaptions(words, W, H)
     cmd = [ffmpeg.exe(), "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "pipe:0",
@@ -446,6 +450,8 @@ def render_segment(args):
         t = i / FPS
         if False:                                                      # whole-frame motion smear is off: it made running and fighting scenes look broken
             fr = np.mean([stick.render_frame(sc, max(0, t + d), W, H).astype(np.float32) for d in (-0.006, 0, 0.006)], axis=0).astype(np.uint8)
+        elif pup is not None:
+            fr = pup.frame(t).copy()
         elif still:
             fr = stills.frame(still, t, sc["duration"], W, H, seed=int(sc.get("_t0", 0) * 10)).copy()
             if not first and t < 0.22:                                  # cut-in: a quick punch-in settle with a flash of paper, so cuts feel intentional
@@ -627,7 +633,15 @@ def plan(job, pdir, settings, hint=None):
         sc["_t0"] = cursor
         cursor += dur
     total = cursor
-    if stills.enabled():                                                  # illustrated-stills mode: one drawing per scene instead of the code-drawn cartoon
+    if os.environ.get("STUDIO_PUPPET") == "1" and stills.enabled():     # puppet mode: a painted wide background per place; the characters are the animated rig
+        _log(job, "  painting the scene backgrounds")
+        idx = [i for i, sc in enumerate(scenes) if sc.get("kind") not in ("card", "map") and i < len(scripts)]
+        places = stills.bg_prompts(_llm, topic, [scripts[i][1]["narration"] for i in idx])
+        got = stills.draw_backgrounds(pdir, list(zip(idx, places)))
+        for i, fn in got.items():
+            scenes[i]["_bg"] = fn
+        _log(job, f"  {len(set(got.values()))} backgrounds painted for {len(got)} scenes")
+    elif stills.enabled():                                                # illustrated-stills mode: one drawing per scene instead of the code-drawn cartoon
         _log(job, "  drawing the scene illustrations")
         idx = [i for i, sc in enumerate(scenes) if sc.get("kind") not in ("card", "map") and i < len(scripts)]
         draws = stills.scene_prompts(_llm, topic, [scripts[i][1]["narration"] for i in idx])
@@ -742,7 +756,7 @@ def render_shard(job, pdir, shard=0, shards=1):
     def _key(i):
         sc = scenes[i]
         wins = [w for w in words_all if sc["_t0"] - 0.2 <= w[1] <= sc["_t0"] + sc["duration"]]
-        stl = pdir / "stills" / sc["_still"] if sc.get("_still") else None
+        stl = pdir / "stills" / (sc.get("_bg") or sc.get("_still")) if (sc.get("_bg") or sc.get("_still")) else None
         sh = hashlib.md5(stl.read_bytes()).hexdigest() if stl and stl.exists() else ""
         return hashlib.md5((repr(sorted((k, repr(v)) for k, v in sc.items() if not k.startswith("_a"))) + repr(wins) + f"{W}x{H}@{FPS}|{code}|{i == 0}|{i == len(scenes) - 1}|{sh}").encode()).hexdigest()
     keys = {i: _key(i) for i in mine}
@@ -757,6 +771,10 @@ def render_shard(job, pdir, shard=0, shards=1):
     _log(job, f"  {len(mine) - len(todo)} scenes reused from the cache, {len(todo)} to draw")
     mine = todo
     for i in mine:
+        bgf = scenes[i].get("_bg")
+        if bgf and (pdir / "stills" / bgf).exists():
+            scenes[i]["_bg_path"] = str(pdir / "stills" / bgf)
+            continue
         fn = scenes[i].get("_still") or f"s{i:03d}.jpg"
         if scenes[i].get("kind") not in ("card", "map") and (pdir / "stills" / fn).exists():
             scenes[i]["_still"] = fn

@@ -15,6 +15,10 @@ on:
         description: "true = illustrated stills (one drawing per scene via Cloudflare free tier) instead of the code-drawn cartoon"
         required: false
         default: "false"
+      puppet:
+        description: "true = puppet mode (painted backgrounds + animated puppet characters); needs stills=true"
+        required: false
+        default: "false"
       plan_only:
         description: "true = only write the script and plan (fast); download plan.pkl and render a few scenes locally to check them"
         required: false
@@ -55,7 +59,8 @@ jobs:
           CF_API_TOKEN_2: ${{ secrets.CF_API_TOKEN_2 }}
           CF_ACCOUNT_ID_3: ${{ secrets.CF_ACCOUNT_ID_3 }}
           CF_API_TOKEN_3: ${{ secrets.CF_API_TOKEN_3 }}
-          STUDIO_STILLS: ${{ github.event.inputs.stills == 'true' && '1' || '0' }}
+          STUDIO_STILLS: ${{ (github.event.inputs.stills == 'true' || github.event.inputs.puppet == 'true') && '1' || '0' }}
+          STUDIO_PUPPET: ${{ github.event.inputs.puppet == 'true' && '1' || '0' }}
         run: python -m studio.run_auto --phase plan --hint "$HINT" --out output/auto
       - uses: actions/upload-artifact@v4
         with:

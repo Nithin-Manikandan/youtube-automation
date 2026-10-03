@@ -302,3 +302,50 @@ def make_layers(bg_prompt, char_prompt, out_dir, name):
     bg.save(out_dir / f"{name}_bg.jpg", quality=93)
     cut.save(out_dir / f"{name}_char.png")
     return out_dir / f"{name}_bg.jpg", out_dir / f"{name}_char.png"
+
+
+def bg_prompts(llm, topic, narrations):
+    """One setting description per line for the painted backgrounds: where the scene happens, no people."""
+    out = [None] * len(narrations)
+    for b0 in range(0, len(narrations), 16):
+        chunk = narrations[b0:b0 + 16]
+        q = (f"You are the background artist of a funny cartoon history channel. VIDEO TOPIC: {topic}.\n"
+             "For each numbered voiceover line write ONE plain sentence describing only the PLACE where it happens (era-correct building, room, field or street, key props, time of day, light). "
+             "No people, no text, no signs. Keep consecutive lines in the same place if the story stays there.\n"
+             + "\n".join(f"{b0 + i}: {t}" for i, t in enumerate(chunk)) + '\nReturn JSON: {"scenes": [{"i": 0, "place": "..."}]}')
+        try:
+            d = llm(q, 0.4)
+            for s_ in d.get("scenes", []):
+                j = int(s_.get("i", -1))
+                if 0 <= j < len(out) and s_.get("place"):
+                    out[j] = str(s_["place"])
+        except Exception:
+            pass
+    return [o or "a plain medieval stone room with warm light" for o in out]
+
+
+def draw_backgrounds(pdir, jobs, workers=3):
+    """jobs: [(scene_index, place)] -> {scene_index: filename} saved in pdir/stills as bgNNN.jpg. Identical places share one picture."""
+    import concurrent.futures as cf
+    d = pathlib.Path(pdir) / "stills"
+    d.mkdir(exist_ok=True)
+    uniq = {}
+    for i, pl in jobs:
+        uniq.setdefault(pl.strip().lower(), []).append(i)
+
+    def one(item):
+        place, idxs = item
+        img = generate_wide(f"flat colour hand-drawn cartoon illustration, thin black ink outlines, warm bright colours, detailed background scene only, {place}, "
+                            "absolutely no people, no characters, no text, wide cinematic composition", 1280, 720)
+        if img is None:
+            return idxs, None
+        fn = f"bg{idxs[0]:03d}.jpg"
+        img.save(d / fn, quality=93)
+        return idxs, fn
+    res = {}
+    with cf.ThreadPoolExecutor(max_workers=workers) as ex:
+        for idxs, fn in ex.map(one, list(uniq.items())):
+            if fn:
+                for i in idxs:
+                    res[i] = fn
+    return res
