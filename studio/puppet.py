@@ -88,11 +88,11 @@ def draw_hand(d, x, y, ang, shape, u, flip=1, w=3):
 
 # ----------------------------------------------------------------------------------- the character ---------------------------------------------------
 class Look:
-    def __init__(self, tunic=(150, 100, 60), pants=(110, 80, 56), hair=(96, 62, 40), fur=True, hat=None, seed=0, scarf=None):
-        self.tunic, self.pants, self.hair, self.fur, self.hat, self.seed, self.scarf = tunic, pants, hair, fur, hat, seed, scarf
+    def __init__(self, tunic=(150, 100, 60), pants=(110, 80, 56), hair=(96, 62, 40), fur=True, hat=None, seed=0, scarf=None, outfit=None):
+        self.tunic, self.pants, self.hair, self.fur, self.hat, self.seed, self.scarf, self.outfit = tunic, pants, hair, fur, hat, seed, scarf, outfit
 
 
-HOST = dict(tunic=(176, 112, 62), hair=(110, 70, 42), seed=11, scarf=(214, 62, 52))        # the channel's host: same look in every video
+HOST = dict(tunic=(38, 96, 108), pants=(44, 58, 94), hair=(110, 70, 42), seed=11, scarf=(214, 62, 52), outfit="host")        # the channel's host: same look in every video
 
 
 def _dark(c, k=.62):
@@ -144,9 +144,28 @@ def draw_character(pose, look, u, W, H, ox, oy):
             d.ellipse([p[0] + U * .03 - U * .075 - U * .015, p[1] - U * .018, p[0] + U * .03 + U * .015, p[1] + U * .022], fill=(70, 52, 44), outline=INK, width=lw)
     # shadow
     d.ellipse([X - U * .17, Y - U * .012, X + U * .17, Y + U * .02], fill=(0, 0, 0, 55))
+    host = look.outfit == "host"
+    sleeve = max(limb, int(U * .034))
+
+    def thick(p0, p1, p2, wfill, col):
+        d.line([p0, p1, p2], fill=INK, width=int(wfill + lw * 2), joint="curve")
+        for p_ in (p0, p1, p2):
+            d.ellipse([p_[0] - wfill / 2 - lw, p_[1] - wfill / 2 - lw, p_[0] + wfill / 2 + lw, p_[1] + wfill / 2 + lw], fill=INK)
+        d.line([p0, p1, p2], fill=col, width=int(wfill), joint="curve")
+        for p_ in (p0, p1, p2):
+            d.ellipse([p_[0] - wfill / 2, p_[1] - wfill / 2, p_[0] + wfill / 2, p_[1] + wfill / 2], fill=col)
+
+    def sneaker(p, shade=1.0):
+        x0_, x1_ = sorted((p[0] - f * U * .04, p[0] + f * U * .10))
+        d.ellipse([x0_, p[1] - U * .03, x1_, p[1] + U * .028], fill=tuple(int(v * shade) for v in (248, 248, 246)), outline=INK, width=lw)
+        d.rectangle([x0_ + U * .005, p[1] + U * .008, x1_ - U * .005, p[1] + U * .026], fill=(214, 62, 52), outline=INK, width=max(1, lw - 1))
     # far arm and leg
-    _limb(d, shB, b1, b2, limb); draw_hand(d, b2[0], b2[1], pose.get("b1", -8) + pose.get("b2", 10), pose.get("hand_b", 0), U, -f, lw)
-    _limb(d, hipB, m1, m2, limb); foot(m2)
+    if host:
+        thick(shB, b1, b2, sleeve, _dark(look.tunic, .8)); draw_hand(d, b2[0], b2[1], pose.get("b1", -8) + pose.get("b2", 10), pose.get("hand_b", 0), U, -f, lw)
+        thick(hipB, m1, m2, int(U * .04), _dark(look.pants, .85)); sneaker(m2, .9)
+    else:
+      _limb(d, shB, b1, b2, limb); draw_hand(d, b2[0], b2[1], pose.get("b1", -8) + pose.get("b2", 10), pose.get("hand_b", 0), U, -f, lw)
+      _limb(d, hipB, m1, m2, limb); foot(m2)
     # tunic: tapered body with a ragged hem, in the role colour
     nx, ny = -up[1], up[0]
     wt, wb = U * .08, U * .115
@@ -168,14 +187,36 @@ def draw_character(pose, look, u, W, H, ox, oy):
     else:
         hem = [pts_l[-1], pts_r[-1]]
     body = pts_l + hem[::-1] + pts_r[::-1]
-    d.polygon(body, fill=look.tunic)
-    d.line(body + [body[0]], fill=INK, width=lw, joint="curve")
-    d.line([sh[0] + nx * wt * .55, sh[1] + ny * wt * .55, sh[0] + (hip[0] - sh[0]) * .12, sh[1] + (hip[1] - sh[1]) * .12 + U * .01, sh[0] - nx * wt * .55, sh[1] - ny * wt * .55], fill=INK, width=lw)    # V neckline
+    if host:
+        hb = [pts_l[0], pts_l[-1], (pts_l[-1][0] + (pts_r[-1][0] - pts_l[-1][0]) * 0, pts_l[-1][1] + U * .02), (pts_r[-1][0], pts_r[-1][1] + U * .02), pts_r[-1], pts_r[0]]
+        d.polygon(hb, fill=look.tunic)
+        d.line(hb + [hb[0]], fill=INK, width=lw, joint="curve")
+        cx0 = (sh[0] + hip[0]) / 2
+        tee = [(sh[0] + nx * wt * .30, sh[1] + ny * wt * .30), (hip[0] + nx * wb * .34, hip[1] + ny * wb * .34 + U * .02), (hip[0] - nx * wb * .34, hip[1] - ny * wb * .34 + U * .02), (sh[0] - nx * wt * .30, sh[1] - ny * wt * .30)]
+        d.polygon(tee, fill=(248, 238, 214)); d.line(tee + [tee[0]], fill=INK, width=max(1, lw - 1), joint="curve")
+        hemb = [(hip[0] + nx * wb, hip[1] + ny * wb + U * .0), (hip[0] - nx * wb, hip[1] - ny * wb), (hip[0] - nx * wb, hip[1] - ny * wb + U * .035), (hip[0] + nx * wb, hip[1] + ny * wb + U * .035)]
+        d.polygon(hemb, fill=_dark(look.tunic, .7), outline=INK)
+        d.line([sh[0] + nx * wt * .30, sh[1] + ny * wt * .30, hip[0] + nx * wb * .34, hip[1] + ny * wb * .34], fill=INK, width=max(1, lw - 1))
+        d.line([sh[0] - nx * wt * .30, sh[1] - ny * wt * .30, hip[0] - nx * wb * .34, hip[1] - ny * wb * .34], fill=INK, width=max(1, lw - 1))
+    else:
+        d.polygon(body, fill=look.tunic)
+        d.line(body + [body[0]], fill=INK, width=lw, joint="curve")
+    if not host:
+     d.line([sh[0] + nx * wt * .55, sh[1] + ny * wt * .55, sh[0] + (hip[0] - sh[0]) * .12, sh[1] + (hip[1] - sh[1]) * .12 + U * .01, sh[0] - nx * wt * .55, sh[1] - ny * wt * .55], fill=INK, width=lw)    # V neckline
     belt = (sh[0] + (hip[0] - sh[0]) * .74, sh[1] + (hip[1] - sh[1]) * .74)
-    d.line([belt[0] + nx * wb * .9, belt[1] + ny * wb * .9, belt[0] - nx * wb * .9, belt[1] - ny * wb * .9], fill=_dark(look.tunic), width=int(U * .022))
+    if not host:
+     d.line([belt[0] + nx * wb * .9, belt[1] + ny * wb * .9, belt[0] - nx * wb * .9, belt[1] - ny * wb * .9], fill=_dark(look.tunic), width=int(U * .022))
     # near leg and arm
-    _limb(d, hipA, l1, l2, limb); foot(l2)
-    _limb(d, shA, a1, a2, limb); draw_hand(d, a2[0], a2[1], pose.get("a1", 8) + pose.get("a2", 10), pose.get("hand_a", 0), U, f, lw)
+    if host:
+        thick(hipA, l1, l2, int(U * .04), look.pants); sneaker(l2)
+        thick(shA, a1, a2, sleeve, look.tunic)
+        for wp, ang_ in ((a2, pose.get("a1", 8) + pose.get("a2", 10)),):                  # ribbed cuff
+            ca = math.radians(ang_)
+            d.ellipse([wp[0] - U * .024, wp[1] - U * .024, wp[0] + U * .024, wp[1] + U * .024], fill=_dark(look.tunic, .7), outline=INK, width=max(1, lw - 1))
+        draw_hand(d, a2[0], a2[1], pose.get("a1", 8) + pose.get("a2", 10), pose.get("hand_a", 0), U, f, lw)
+    else:
+        _limb(d, hipA, l1, l2, limb); foot(l2)
+        _limb(d, shA, a1, a2, limb); draw_hand(d, a2[0], a2[1], pose.get("a1", 8) + pose.get("a2", 10), pose.get("hand_a", 0), U, f, lw)
     if look.scarf:                                                          # the host's red scarf, with a tail that flutters
         sc_ = look.scarf
         nb = (neck[0], neck[1] + U * .01)
