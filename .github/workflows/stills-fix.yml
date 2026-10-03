@@ -20,7 +20,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: plan
-          run-id: 37063232734
+          run-id: 37067773413
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: output/auto
       - run: python tools/fix_stills.py

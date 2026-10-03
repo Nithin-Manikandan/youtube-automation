@@ -163,12 +163,11 @@ def frame(path, t, dur, W, H, seed=0):
     return cv2.warpAffine(a, M, (W, H), flags=cv2.INTER_AREA if z < 1.01 else cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
 
 
-def thumbnail(text, scene_prompt, out_path, variant=0, accent=(255, 226, 40)):
-    """A clickable thumbnail in the same illustrated style as the video: a clear drawing on the left, a bold colour panel with huge text on the right."""
-    from PIL import ImageDraw, ImageFont
-    emo = ("wide-eyed shocked face with mouth open and sweat drops", "desperate squirming face, eyes squeezed shut", "huge panicked face with raised eyebrows")[variant % 3]
-    p = (f"{STYLE}. Thumbnail drawing, medium shot with plenty of space around the main subject, big expressive face: {emo}. "
-         f"Scene: {scene_prompt}. Bold simple shapes, high contrast, bright warm colours, clean uncluttered background.")
+def thumbnail(text, scene_prompt, out_path, variant=0, accent=(255, 226, 40), arrow=True):
+    """Full-bleed illustrated thumbnail: one huge funny subject on the right, big outlined text on the left, punched-up colour and contrast, a hand-drawn arrow."""
+    from PIL import ImageDraw, ImageEnhance, ImageFilter, ImageFont
+    p = (f"{STYLE}. YouTube thumbnail illustration: ONE single large subject, close-up, filling the right two thirds of the picture, a very funny exaggerated expression, "
+         f"a plain simple pale background with lots of empty space on the left third. {scene_prompt}. Bold simple shapes, thick outlines, bright high-contrast warm colours.")
     img = None
     for k in range(3):
         img = generate(p)
@@ -177,28 +176,44 @@ def thumbnail(text, scene_prompt, out_path, variant=0, accent=(255, 226, 40)):
     if img is None:
         return None
     W, H = 1280, 720
-    PW = 600                                                            # text panel width
-    canvas = Image.new("RGB", (W, H), (235, 72, 52))
-    art = img.crop((0, 0, img.width, int(img.height * 0.93))).resize((H, H), Image.LANCZOS)
-    canvas.paste(art, (0, 0))
-    d = ImageDraw.Draw(canvas)
-    d.rectangle([H - 6, 0, H + 6, H], fill=(20, 16, 22))
+    a = img.crop((0, 0, img.width, int(img.height * 0.93)))
+    S = a.width
+    hh = int(S * 9 / 16)
+    y0 = max(0, int((a.height - hh) * 0.35))
+    crop = a.crop((0, y0, S, y0 + hh)).resize((W, H), Image.LANCZOS)
+    crop = ImageEnhance.Color(crop).enhance(1.35)
+    crop = ImageEnhance.Contrast(crop).enhance(1.18)
+    crop = ImageEnhance.Brightness(crop).enhance(1.04)
+    arr = np.asarray(crop).astype(np.float32)
+    yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
+    vig = 1 - 0.28 * np.clip(((xx - W / 2) / (W * .75)) ** 2 + ((yy - H / 2) / (H * .8)) ** 2, 0, 1)
+    arr *= vig[..., None]
+    left = np.clip(1 - xx / (W * 0.46), 0, 1) ** 1.2                    # gentle warm glow behind the text so it pops
+    arr = arr * (1 - 0.30 * left[..., None]) + np.array([255, 196, 96], np.float32) * 0.30 * left[..., None]
+    crop = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
+    d = ImageDraw.Draw(crop)
     FONT = pathlib.Path(__file__).resolve().parent.parent / "assets/fonts/BigShoulders-Bold.ttf"
-    words = [w for w in text.upper().split() if w][:3]
-    lines = [w for w in words]
-    size = 260
-    while size > 70:
+    lines = [w for w in text.upper().split() if w][:3]
+    size = 300
+    while size > 80:
         f = ImageFont.truetype(str(FONT), size)
-        if max(d.textlength(l, font=f) for l in lines) <= PW - 60 and size * .96 * len(lines) <= H - 80:
+        if max(d.textlength(l, font=f) for l in lines) <= W * 0.50 and size * .93 * len(lines) <= H * 0.82:
             break
         size -= 6
-    total = size * .96 * len(lines)
-    y = (H - total) / 2 - size * .04
+    total = size * .93 * len(lines)
+    y = (H - total) / 2 - size * .02
     for i, l in enumerate(lines):
-        tw = d.textlength(l, font=f)
-        x = H + 6 + (W - H - 6 - tw) / 2
-        d.text((x + 6, y + 8), l, font=f, fill=(0, 0, 0), stroke_width=12, stroke_fill=(0, 0, 0))
-        d.text((x, y), l, font=f, fill=accent if i == len(lines) - 1 else (255, 255, 255), stroke_width=11, stroke_fill=(20, 16, 22))
-        y += size * .96
-    canvas.save(out_path, "JPEG", quality=94)
+        x = 34
+        d.text((x + 9, y + 11), l, font=f, fill=(0, 0, 0), stroke_width=18, stroke_fill=(0, 0, 0))
+        d.text((x, y), l, font=f, fill=accent if i == len(lines) - 1 else (255, 255, 255), stroke_width=15, stroke_fill=(18, 14, 20))
+        y += size * .93
+    if arrow:
+        ax, ay = int(W * 0.50), int(H * 0.86)
+        pts = [(ax - 110, ay + 6), (ax - 40, ay - 26), (ax + 36, ay - 70)]
+        d.line(pts, fill=(20, 14, 20), width=22, joint="curve")
+        d.line(pts, fill=(235, 52, 44), width=12, joint="curve")
+        tip = pts[-1]
+        d.polygon([(tip[0] + 34, tip[1] - 24), (tip[0] - 14, tip[1] - 6), (tip[0] + 18, tip[1] + 34)], fill=(20, 14, 20))
+        d.polygon([(tip[0] + 26, tip[1] - 18), (tip[0] - 4, tip[1] - 6), (tip[0] + 16, tip[1] + 22)], fill=(235, 52, 44))
+    crop.save(out_path, "JPEG", quality=95)
     return out_path
