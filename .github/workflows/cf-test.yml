@@ -1,9 +1,8 @@
-name: Cloudflare image test
+name: Cloudflare size test
 on:
   push:
     branches: [claude/youtube-automation-review-k9f3cu]
-    paths: [.github/workflows/cf-test.yml, tools/cf_test.py]
-  workflow_dispatch:
+    paths: [.github/workflows/cf-test.yml, tools/cf_size.py]
 permissions:
   contents: read
 jobs:
@@ -11,12 +10,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: python tools/cf_test.py
+      - run: pip install -q pillow && python tools/cf_size.py
         env:
-          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
-          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ACCOUNT_ID_2: ${{ secrets.CF_ACCOUNT_ID_2 }}
+          CF_API_TOKEN_2: ${{ secrets.CF_API_TOKEN_2 }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: cftest
-          path: cftest/*
+          name: sz
+          path: sz_*.jpg
