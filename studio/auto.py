@@ -436,7 +436,10 @@ def render_segment(args):
     sc["_wins"] = [(w[0], w[1] - t0, w[2] - t0) for w in words if t0 - 0.2 <= w[1] <= t0 + sc["duration"]]      # when each word is spoken, for lip-sync
     still = sc.get("_still_path")
     pup = None
-    if sc.get("_bg_path"):
+    if sc.get("_pic_path"):
+        from . import puppet_scene
+        pup = puppet_scene.PresenterScene(sc, sc["_pic_path"], [(w[0], w[1], w[2]) for w in sc["_wins"]], sc["duration"], seed=int(sc.get("_t0", 0)) % 97, index=int(sc.get("_idx", 0)))
+    elif sc.get("_bg_path"):
         from . import puppet_scene
         pup = puppet_scene.PuppetScene(sc, sc["_bg_path"], [(w[0], w[1], w[2]) for w in sc["_wins"]], sc["duration"], seed=int(sc.get("_t0", 0)) % 97)
     elif not still:
@@ -633,7 +636,15 @@ def plan(job, pdir, settings, hint=None):
         sc["_t0"] = cursor
         cursor += dur
     total = cursor
-    if os.environ.get("STUDIO_PUPPET") == "1" and stills.enabled():     # puppet mode: a painted wide background per place; the characters are the animated rig
+    if os.environ.get("STUDIO_PRESENTER") == "1" and stills.enabled():     # presenter mode: a full picture of what is being said; the host is the only animated character
+        _log(job, "  painting the scene pictures")
+        idx = [i for i, sc in enumerate(scenes) if sc.get("kind") not in ("card", "map") and i < len(scripts)]
+        what = stills.scene_prompts(_llm, topic, [scripts[i][1]["narration"] for i in idx])
+        got = stills.draw_scene_pictures(pdir, list(zip(idx, what)))
+        for i, fn in got.items():
+            scenes[i]["_pic"] = fn
+        _log(job, f"  {len(got)}/{len(idx)} scene pictures painted")
+    elif os.environ.get("STUDIO_PUPPET") == "1" and stills.enabled():     # puppet mode: a painted wide background per place; the characters are the animated rig
         _log(job, "  painting the scene backgrounds")
         idx = [i for i, sc in enumerate(scenes) if sc.get("kind") not in ("card", "map") and i < len(scripts)]
         places = stills.bg_prompts(_llm, topic, [scripts[i][1]["narration"] for i in idx])
@@ -756,7 +767,7 @@ def render_shard(job, pdir, shard=0, shards=1):
     def _key(i):
         sc = scenes[i]
         wins = [w for w in words_all if sc["_t0"] - 0.2 <= w[1] <= sc["_t0"] + sc["duration"]]
-        stl = pdir / "stills" / (sc.get("_bg") or sc.get("_still")) if (sc.get("_bg") or sc.get("_still")) else None
+        stl = pdir / "stills" / (sc.get("_pic") or sc.get("_bg") or sc.get("_still")) if (sc.get("_pic") or sc.get("_bg") or sc.get("_still")) else None
         sh = hashlib.md5(stl.read_bytes()).hexdigest() if stl and stl.exists() else ""
         return hashlib.md5((repr(sorted((k, repr(v)) for k, v in sc.items() if not k.startswith("_a"))) + repr(wins) + f"{W}x{H}@{FPS}|{code}|{i == 0}|{i == len(scenes) - 1}|{sh}").encode()).hexdigest()
     keys = {i: _key(i) for i in mine}
@@ -771,6 +782,11 @@ def render_shard(job, pdir, shard=0, shards=1):
     _log(job, f"  {len(mine) - len(todo)} scenes reused from the cache, {len(todo)} to draw")
     mine = todo
     for i in mine:
+        scenes[i]["_idx"] = i
+        pcf = scenes[i].get("_pic")
+        if pcf and (pdir / "stills" / pcf).exists():
+            scenes[i]["_pic_path"] = str(pdir / "stills" / pcf)
+            continue
         bgf = scenes[i].get("_bg")
         if bgf and (pdir / "stills" / bgf).exists():
             scenes[i]["_bg_path"] = str(pdir / "stills" / bgf)

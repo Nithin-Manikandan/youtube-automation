@@ -19,6 +19,10 @@ on:
         description: "true = puppet mode (painted backgrounds + animated puppet characters); needs stills=true"
         required: false
         default: "false"
+      presenter:
+        description: "true = presenter mode (a full picture per scene, the host stands at the side and gestures at it)"
+        required: false
+        default: "false"
       plan_only:
         description: "true = only write the script and plan (fast); download plan.pkl and render a few scenes locally to check them"
         required: false
@@ -59,8 +63,9 @@ jobs:
           CF_API_TOKEN_2: ${{ secrets.CF_API_TOKEN_2 }}
           CF_ACCOUNT_ID_3: ${{ secrets.CF_ACCOUNT_ID_3 }}
           CF_API_TOKEN_3: ${{ secrets.CF_API_TOKEN_3 }}
-          STUDIO_STILLS: ${{ (github.event.inputs.stills == 'true' || github.event.inputs.puppet == 'true') && '1' || '0' }}
-          STUDIO_PUPPET: ${{ github.event.inputs.puppet == 'true' && '1' || '0' }}
+          STUDIO_STILLS: ${{ (github.event.inputs.stills == 'true' || github.event.inputs.puppet == 'true' || github.event.inputs.presenter == 'true') && '1' || '0' }}
+          STUDIO_PUPPET: ${{ (github.event.inputs.puppet == 'true' || github.event.inputs.presenter == 'true') && '1' || '0' }}
+          STUDIO_PRESENTER: ${{ github.event.inputs.presenter == 'true' && '1' || '0' }}
         run: python -m studio.run_auto --phase plan --hint "$HINT" --out output/auto
       - uses: actions/upload-artifact@v4
         with:
@@ -95,7 +100,8 @@ jobs:
           path: output/auto
       - name: Draw this machine's share of the scenes
         env:
-          STUDIO_PUPPET: ${{ github.event.inputs.puppet == 'true' && '1' || '0' }}
+          STUDIO_PUPPET: ${{ (github.event.inputs.puppet == 'true' || github.event.inputs.presenter == 'true') && '1' || '0' }}
+          STUDIO_PRESENTER: ${{ github.event.inputs.presenter == 'true' && '1' || '0' }}
         run: python -m studio.run_auto --phase render --shard ${{ matrix.shard }} --shards 8 --out output/auto
       - uses: actions/upload-artifact@v4
         with:

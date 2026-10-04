@@ -171,3 +171,49 @@ class PuppetScene:
         yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
         out *= np.clip(1 - 0.16 * (((xx - W / 2) / (W * .62)) ** 2 + ((yy - H / 2) / (H * .62)) ** 2), 0.75, 1)[..., None]
         return np.clip(out, 0, 255).astype(np.uint8)
+
+
+class PresenterScene:
+    """The picture fills the frame and shows what the narrator is talking about. The host is the only animated character: he stands in a lower corner, faces the picture,
+    gestures at it and talks. The side changes from scene to scene so he is never stuck in the middle."""
+
+    def __init__(self, scene, pic_path, words, dur, seed=0, index=0):
+        self.dur = dur
+        self.bg = np.asarray(Image.open(pic_path).convert("RGB").resize((int(W * 1.10), int(H * 1.10)), Image.LANCZOS))
+        side = -1 if (seed + index) % 2 == 0 else 1                         # -1 left corner, +1 right corner
+        xf = 0.125 if side < 0 else 0.875
+        facing = 1 if side < 0 else -1
+        tl = [(0.0, "idle"), (0.5, "smug")]
+        t, k = 1.3, 0
+        cyc = ["point", "open", "explain", "point", "count", "explain2", "lean", "point", "shrug", "open"]
+        while t < dur - 0.6:
+            tl.append((t, cyc[(k + seed) % len(cyc)])); t += 2.3 + (k % 3) * 0.4; k += 1
+        look = puppet.Look(**puppet.HOST)
+        self.actor = puppet.Actor(look, tl, mouth_cues([(w[0], w[1], w[2]) for w in words]), x_frac=xf, scale=0.62, facing=facing, seed=seed + 3, mood_track=[(0.0, "neutral")])
+        self.side = side
+
+    def frame(self, t):
+        u = min(1.0, max(0.0, t / max(self.dur, 1e-6)))
+        e = u * u * (3 - 2 * u)
+        bh, bw = self.bg.shape[:2]
+        zb = 1.0 + 0.05 * e
+        ww, hh = bw / 1.10 / zb, bh / 1.10 / zb
+        drift = (e - .5) * bw * 0.025 * (-self.side)
+        x0 = max(0, min(bw - ww, bw / 2 - ww / 2 + drift))
+        y0 = max(0, min(bh - hh, bh / 2 - hh / 2))
+        M = np.float32([[W / ww, 0, -x0 * W / ww], [0, H / hh, -y0 * H / hh]])
+        out = cv2.warpAffine(self.bg, M, (W, H), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE).astype(np.float32)
+        yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
+        out *= np.clip(1 - 0.14 * (((xx - W / 2) / (W * .62)) ** 2 + ((yy - H / 2) / (H * .62)) ** 2), 0.78, 1)[..., None]
+        tile, x0_, y0_ = self.actor.render(t, self.dur, W, H)
+        ta = np.asarray(tile).astype(np.float32)
+        th, tw = ta.shape[:2]
+        xa, ya = max(0, x0_), max(0, y0_)
+        xb, yb = min(W, x0_ + tw), min(H, y0_ + th)
+        if xb > xa and yb > ya:
+            sub = ta[ya - y0_:yb - y0_, xa - x0_:xb - x0_]
+            al = sub[..., 3:4] / 255.0
+            shade = np.exp(-(((xx[ya:yb, xa:xb] - (x0_ + tw / 2)) / (tw * .30)) ** 2 + ((yy[ya:yb, xa:xb] - (H * .965)) / (H * .022)) ** 2)) * 0.30
+            out[ya:yb, xa:xb] *= (1 - shade[..., None])
+            out[ya:yb, xa:xb] = out[ya:yb, xa:xb] * (1 - al) + sub[..., :3] * al
+        return np.clip(out, 0, 255).astype(np.uint8)

@@ -398,3 +398,29 @@ def host_thumbnail(text, background, out_path, mood="shock", mouth="D", pose="sh
         y += size * .93
     canvas.convert("RGB").save(out_path, "JPEG", quality=95)
     return out_path
+
+
+WIDE_STYLE = ("flat colour hand-drawn cartoon illustration in a simple webcomic style, stick figure people with round white heads and tiny dot eyes, thin black ink outlines, "
+              "warm bright colours, detailed painted background, wide cinematic composition with the main subject in the centre and calmer edges, absolutely no text, no letters, no signs")
+
+
+def draw_scene_pictures(pdir, jobs, workers=3):
+    """jobs: [(scene_index, what_to_draw)] -> {scene_index: filename}. Full 16:9 pictures of what the narrator is describing, saved as picNNN.jpg."""
+    import concurrent.futures as cf
+    d = pathlib.Path(pdir) / "stills"
+    d.mkdir(exist_ok=True)
+
+    def one(job):
+        i, what = job
+        img = generate_wide(f"{WIDE_STYLE}. {what}", 1280, 720)
+        if img is None:
+            return i, None
+        fn = f"pic{i:03d}.jpg"
+        img.save(d / fn, quality=93)
+        return i, fn
+    res = {}
+    with cf.ThreadPoolExecutor(max_workers=workers) as ex:
+        for i, fn in ex.map(one, jobs):
+            if fn:
+                res[i] = fn
+    return res
