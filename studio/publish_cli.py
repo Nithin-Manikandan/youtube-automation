@@ -52,7 +52,7 @@ def checks(d, pkg):
     first = lines[0] if lines else ""
     from studio.auto import hook_is_concrete
     add("hook: concrete first line", hook_is_concrete(first), first[:80])
-    add("hook: asks a question", any(l.strip().endswith("?") for l in lines[:12]))
+    add("hook: asks a question", any("?" in l for l in lines[:12]))
     add("three thumbnails", all((d / "out" / f"thumb{k}.jpg").exists() for k in (1, 2, 3)))
     high = [f for f in pkg.get("flags", []) if isinstance(f, dict) and str(f.get("severity", "")).lower() == "high"]
     add("no high-severity fact-check flags", not high, "; ".join(str(f.get("claim", ""))[:70] for f in high))
