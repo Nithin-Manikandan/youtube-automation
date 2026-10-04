@@ -424,3 +424,58 @@ def draw_scene_pictures(pdir, jobs, workers=3):
             if fn:
                 res[i] = fn
     return res
+
+
+def scene_thumbnail(text, scene, out_path, mood="shock", mouth="D", pose="shock", side="left", accent=(255, 240, 30)):
+    """High-CTR layout: a sharp, saturated scene that shows the actual mystery fills the frame; the host's big shocked face sits in a lower corner; the hook runs huge across the top."""
+    import cv2
+    from PIL import ImageDraw, ImageEnhance, ImageFilter, ImageFont
+    from . import puppet
+    W, H = 1280, 720
+    bg = generate_wide(f"{WIDE_STYLE}. {scene}. Bright saturated colours, strong contrast, clear and readable even when tiny, the upper fifth is plain calm sky.", W, H)
+    if bg is None:
+        return None
+    bg = ImageEnhance.Color(bg).enhance(1.35)
+    bg = ImageEnhance.Contrast(bg).enhance(1.15)
+    bg = ImageEnhance.Brightness(bg).enhance(1.05)
+    canvas = bg.convert("RGBA")
+    look = puppet.Look(**puppet.HOST)
+    p = {**puppet.POSES["idle"], **puppet.POSES.get(pose, {}), "facing": 1 if side == "left" else -1, "mouth": mouth, "mood": mood, "t": 0.0}
+    tile = puppet.draw_character(p, look, 2300, 1900, 2300, 950, 2200)
+    bb = tile.getbbox()
+    crop = tile.crop((150, bb[1], 1600, bb[1] + int((bb[3] - bb[1]) * 0.58)))
+    k = min(H * 0.62 / crop.height, W * 0.34 / crop.width * 1.0)
+    crop = crop.resize((int(crop.width * k), int(crop.height * k)), Image.LANCZOS)
+    al = np.asarray(crop.split()[3])
+    edge = cv2.dilate(al, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (13, 13)))
+    px = int(W * (0.17 if side == "left" else 0.83) - crop.width / 2)
+    py = H - crop.height + int(H * 0.03)
+    sh = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+    ell = Image.new("L", canvas.size, 0)
+    ImageDraw.Draw(ell).ellipse([px, py + crop.height - 40, px + crop.width, py + crop.height + 30], fill=120)
+    sh.paste(Image.new("RGBA", canvas.size, (0, 0, 0, 255)), (0, 0), ell.filter(ImageFilter.GaussianBlur(12)))
+    canvas.alpha_composite(sh)
+    ol = Image.new("RGBA", crop.size, (18, 12, 20, 255)); ol.putalpha(Image.fromarray(edge))
+    canvas.alpha_composite(ol, (px, py)); canvas.alpha_composite(crop, (px, py))
+    # hook across the top on a dark soft band so it is always readable
+    band = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+    ImageDraw.Draw(band).rectangle([0, 0, W, int(H * 0.33)], fill=(0, 0, 0, 120))
+    band = band.filter(ImageFilter.GaussianBlur(26))
+    canvas.alpha_composite(band)
+    d = ImageDraw.Draw(canvas)
+    FONT = pathlib.Path(__file__).resolve().parent.parent / "assets/fonts/BigShoulders-Bold.ttf"
+    words = [w for w in text.upper().split() if w]
+    size = 300
+    while size > 90:
+        f = ImageFont.truetype(str(FONT), size)
+        if d.textlength(" ".join(words), font=f) <= W * 0.93:
+            break
+        size -= 6
+    head, last = (" ".join(words[:-1]) + " ") if len(words) > 1 else "", words[-1]
+    tw = d.textlength(head + last, font=f)
+    x, y = (W - tw) / 2, 8
+    d.text((x + 8, y + 10), head + last, font=f, fill=(0, 0, 0), stroke_width=18, stroke_fill=(0, 0, 0))
+    d.text((x, y), head, font=f, fill=(255, 255, 255), stroke_width=15, stroke_fill=(18, 12, 20))
+    d.text((x + d.textlength(head, font=f), y), last, font=f, fill=accent, stroke_width=15, stroke_fill=(18, 12, 20))
+    canvas.convert("RGB").save(out_path, "JPEG", quality=95)
+    return out_path
