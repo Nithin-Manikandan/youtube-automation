@@ -93,10 +93,12 @@ def pyramid_thumbnail(lines, out_path, accent=(255, 236, 40), seed=3, ramp=True,
         # a big clean stone block sitting low on the ramp so the slope is obvious
         q = 0.22
         cx_, cy_ = _lerp(_lerp(foot_l, top, q), _lerp(foot_r, top, q), 0.5)
-        bx, by, bw = cx_, cy_, 84 * S
-        d.polygon([(bx - bw / 2, by + 4 * S), (bx + bw / 2, by + 4 * S), (bx + bw / 2, by - bw * .5), (bx - bw / 2, by - bw * .5)], fill=(246, 246, 248), outline=(20, 20, 24), width=2 * S)
-        d.polygon([(bx - bw / 2, by - bw * .5), (bx + bw / 2, by - bw * .5), (bx + bw / 2 + 18 * S, by - bw * .7), (bx - bw / 2 + 18 * S, by - bw * .7)], fill=(255, 255, 255), outline=(20, 20, 24), width=2 * S)
-        d.polygon([(bx + bw / 2, by + 4 * S), (bx + bw / 2 + 18 * S, by - bw * .18), (bx + bw / 2 + 18 * S, by - bw * .7), (bx + bw / 2, by - bw * .5)], fill=(198, 198, 204), outline=(20, 20, 24), width=2 * S)
+        bx, by, bw = cx_, cy_, 124 * S
+        front, topc, sidec, edge = (222, 172, 96), (244, 204, 130), (150, 108, 56), (50, 34, 16)
+        d.polygon([(bx - bw / 2, by + 4 * S), (bx + bw / 2, by + 4 * S), (bx + bw / 2, by - bw * .5), (bx - bw / 2, by - bw * .5)], fill=front, outline=edge, width=2 * S)
+        d.polygon([(bx - bw / 2, by - bw * .5), (bx + bw / 2, by - bw * .5), (bx + bw / 2 + 18 * S, by - bw * .7), (bx - bw / 2 + 18 * S, by - bw * .7)], fill=topc, outline=edge, width=2 * S)
+        d.polygon([(bx + bw / 2, by + 4 * S), (bx + bw / 2 + 18 * S, by - bw * .18), (bx + bw / 2 + 18 * S, by - bw * .7), (bx + bw / 2, by - bw * .5)], fill=sidec, outline=edge, width=2 * S)
+        d.line([(bx - bw / 2 + 4 * S, by - bw * .25), (bx + bw / 2 - 4 * S, by - bw * .25)], fill=(180, 134, 72), width=2 * S)       # a block-course seam
     # text: huge glowing number with an outline
     lines = lines.split("|")
     size = 430
