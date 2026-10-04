@@ -405,16 +405,18 @@ WIDE_STYLE = ("flat colour hand-drawn cartoon illustration in a simple webcomic 
 
 
 def draw_scene_pictures(pdir, jobs, workers=3):
-    """jobs: [(scene_index, what_to_draw)] -> {scene_index: filename}. Full 16:9 pictures of what the narrator is describing, saved as picNNN.jpg."""
+    """jobs: [(scene_index, what_to_draw)] -> {scene_index: filename}. One FLUX picture per scene (it follows the description far better than the wide model), saved as picNNN.jpg."""
     import concurrent.futures as cf
     d = pathlib.Path(pdir) / "stills"
     d.mkdir(exist_ok=True)
 
     def one(job):
         i, what = job
-        img = generate_wide(f"{WIDE_STYLE}. {what}", 1280, 720)
+        img = generate(f"{STYLE}. {what}")
         if img is None:
             return i, None
+        w_, h_ = img.size
+        img = img.crop((0, 0, w_, int(h_ * 0.93))).resize((w_, w_), Image.LANCZOS)
         fn = f"pic{i:03d}.jpg"
         img.save(d / fn, quality=93)
         return i, fn
@@ -478,4 +480,54 @@ def scene_thumbnail(text, scene, out_path, mood="shock", mouth="D", pose="shock"
     d.text((x, y), head, font=f, fill=(255, 255, 255), stroke_width=15, stroke_fill=(18, 12, 20))
     d.text((x + d.textlength(head, font=f), y), last, font=f, fill=accent, stroke_width=15, stroke_fill=(18, 12, 20))
     canvas.convert("RGB").save(out_path, "JPEG", quality=95)
+    return out_path
+
+
+def epic_thumbnail(text, scene, out_path, accent=(255, 224, 40), arrow_to=None):
+    """Entertainment-style thumbnail: one epic, clear, mysterious image graded warm and punchy, one huge word, an arrow at the mystery. No faces."""
+    import cv2
+    from PIL import ImageDraw, ImageEnhance, ImageFilter, ImageFont
+    img = None
+    for k in range(3):
+        img = generate(f"{STYLE}. Epic dramatic composition, strong lighting, big simple shapes, very clear even when tiny. {scene}")
+        if img is not None:
+            break
+    if img is None:
+        return None
+    W, H = 1280, 720
+    a = img.crop((0, 0, img.width, int(img.height * 0.93)))
+    S = a.width
+    hh = int(S * 9 / 16)
+    y0 = int((a.height - hh) * 0.45)
+    pic = a.crop((0, y0, S, y0 + hh)).resize((W, H), Image.LANCZOS)
+    pic = ImageEnhance.Color(pic).enhance(1.45)
+    pic = ImageEnhance.Contrast(pic).enhance(1.22)
+    arr = np.asarray(pic).astype(np.float32)
+    yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
+    arr *= (1 - 0.30 * np.clip(((xx - W / 2) / (W * .70)) ** 2 + ((yy - H / 2) / (H * .75)) ** 2, 0, 1))[..., None]
+    left = np.clip(1 - xx / (W * 0.55), 0, 1) ** 1.3
+    arr *= (1 - 0.35 * left)[..., None]                                      # darken the text side for contrast
+    pic = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8)).convert("RGBA")
+    d = ImageDraw.Draw(pic)
+    FONT = pathlib.Path(__file__).resolve().parent.parent / "assets/fonts/BigShoulders-Bold.ttf"
+    words = text.upper().split("|")
+    size = 460
+    while size > 120:
+        f = ImageFont.truetype(str(FONT), size)
+        if max(d.textlength(w, font=f) for w in words) <= W * 0.52 and size * .90 * len(words) <= H * 0.86:
+            break
+        size -= 8
+    y = (H - size * .90 * len(words)) / 2 - size * .02
+    for i, w in enumerate(words):
+        d.text((34 + 12, y + 14), w, font=f, fill=(0, 0, 0), stroke_width=24, stroke_fill=(0, 0, 0))
+        d.text((34, y), w, font=f, fill=accent if i == len(words) - 1 else (255, 255, 255), stroke_width=20, stroke_fill=(18, 12, 20))
+        y += size * .90
+    if arrow_to:
+        ax, ay = int(arrow_to[0] * W), int(arrow_to[1] * H)
+        sx, sy = int(W * 0.60), int(H * 0.88)
+        d.line([sx, sy, ax + 40, ay + 40], fill=(18, 12, 20), width=34)
+        d.line([sx, sy, ax + 40, ay + 40], fill=(235, 40, 40), width=20)
+        d.ellipse([ax - 55, ay - 55, ax + 55, ay + 55], outline=(18, 12, 20), width=22)
+        d.ellipse([ax - 55, ay - 55, ax + 55, ay + 55], outline=(235, 40, 40), width=12)
+    pic.convert("RGB").save(out_path, "JPEG", quality=95)
     return out_path

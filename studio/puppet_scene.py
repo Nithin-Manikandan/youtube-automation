@@ -179,9 +179,10 @@ class PresenterScene:
 
     def __init__(self, scene, pic_path, words, dur, seed=0, index=0):
         self.dur = dur
-        self.bg = np.asarray(Image.open(pic_path).convert("RGB").resize((int(W * 1.10), int(H * 1.10)), Image.LANCZOS))
-        side = -1 if (seed + index) % 2 == 0 else 1                         # -1 left corner, +1 right corner
-        xf = 0.125 if side < 0 else 0.875
+        from . import stills
+        self.bg = np.asarray(Image.fromarray(stills._composite(pic_path)).resize((int(W * 1.10), int(H * 1.10)), Image.LANCZOS))     # the whole square picture centred, soft bars either side
+        side = -1 if (seed + index) % 2 == 0 else 1                         # -1 left bar, +1 right bar
+        xf = 0.105 if side < 0 else 0.895
         facing = 1 if side < 0 else -1
         tl = [(0.0, "idle"), (0.5, "smug")]
         t, k = 1.3, 0
@@ -189,7 +190,7 @@ class PresenterScene:
         while t < dur - 0.6:
             tl.append((t, cyc[(k + seed) % len(cyc)])); t += 2.3 + (k % 3) * 0.4; k += 1
         look = puppet.Look(**puppet.HOST)
-        self.actor = puppet.Actor(look, tl, mouth_cues([(w[0], w[1], w[2]) for w in words]), x_frac=xf, scale=0.62, facing=facing, seed=seed + 3, mood_track=[(0.0, "neutral")])
+        self.actor = puppet.Actor(look, tl, mouth_cues([(w[0], w[1], w[2]) for w in words]), x_frac=xf, scale=0.70, facing=facing, seed=seed + 3, mood_track=[(0.0, "neutral")])
         self.side = side
 
     def frame(self, t):
