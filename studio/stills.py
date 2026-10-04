@@ -360,7 +360,7 @@ def host_thumbnail(text, background, out_path, mood="shock", mouth="D", pose="sh
                        "absolutely no people, no characters, no text, very simple and uncluttered", W, H)
     if bg is None:
         return None
-    bg = bg.resize((int(W * 1.12), int(H * 1.12)), Image.LANCZOS).filter(ImageFilter.GaussianBlur(7)).crop((int(W * .06), int(H * .06), int(W * .06) + W, int(H * .06) + H))     # blur then trim, so the soft edge never shows
+    bg = bg.resize((int(W * 1.12), int(H * 1.12)), Image.LANCZOS).filter(ImageFilter.GaussianBlur(4)).crop((int(W * .06), int(H * .06), int(W * .06) + W, int(H * .06) + H))     # blur then trim, so the soft edge never shows
     bg = ImageEnhance.Color(bg).enhance(1.15)
     bg = ImageEnhance.Brightness(bg).enhance(1.08)
     canvas = bg.convert("RGBA")
@@ -371,12 +371,12 @@ def host_thumbnail(text, background, out_path, mood="shock", mouth="D", pose="sh
     bb = tile.getbbox()
     face_top = bb[1]
     crop = tile.crop((120, bb[1], 1600, bb[1] + int((bb[3] - bb[1]) * 0.62)))               # head, shoulders and chest around the head's centre: the face is the hook
-    k = min(H * 0.86 / crop.height, (W * 0.60) / crop.width)
+    k = min(H * 0.80 / crop.height, (W * 0.50) / crop.width)
     crop = crop.resize((int(crop.width * k), int(crop.height * k)), Image.LANCZOS)
     import cv2
     al = np.asarray(crop.split()[3])
     edge = cv2.dilate(al, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (11, 11)))
-    px = int(W * (0.34 if side == "left" else 0.66) - crop.width / 2)
+    px = int(W * (0.30 if side == "left" else 0.70) - crop.width / 2)
     py = int(H - crop.height + H * 0.02)
     ol = Image.new("RGBA", crop.size, (18, 12, 20, 255)); ol.putalpha(Image.fromarray(edge))
     canvas.alpha_composite(ol, (px, py)); canvas.alpha_composite(crop, (px, py))
@@ -386,7 +386,7 @@ def host_thumbnail(text, background, out_path, mood="shock", mouth="D", pose="sh
     size = 330
     while size > 90:
         f = ImageFont.truetype(str(FONT), size)
-        if max(d.textlength(l, font=f) for l in lines) <= W * 0.50 and size * .93 * len(lines) <= H * 0.86:
+        if max(d.textlength(l, font=f) for l in lines) <= W * 0.43 and size * .93 * len(lines) <= H * 0.86:
             break
         size -= 6
     y = (H - size * .93 * len(lines)) / 2
