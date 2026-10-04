@@ -76,45 +76,27 @@ def pyramid_thumbnail(lines, out_path, accent=(255, 236, 40), seed=3, ramp=True,
     d.line([apex, bf], fill=(255, 226, 150, 255), width=5 * S)         # bright edge
     d.line([apex, bl], fill=(40, 28, 16, 255), width=3 * S)
     d.line([apex, br], fill=(30, 20, 12, 255), width=3 * S)
-    # red ramp: a solid sloped embankment built against the lit face. Wide on the ground, narrowing as it climbs, with a darker side wall so it reads as a thick structure
+    # one long straight red ramp from the ground in front all the way up to near the top, like a slide leaning on the pyramid
+    bx = by = bw = 0
     if ramp:
-        g0 = _lerp(bl, bf, 0.12); g1 = _lerp(bl, bf, 0.52)                  # ramp foot on the ground along the base edge
-        top_c = _lerp(_lerp(g0, g1, 0.5), apex, 0.74)
-        t0 = (top_c[0] - 30 * S, top_c[1]); t1 = (top_c[0] + 30 * S, top_c[1] + 6 * S)
+        top = _lerp(apex, _lerp(bl, bf, 0.40), 0.10)                         # the ramp ends just under the tip
+        foot_l = (W * 0.405, H * 0.955)
+        foot_r = (W * 0.585, H * 0.985)
         rp = Image.new("RGBA", (W, H), (0, 0, 0, 0))
         rd = ImageDraw.Draw(rp)
-        drop = (26 * S, 30 * S)                                              # thickness: the side wall hangs down-right of the top surface
-        wall = [g1, (g1[0] + drop[0], g1[1] + drop[1]), (t1[0] + drop[0] * .35, t1[1] + drop[1] * .35), t1]
-        rd.polygon(wall, fill=(140, 14, 12, 255), outline=(40, 4, 4, 255))
-        rd.polygon([g0, g1, t1, t0], fill=(232, 36, 30, 255), outline=(60, 6, 6, 255))
-        for k in range(1, 9):                                                # cross-timber lines across the surface so it looks like a built ramp
-            q = k / 9
-            a_ = _lerp(g0, t0, q); b_ = _lerp(g1, t1, q)
-            rd.line([a_, b_], fill=(176, 18, 16, 255), width=2 * S)
-        rd.line([g0, t0], fill=(255, 150, 130, 255), width=3 * S)
+        side = [foot_r, (foot_r[0] + 20 * S, foot_r[1] - 16 * S), (top[0] + 8 * S, top[1] + 4 * S), top]
+        rd.polygon(side, fill=(150, 14, 12, 255), outline=(30, 4, 4, 255))
+        rd.polygon([foot_l, foot_r, top], fill=(236, 38, 32, 255), outline=(30, 4, 4, 255))
+        rd.line([foot_l, top], fill=(255, 168, 150, 255), width=5 * S)
         img.alpha_composite(rp)
         d = ImageDraw.Draw(img)
-        # the block, sitting on the ramp surface, with ropes to a line of tiny workers up the slope
-        q = 0.34
-        cl = _lerp(_lerp(g0, t0, q), _lerp(g1, t1, q), 0.5)
-        bx, by = cl
-        bw = 96 * S
-        d.polygon([(bx - bw / 2, by), (bx + bw / 2, by), (bx + bw / 2, by - bw * .5), (bx - bw / 2, by - bw * .5)], fill=(244, 244, 246), outline=(20, 20, 24))
-        d.polygon([(bx - bw / 2, by - bw * .5), (bx + bw / 2, by - bw * .5), (bx + bw / 2 + 22 * S, by - bw * .72), (bx - bw / 2 + 22 * S, by - bw * .72)], fill=(255, 255, 255), outline=(20, 20, 24))
-        d.polygon([(bx + bw / 2, by), (bx + bw / 2 + 22 * S, by - bw * .22), (bx + bw / 2 + 22 * S, by - bw * .72), (bx + bw / 2, by - bw * .5)], fill=(196, 196, 202), outline=(20, 20, 24))
-        top_pt = _lerp(_lerp(g0, t0, 0.80), _lerp(g1, t1, 0.80), 0.5)
-        ux, uy = top_pt[0] - bx, top_pt[1] - by
-        ln = math.hypot(ux, uy); ux, uy = ux / ln, uy / ln
-        rnd = random.Random(seed)
-        d.line([(bx + bw * .1, by - bw * .3), (bx + ux * 120 * S, by + uy * 120 * S - 6 * S)], fill=(60, 40, 20), width=3 * S)
-        if workers:
-            for i in range(9):
-                px = bx + ux * (110 * S + i * 15 * S) + rnd.uniform(-3, 3) * S
-                py = by + uy * (110 * S + i * 15 * S) - 8 * S
-                d.ellipse([px - 6 * S, py - 22 * S, px + 6 * S, py - 10 * S], fill=(250, 250, 250), outline=(20, 20, 24), width=S)
-                d.line([px, py - 10 * S, px, py + 6 * S], fill=(20, 20, 24), width=3 * S)
-                d.line([px, py - 6 * S, px - 8 * S, py - 1 * S], fill=(20, 20, 24), width=2 * S)
-        ramp_pt = (bx, by)
+        # a big clean stone block sitting low on the ramp so the slope is obvious
+        q = 0.22
+        cx_, cy_ = _lerp(_lerp(foot_l, top, q), _lerp(foot_r, top, q), 0.5)
+        bx, by, bw = cx_, cy_, 84 * S
+        d.polygon([(bx - bw / 2, by + 4 * S), (bx + bw / 2, by + 4 * S), (bx + bw / 2, by - bw * .5), (bx - bw / 2, by - bw * .5)], fill=(246, 246, 248), outline=(20, 20, 24), width=2 * S)
+        d.polygon([(bx - bw / 2, by - bw * .5), (bx + bw / 2, by - bw * .5), (bx + bw / 2 + 18 * S, by - bw * .7), (bx - bw / 2 + 18 * S, by - bw * .7)], fill=(255, 255, 255), outline=(20, 20, 24), width=2 * S)
+        d.polygon([(bx + bw / 2, by + 4 * S), (bx + bw / 2 + 18 * S, by - bw * .18), (bx + bw / 2 + 18 * S, by - bw * .7), (bx + bw / 2, by - bw * .5)], fill=(198, 198, 204), outline=(20, 20, 24), width=2 * S)
     # text: huge glowing number with an outline
     lines = lines.split("|")
     size = 430
@@ -140,12 +122,12 @@ def pyramid_thumbnail(lines, out_path, accent=(255, 236, 40), seed=3, ramp=True,
     # arrow: a big white curved arrow pointing at the ramp
     if arrow:
         tipx, tipy = _lerp(_lerp(bl, bf, 0.38), apex, 0.32)
-        sx, sy = W * 0.06, H * 0.90
+        sx, sy = W * 0.05, H * 0.86
         pts = []
         for i in range(0, 21):
             t = i / 20
-            x = sx + (bx - bw * .62 - sx) * t
-            y = sy + (by - bw * .22 - sy) * t + math.sin(t * math.pi) * (H * 0.10)
+            x = sx + (bx - bw * .5 - sx) * t
+            y = sy + (by - bw * .3 - sy) * t + math.sin(t * math.pi) * (H * 0.10)
             pts.append((x, y))
         d.line(pts, fill=(10, 10, 12), width=24 * S, joint="curve")
         d.line(pts, fill=(255, 255, 255), width=14 * S, joint="curve")
