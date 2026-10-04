@@ -71,6 +71,11 @@ def main():
     a = ap.parse_args()
     d = pathlib.Path(a.dir)
     pkg = json.loads((d / "auto.json").read_text())
+    ov = pathlib.Path("tools/meta_override.json")                       # hand-written title / description / tags / hashtags take priority over the auto-generated ones
+    if ov.exists():
+        o = json.loads(ov.read_text())
+        pkg.update({k: v for k, v in o.items() if k in ("title", "description", "tags") and v})
+        print("Using the hand-written metadata from tools/meta_override.json")
     res = checks(d, pkg)
     for name, ok, detail in res:
         print(("PASS  " if ok else "FAIL  ") + name + (f"  [{detail}]" if detail else ""))
